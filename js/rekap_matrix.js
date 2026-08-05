@@ -163,15 +163,24 @@ async function renderMatrixReport() {
     matrixYearState = year;
     matrixClassState = targetKelas;
 
-    // Populasikan Dropdown Kelas
-    populateMatrixClassDropdown();
+    // Populasikan Dropdown Kelas jika belum terisi
+    if (typeof populateMatrixClassDropdown === 'function') {
+        populateMatrixClassDropdown();
+    }
 
     // Dapatkan data siswa
     let students = localMasterStudents || [];
     if (targetKelas && targetKelas !== 'Semua') {
-        students = students.filter(s => s.kelas === targetKelas);
+        const normTarget = targetKelas.toLowerCase().replace(/[\s\-]/g, '');
+        students = students.filter(s => {
+            const normStudentClass = String(s.kelas || '').toLowerCase().replace(/[\s\-]/g, '');
+            return normStudentClass === normTarget;
+        });
     }
     students.sort((a, b) => a.nama.localeCompare(b.nama));
+
+    // Coba tarik data terbaru dari server Google Sheets untuk periode tersebut
+    await fetchServerMatrixLogs(matrixMonthStart, matrixMonthEnd, year, targetKelas);
 
     // Dapatkan log absensi dari localRecentLogs
     let logs = localRecentLogs || [];
@@ -186,7 +195,7 @@ async function renderMatrixReport() {
         return logYear === year && logMonth >= matrixMonthStart && logMonth <= matrixMonthEnd;
     });
 
-    // Peta log absensi per SISWA dan TANGGAL: logMap[nisn][tanggal] = status
+    // Peta log absensi per SISWA dan TANGGAL: logMap[nisn/nis][tanggal] = status
     const logMap = {};
     filteredLogs.forEach(log => {
         const key = log.nisn || log.nis;
@@ -204,6 +213,34 @@ async function renderMatrixReport() {
     } else {
         renderRangeMonthSummary(students, logMap, matrixMonthStart, matrixMonthEnd, year, targetKelas, hideRed, namaSekolah, tahunPelajaran);
     }
+}
+
+async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {
+    if (typeof fetchWithRetry !== 'function' || !SCRIPT_URL) return [];
+    try {
+        const fetchMonthStr = (mStart === mEnd) ? (mStart < 10 ? '0' + mStart : '' + mStart) : 'Semua';
+        const url = `${SCRIPT_URL}?action=get_report&bulan=${fetchMonthStr}&kelas=${encodeURIComponent(targetKelas || 'Semua')}&tanggal=Semua`;
+        const res = await fetchWithRetry(url, { method: 'GET' }, 1, 1000);
+        if (res && res.status === 'success' && Array.isArray(res.data)) {
+            const serverLogs = res.data;
+            const existingKeys = new Set((localRecentLogs || []).map(l => `${l.nisn || l.nis}_${l.tanggal}`));
+            let newAdded = false;
+            serverLogs.forEach(item => {
+                const key = `${item.nisn || item.nis}_${item.tanggal}`;
+                if (!existingKeys.has(key)) {
+                    localRecentLogs.push(item);
+                    newAdded = true;
+                }
+            });
+            if (newAdded) {
+                localStorage.setItem('smart_absen_recent_logs', JSON.stringify(localRecentLogs));
+            }
+            return serverLogs;
+        }
+    } catch (e) {
+        console.warn("Server matrix log fetch notice:", e);
+    }
+    return [];
 }
 
 // 1. RENDER HARIAN BULANAN (SINGLE MONTH MATRIX)

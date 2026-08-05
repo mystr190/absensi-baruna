@@ -1148,3 +1148,35 @@ function exportRekapGuruCSV() {
 
     showToast(`📥 Berhasil mengekspor data rekap presensi guru ke CSV!`, 'success');
 }
+
+window.updateAbsenGuruMasterData = function(absenGuru, pengajuanIzin) {
+    if (Array.isArray(absenGuru)) {
+        localLogAbsenGuru = absenGuru;
+        localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
+    }
+    if (Array.isArray(pengajuanIzin)) {
+        localPengajuanIzin = pengajuanIzin;
+        localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
+    }
+    applyCachedAbsenGuruData();
+};
+
+async function syncAbsenGuruDataFromServer() {
+    if (typeof fetchWithRetry !== 'function' || !SCRIPT_URL) return;
+    try {
+        const resG = await fetchWithRetry(`${SCRIPT_URL}?action=get_absen_guru`, { method: 'GET' }, 1, 1000);
+        if (resG && resG.status === 'success' && Array.isArray(resG.data)) {
+            localLogAbsenGuru = resG.data;
+            localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
+        }
+        const resI = await fetchWithRetry(`${SCRIPT_URL}?action=get_pengajuan_izin`, { method: 'GET' }, 1, 1000);
+        if (resI && resI.status === 'success' && Array.isArray(resI.data)) {
+            localPengajuanIzin = resI.data;
+            localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
+        }
+        applyCachedAbsenGuruData();
+        showToast("⚡ Data presensi & izin guru diperbarui dari server.", "info");
+    } catch(e) {
+        console.warn("Error syncing absen guru data:", e);
+    }
+}

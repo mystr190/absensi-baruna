@@ -74,7 +74,7 @@ async function syncMasterDataInBackground() {
 }
 
 function populateClassSelectOptions() {
-    if (!pilihKelas || !Array.isArray(localMasterStudents) || localMasterStudents.length === 0) return;
+    if (!Array.isArray(localMasterStudents) || localMasterStudents.length === 0) return;
     
     const uniqueClasses = [];
     localMasterStudents.forEach(s => {
@@ -83,19 +83,68 @@ function populateClassSelectOptions() {
             uniqueClasses.push(cls);
         }
     });
+    uniqueClasses.sort();
 
-    if (uniqueClasses.length > 0) {
+    if (uniqueClasses.length === 0) return;
+
+    // 1. Dropdown pilihKelas (Input Absensi)
+    if (pilihKelas) {
         const currentVal = pilihKelas.value;
         let html = '<option value="" disabled>Pilih Kelas...</option>';
-        uniqueClasses.sort().forEach(cls => {
+        uniqueClasses.forEach(cls => {
             const sel = (cls === currentVal) ? 'selected' : '';
             html += `<option value="${cls}" ${sel}>${cls}</option>`;
         });
         pilihKelas.innerHTML = html;
         if (currentVal && uniqueClasses.includes(currentVal)) {
             pilihKelas.value = currentVal;
-        } else {
+        } else if (uniqueClasses.length > 0) {
             pilihKelas.value = uniqueClasses[0];
+        }
+    }
+
+    // 2. Dropdown filterKelas (Dashboard Laporan)
+    const filterKelas = document.getElementById('filterKelas');
+    if (filterKelas) {
+        const currentVal = filterKelas.value || 'Semua';
+        let html = '<option value="Semua">Semua Kelas</option>';
+        uniqueClasses.forEach(cls => {
+            const sel = (cls === currentVal) ? 'selected' : '';
+            html += `<option value="${cls}" ${sel}>Kelas ${cls}</option>`;
+        });
+        filterKelas.innerHTML = html;
+        if (currentVal && (currentVal === 'Semua' || uniqueClasses.includes(currentVal))) {
+            filterKelas.value = currentVal;
+        }
+    }
+
+    // 3. Dropdown selectMatrixKelas (Rekap Kehadiran Siswa)
+    const selectMatrixKelas = document.getElementById('selectMatrixKelas');
+    if (selectMatrixKelas) {
+        const currentVal = selectMatrixKelas.value || 'Semua';
+        let html = '<option value="Semua">Semua Kelas</option>';
+        uniqueClasses.forEach(cls => {
+            const sel = (cls === currentVal) ? 'selected' : '';
+            html += `<option value="${cls}" ${sel}>Kelas ${cls}</option>`;
+        });
+        selectMatrixKelas.innerHTML = html;
+        if (currentVal && (currentVal === 'Semua' || uniqueClasses.includes(currentVal))) {
+            selectMatrixKelas.value = currentVal;
+        }
+    }
+
+    // 4. Dropdown filterPelanggaranKelas (Catatan Pelanggaran)
+    const filterPelanggaranKelas = document.getElementById('filterPelanggaranKelas');
+    if (filterPelanggaranKelas) {
+        const currentVal = filterPelanggaranKelas.value || 'Semua';
+        let html = '<option value="Semua">Semua Kelas</option>';
+        uniqueClasses.forEach(cls => {
+            const sel = (cls === currentVal) ? 'selected' : '';
+            html += `<option value="${cls}" ${sel}>Kelas ${cls}</option>`;
+        });
+        filterPelanggaranKelas.innerHTML = html;
+        if (currentVal && (currentVal === 'Semua' || uniqueClasses.includes(currentVal))) {
+            filterPelanggaranKelas.value = currentVal;
         }
     }
 }

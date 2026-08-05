@@ -848,3 +848,20 @@ function exportPelanggaranToCSV() {
 
     showToast('✅ Berhasil mengunduh laporan CSV pelanggaran!', 'success');
 }
+
+window.updatePelanggaranMasterData = function(recentPelanggaran, jenisPelanggaran) {
+    if (Array.isArray(recentPelanggaran)) {
+        localPelanggaranLogs = recentPelanggaran;
+        localStorage.setItem('smart_absen_pelanggaran_logs', JSON.stringify(localPelanggaranLogs));
+    }
+    if (Array.isArray(jenisPelanggaran)) {
+        localJenisPelanggaran = jenisPelanggaran;
+        localStorage.setItem('smart_absen_jenis_pelanggaran', JSON.stringify(localJenisPelanggaran));
+    }
+    if (typeof renderJenisPelanggaranDropdownOptions === 'function') {
+        renderJenisPelanggaranDropdownOptions();
+    }
+    if (typeof renderPelanggaranTable === 'function') {
+        renderPelanggaranTable();
+    }
+};
