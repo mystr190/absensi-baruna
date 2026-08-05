@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen Absensi</title>
+    <!-- Fonts & Font Awesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html5-qrcode -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Background Decor untuk efek modern -->
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+    <div class="bg-shape shape-3"></div>
+
+    <!-- ============================================ -->
+    <!-- VIEW: LOGIN PAGE                             -->
+    <!-- ============================================ -->
+    <div id="view-login" class="view-section active">
+        <div class="login-container glass-card">
+            <div class="header">
+                <h1 id="loginSchoolTitle">Smart <span>School</span></h1>
+                <p id="loginSubText">Portal Absensi Guru & Staf • TP <span class="app-tp-text">2026-2027</span></p>
+                <div id="connectionStatus" class="connection-status checking">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Mengecek koneksi Google Sheets...</span>
+                </div>
+            </div>
+            <form id="formLogin" class="form-container">
+                <div class="input-group">
+                    <input type="text" id="username" name="username" required placeholder=" " autocomplete="off">
+                    <label>Username</label>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="password" name="password" required placeholder=" ">
+                    <label>Password</label>
+                </div>
+                <button type="submit" class="btn-primary" id="btnLogin">
+                    <span class="btn-text">Masuk</span>
+                    <span class="loader" style="display: none;"></span>
+                </button>
+            </form>
+            <div class="login-hint">
+                <small>* Gunakan kredensial yang terdaftar di sistem. (Admin / Guru)</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- VIEW: MAIN APPLICATION (Dashboard)           -->
+    <!-- ============================================ -->
+    <div id="view-app" class="view-section" style="display: none;">
+
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="sidebar glass-card">
+            <div class="sidebar-brand">
+                <h2 id="sidebarSchoolName">SMART<span>APP</span></h2>
+                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">TP <span class="app-tp-text">2026-2027</span></p>
+            </div>
+            <div class="user-info">
+                <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
+                <div class="user-details">
+                    <h3 id="currentUserName">Nama Pengguna</h3>
+                    <p id="currentUserRole" class="badge">Role</p>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-target="panel-scan">
+                    <span class="nav-icon"><i class="fa-solid fa-clipboard-user"></i></span> Absen Per Kelas
+                </button>
+                <button class="nav-item" data-target="panel-dashboard">
+                    <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span> Rekap Absensi
+                </button>
+                <button class="nav-item" data-target="panel-matrix-rekap">
+                    <span class="nav-icon"><i class="fa-solid fa-table-list"></i></span> Rekap Kehadiran Siswa
+                </button>
+                <button class="nav-item" data-target="panel-pelanggaran">
+                    <span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Catatan Pelanggaran
+                </button>
+                <!-- Menu Pengajuan Izin (Guru, Staff, TU, Kepsek, Admin) -->
+                <button class="nav-item" data-target="panel-izin-guru" id="nav-izin-guru">
+                    <span class="nav-icon"><i class="fa-solid fa-envelope-open-text"></i></span> Pengajuan Izin Guru & Staf
+                </button>
+                <!-- Menu Kepsek / Admin Only -->
+                <button class="nav-item" data-target="panel-approval-kepsek" id="nav-approval-kepsek" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-file-circle-check"></i></span> Persetujuan Izin (Kepsek)
+                </button>
+                <!-- Menu Admin Only -->
+                <button class="nav-item" data-target="panel-absen-guru-admin" id="nav-absen-guru-admin" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-clipboard-check"></i></span> Absen Guru Manual & Rekap
+                </button>
+                <button class="nav-item" data-target="panel-admin" id="nav-admin" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-user-gear"></i></span> Kelola Guru
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)</button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content">
+
+            <!-- PANEL 1: ABSEN PER KELAS -->
+            <section id="panel-scan" class="panel active">
+                <div class="panel-header">
+                    <h2>Input Kehadiran Kelas</h2>
+                    <p>Status Petugas Aktif: <strong id="petugasName" class="text-primary"></strong></p>
+                </div>
+
+                <div class="glass-card panel-body">
+                    <!-- Form Pilih Tanggal & Kelas -->
+                    <div class="filter-group"
+                        style="margin-bottom: 20px; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+                        <div style="display:flex; flex-direction:column; gap:5px;">
+                            <label for="inputTanggalAbsen"
+                                style="font-size:0.85rem; color:var(--text-muted); font-weight: 500;"><i class="fa-solid fa-calendar-days"></i> Tanggal
+                                Absensi:</label>
+                            <input type="date" id="inputTanggalAbsen"
+                                style="background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 10px 14px; border-radius: 8px; font-family: inherit; font-size: 0.95rem; outline: none;">
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:5px;">
+                            <label for="pilihKelas"
+                                style="font-size:0.85rem; color:var(--text-muted); font-weight: 500;"><i class="fa-solid fa-school"></i> Pilih
+                                Kelas:</label>
+                            <select id="pilihKelas" style="width: 200px;">
+                                <option value="" disabled selected>Pilih Kelas...</option>
+                                <option value="10-A">10-A</option>
+                                <option value="10-B">10-B</option>
+                                <option value="11-A">11-A</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Container Daftar Siswa -->
+                    <div id="studentListContainer" style="display: none;">
+                        <hr style="border: 1px solid rgba(255,255,255,0.1); margin: 20px 0;">
+
+                        <!-- Alert Banner Jika Hari Ini Sudah Diabsen -->
+                        <div id="alreadySubmittedBanner"
+                            style="display: none; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 12px 18px; border-radius: 10px; margin-bottom: 15px; font-size: 0.95rem; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-circle-info"></i></span>
+                            <span id="submittedBannerText">Absensi kelas ini untuk hari ini sudah disimpan.</span>
+                        </div>
+
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin: 0;">Daftar Siswa Kelas <span id="labelKelasTerpilih"
+                                    class="text-primary"></span></h3>
+                            <div class="badge" id="petugasName">Petugas</div>
+                        </div>
+
+                        <div class="table-responsive" style="overflow-x: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>No</th>
+                                        <th>NISN</th>
+                                        <th>NIS</th>
+                                        <th>Nama Siswa</th>
+                                        <th>Kelas</th>
+                                        <th style="text-align: center;">Status Kehadiran</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodySiswa">
+                                    <!-- Render via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="margin-top: 20px; text-align: right;">
+                            <button id="btnSimpanAbsenKelas" class="btn-primary" style="min-width: 250px;">
+                                <span class="btn-text">Simpan Absensi Kelas</span>
+                                <span class="loader" style="display: none;"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL 2: DASHBOARD LAPORAN -->
+            <section id="panel-dashboard" class="panel" style="display:none;">
+                <div class="panel-header flex-between">
+                    <div>
+                        <h2>Rekap Absensi</h2>
+                        <p>Rekapitulasi Kehadiran Siswa</p>
+                    </div>
+                    <div class="filter-group glass-card" style="flex-wrap: wrap; gap: 8px;">
+                        <input type="date" id="filterTanggal"
+                            style="background: rgba(255,255,255,0.05); color: var(--text-light); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 8px; font-family: inherit;"
+                            title="Filter Tanggal Spesifik">
+                        <select id="filterBulan">
+                            <option value="Semua">Semua Bulan</option>
+                            <option value="01">Januari</option>
+                            <option value="02">Februari</option>
+                            <option value="03">Maret</option>
+                            <option value="04">April</option>
+                            <option value="05">Mei</option>
+                            <option value="06">Juni</option>
+                            <option value="07">Juli</option>
+                            <option value="08">Agustus</option>
+                            <option value="09">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                        <select id="filterKelas">
+                            <option value="Semua">Semua Kelas</option>
+                            <option value="10-A">10-A</option>
+                            <option value="10-B">10-B</option>
+                            <option value="11-A">11-A</option>
+                        </select>
+                        <button class="btn-secondary" id="btnRefreshData"><i class="fa-solid fa-rotate-right"></i> Muat Data</button>
+                    </div>
+                </div>
+
+                <!-- Statistik Cards -->
+                <div class="stats-container" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                    <div class="stat-card glass-card">
+                        <div class="stat-info">
+                            <h3 style="color:#10b981;">Hadir</h3>
+                            <p id="stat-hadir" class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-info">
+                            <h3 style="color:#f59e0b;">Sakit / Izin</h3>
+                            <p id="stat-izin" class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-info">
+                            <h3 style="color:#ef4444;">Alpa</h3>
+                            <p id="stat-alpa" class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-info">
+                            <h3 style="color:#f97316;">Telat</h3>
+                            <p id="stat-telat" class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-info">
+                            <h3 style="color:var(--primary);">Total</h3>
+                            <p id="stat-total" class="stat-value">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grafik Chart.js -->
+                <div class="glass-card" style="margin-top: 20px; padding: 20px;">
+                    <div class="chart-container" style="position: relative; height:30vh; width:100%;">
+                        <canvas id="absenChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- TABEL REKAPAN DATA PER KELAS (MATRIX) -->
+                <div class="glass-card" style="margin-top: 20px; padding: 20px; overflow-x: auto;">
+                    <div
+                        style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 1.1rem; letter-spacing: 0.5px;">REKAPAN DATA PER KELAS</h3>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Format Matriks Kehadiran</span>
+                    </div>
+                    <table class="data-table matrix-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="vertical-align: middle; width: 50px;">NO</th>
+                                <th rowspan="2" style="vertical-align: middle; width: 100px;">KELAS</th>
+                                <th colspan="6" style="text-align: center;">KEHADIRAN</th>
+                                <th rowspan="2" style="vertical-align: middle; width: 120px;">JUMLAH SISWA</th>
+                            </tr>
+                            <tr>
+                                <th style="color: #10b981;">HADIR</th>
+                                <th style="color: #f59e0b;">SAKIT</th>
+                                <th style="color: #3b82f6;">IZIN</th>
+                                <th style="color: #ef4444;">ALPA</th>
+                                <th style="color: #94a3b8;">MUTASI</th>
+                                <th style="color: #f97316;">TELAT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBodyMatrix">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding: 20px;">Tekan tombol "Muat Data" untuk
+                                    melihat rekapan data per kelas.</td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="tableFootMatrix">
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- TABEL DETAIL LOG SISWA -->
+                <div class="glass-card" style="margin-top: 20px; padding: 20px; overflow-x: auto;">
+                    <div
+                        style="display:flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 1.1rem;">RINCIAN DETAIL LOG SISWA</h3>
+                        <div style="position: relative; width: 280px; max-width: 100%;">
+                            <input type="text" id="searchLogInput" placeholder="Cari nama, NIS, kelas, status..."
+                                style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px 14px; border-radius: 8px; font-size: 0.88rem; outline: none;">
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Waktu</th>
+                                <th>NISN</th>
+                                <th>NIS</th>
+                                <th>Nama Siswa</th>
+                                <th>Kelas</th>
+                                <th>Status</th>
+                                <th>Petugas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBodyReport">
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding: 20px;">Tekan tombol "Muat Data" untuk
+                                    melihat detail log.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Pagination Controls -->
+                    <div id="paginationControls"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; flex-wrap: wrap; gap: 10px;">
+                        <span id="paginationInfo" style="font-size: 0.85rem; color: var(--text-muted);">Menampilkan 0
+                            data</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button id="btnPrevPage" class="btn-secondary"
+                                style="padding: 6px 14px; font-size: 0.85rem; margin: 0;" disabled>&laquo; Prev</button>
+                            <span id="pageIndicator"
+                                style="padding: 6px 12px; font-size: 0.85rem; font-weight: bold; background: rgba(255,255,255,0.05); border-radius: 6px; border: 1px solid var(--card-border);">1
+                                / 1</span>
+                            <button id="btnNextPage" class="btn-secondary"
+                                style="padding: 6px 14px; font-size: 0.85rem; margin: 0;" disabled>Next &raquo;</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL LAPORAN KEHADIRAN (MATRIX BULANAN SISWA SEPERTI GOOGLE SHEETS) -->
+            <section id="panel-matrix-rekap" class="panel" style="display:none;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h2>Rekap Absensi Kehadiran Siswa</h2>
+                        <p>Laporan matriks absensi siswa bulanan sesuai format resmi sekolah</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btnPrintMatrix" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;">
+                            <span><i class="fa-solid fa-print"></i> Cetak / Print PDF</span>
+                        </button>
+                        <button id="btnExportMatrix" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;">
+                            <span><i class="fa-solid fa-file-excel"></i> Export Excel (CSV)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- FILTER MATRIX BAR -->
+                <div class="glass-card panel-body" style="margin-top: 20px; padding: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end;">
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Jenis Rekap:</label>
+                            <select id="selectMatrixType" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="single">Bulanan (Harian)</option>
+                                <option value="range">Rentang Bulan (Semester / Periode)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label id="lblMatrixBulanMulai" style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Bulan:</label>
+                            <select id="selectMatrixBulan" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="1">Januari</option>
+                                <option value="2">Februari</option>
+                                <option value="3">Maret</option>
+                                <option value="4">April</option>
+                                <option value="5">Mei</option>
+                                <option value="6">Juni</option>
+                                <option value="7">Juli</option>
+                                <option value="8">Agustus</option>
+                                <option value="9">September</option>
+                                <option value="10">Oktober</option>
+                                <option value="11">November</option>
+                                <option value="12">Desember</option>
+                            </select>
+                        </div>
+                        <div id="containerBulanSelesai" style="display: none;">
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">s/d Bulan:</label>
+                            <select id="selectMatrixBulanSelesai" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="1">Januari</option>
+                                <option value="2">Februari</option>
+                                <option value="3">Maret</option>
+                                <option value="4">April</option>
+                                <option value="5">Mei</option>
+                                <option value="6">Juni</option>
+                                <option value="7" selected>Juli</option>
+                                <option value="8">Agustus</option>
+                                <option value="9">September</option>
+                                <option value="10">Oktober</option>
+                                <option value="11">November</option>
+                                <option value="12">Desember</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Tahun:</label>
+                            <input type="number" id="inputMatrixTahun" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;" placeholder="2026">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Pilih Kelas:</label>
+                            <select id="selectMatrixKelas" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="Semua">Semua Kelas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Hari Efektif:</label>
+                            <input type="number" id="inputMatrixHariEfektif" value="21" min="1" max="365" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin-top: 12px; gap: 8px;">
+                        <input type="checkbox" id="checkHideRedDates" checked style="width: 16px; height: 16px; accent-color: #3b82f6; cursor: pointer;">
+                        <label for="checkHideRedDates" style="font-size: 0.85rem; color: #94a3b8; cursor: pointer; user-select: none;">Sembunyikan Hari Libur Nasional & Akhir Pekan (Sabtu & Minggu)</label>
+                    </div>
+                </div>
+
+                <!-- REPORT TABLE CONTAINER -->
+                <div class="glass-card panel-body" id="printableReport" style="margin-top: 20px; padding: 25px;">
+                    <div id="matrixTableContainer">
+                        <div style="text-align: center; padding: 40px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat laporan matriks...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL PELANGGARAN: CATATAN PELANGGARAN TATA TERTIB SISWA -->
+            <section id="panel-pelanggaran" class="panel" style="display:none;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h2><i class="fa-solid fa-triangle-exclamation"></i> Catatan Pelanggaran Tata Tertib Siswa</h2>
+                        <p>Pencatatan, Monitoring & Rekap Statistik Pelanggaran Peserta Didik</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="btnToggleFormPelanggaran" class="btn-primary" style="padding: 9px 16px;">
+                            <span><i class="fa-solid fa-plus"></i> Input Pelanggaran Baru</span>
+                        </button>
+                        <button id="btnManageJenisPelanggaran" class="btn-secondary" style="padding: 9px 16px; border-color: rgba(245, 158, 11, 0.4); color: #fcd34d;">
+                            <span><i class="fa-solid fa-sliders"></i> Kelola Jenis Pelanggaran</span>
+                        </button>
+                        <button id="btnPrintPelanggaran" class="btn-secondary" style="padding: 9px 14px;">
+                            <span><i class="fa-solid fa-print"></i> Cetak PDF</span>
+                        </button>
+                        <button id="btnExportPelanggaran" class="btn-secondary" style="padding: 9px 14px;">
+                            <span><i class="fa-solid fa-file-csv"></i> Export CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- FORM INPUT PELANGGARAN (COLLAPSIBLE / MODAL STYLE) -->
+                <div id="containerFormPelanggaran" class="glass-card panel-body" style="display: none; margin-top: 20px; padding: 25px; border-left: 4px solid #f59e0b;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #fcd34d; display: flex; align-items: center; gap: 8px;">
+                            <span><i class="fa-solid fa-pen-to-square"></i></span> Form Catat Pelanggaran Siswa
+                        </h3>
+                        <button id="btnCloseFormPelanggaran" type="button" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✖</button>
+                    </div>
+                    <form id="formInputPelanggaran" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-calendar-days"></i> Tanggal Kejadian:</label>
+                            <input type="date" id="inputTglPelanggaran" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-school"></i> Pilih Kelas Siswa:</label>
+                            <select id="selectKelasPelanggaran" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="">-- Pilih Kelas --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-graduation-cap"></i> Cari & Pilih Nama Siswa:</label>
+                            <input type="text" id="inputSearchSiswaPelanggaran" list="datalistSiswaPelanggaran" required placeholder="Ketik atau pilih nama siswa..." autocomplete="off" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                            <datalist id="datalistSiswaPelanggaran"></datalist>
+                            <input type="hidden" id="selectSiswaPelanggaran">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-id-card"></i> NIS / NISN Siswa:</label>
+                            <input type="text" id="inputNisPelanggaran" readonly placeholder="Auto-fill" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: #94a3b8; padding: 9px 12px; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Jenis Pelanggaran (Dinamis):</label>
+                            <select id="selectJenisPelanggaran" required style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="">-- Pilih Jenis Pelanggaran --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-chalkboard-user"></i> Guru Yang Melaporkan:</label>
+                            <input type="text" id="inputGuruPelapor" readonly placeholder="Auto-fill Guru Login" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: #94a3b8; padding: 9px 12px; border-radius: 8px;">
+                        </div>
+                        <div style="grid-column: 1 / -1;">
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;"><i class="fa-solid fa-comment-dots"></i> Keterangan Rincian / Detail:</label>
+                            <input type="text" id="inputKeteranganPelanggaran" placeholder="Contoh: Tidak memakai muslim baruna, Jajan di luar sekolah, Ke toilet 45 menit, dll." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        </div>
+                        <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; margin-top: 5px;">
+                            <button type="submit" id="btnSimpanPelanggaran" class="btn-primary" style="padding: 10px 24px;">
+                                <span><i class="fa-solid fa-floppy-disk"></i> Simpan Catatan Pelanggaran</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- MODAL KELOLA JENIS PELANGGARAN DINAMIS -->
+                <div id="containerManageJenisModal" class="glass-card panel-body" style="display: none; margin-top: 20px; padding: 25px; border-left: 4px solid #3b82f6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #93c5fd; display: flex; align-items: center; gap: 8px;">
+                            <span><i class="fa-solid fa-gear"></i></span> Kelola Master Jenis Pelanggaran (Dinamis Database)
+                        </h3>
+                        <button id="btnCloseManageJenisModal" type="button" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✖</button>
+                    </div>
+                    <form id="formAddJenisPelanggaran" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <input type="text" id="inputNamaJenisPelanggaranBaru" required placeholder="Tambah Jenis Pelanggaran Baru (contoh: Merokok di Lingkungan Sekolah)" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                        <button type="submit" class="btn-primary" style="padding: 9px 18px; white-space: nowrap;">
+                            <span><i class="fa-solid fa-plus"></i> Tambah Kategori</span>
+                        </button>
+                    </form>
+                    <div id="listJenisPelanggaranContainer" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 200px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                        <!-- Dynamic badges list with delete buttons -->
+                    </div>
+                </div>
+
+                <!-- FILTER BAR CATATAN PELANGGARAN -->
+                <div class="glass-card panel-body" style="margin-top: 20px; padding: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Cari Nama / NIS:</label>
+                            <input type="text" id="filterPelanggaranSearch" placeholder="Ketik nama atau NIS..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Filter Kelas:</label>
+                            <select id="filterPelanggaranKelas" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="Semua">Semua Kelas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Filter Jenis Pelanggaran:</label>
+                            <select id="filterPelanggaranJenis" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                                <option value="Semua">Semua Jenis Pelanggaran</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Bulan & Tahun:</label>
+                            <input type="month" id="filterPelanggaranBulan" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTAINER UTAMA TABEL PELANGGARAN & WIDGET STATISTIK -->
+                <div class="glass-card panel-body" id="printablePelanggaranReport" style="margin-top: 20px; padding: 25px;">
+                    <div id="pelanggaranLayoutGrid" style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 20px;" class="pelanggaran-layout-grid">
+                        
+                        <!-- TABEL UTAMA: DAFTAR CATATAN PELANGGARAN -->
+                        <div style="overflow-x: auto;">
+                            <div id="headerPelanggaranPrint" style="display: none; margin-bottom: 15px;">
+                                <h2 style="text-align: center; margin: 0; font-size: 1.1rem; text-transform: uppercase; font-weight: 800;" id="printSchoolTitlePelanggaran">DAFTAR CATATAN PELANGGARAN TATA TERTIB PESERTA DIDIK</h2>
+                                <h3 style="text-align: center; margin: 3px 0 0 0; font-size: 0.95rem; font-weight: 600;" id="printSchoolSubTitlePelanggaran">SMA 1 BARUNAWATI • TAHUN PELAJARAN 2026-2027</h3>
+                            </div>
+                            <div id="mainPelanggaranTableContainer">
+                                <div style="text-align: center; padding: 40px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat data pelanggaran...</div>
+                            </div>
+                        </div>
+
+                        <!-- SIDEBAR WIDGETS STATISTIK (REKAP KATEGORI & KEAKTIFAN GURU) -->
+                        <div id="sidebarWidgetsPelanggaran" style="display: flex; flex-direction: column; gap: 20px;">
+                            
+                            <!-- TABEL REKAP JENIS PELANGGARAN -->
+                            <div style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 15px;">
+                                <h4 style="margin: 0 0 12px 0; font-size: 0.88rem; color: #f59e0b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
+                                    <span><i class="fa-solid fa-chart-pie"></i> Rekap Jenis Pelanggaran</span>
+                                    <span id="badgeTotalDataTerisi" style="font-size: 0.75rem; background: #22c55e; color: black; padding: 2px 8px; border-radius: 12px;">Data Terisi: 0</span>
+                                </h4>
+                                <div id="tableRekapJenisPelanggaranContainer">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- TABEL KEAKTIFAN GURU MELAPORKAN -->
+                            <div style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 15px;">
+                                <h4 style="margin: 0 0 12px 0; font-size: 0.88rem; color: #3b82f6; font-weight: 700; text-transform: uppercase;">
+                                    <i class="fa-solid fa-user-check"></i> Persentase Keaktifan Guru
+                                </h4>
+                                <div id="tableKeaktifanGuruContainer">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL 3: ADMIN KELOLA GURU & PENGATURAN SEKOLAH -->
+            <section id="panel-admin" class="panel" style="display:none;">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h2>Manajemen Pengguna & Sekolah</h2>
+                        <p>Kelola data akun Guru, Admin, dan Identitas Sekolah</p>
+                    </div>
+                    <button id="btnInitialSetup" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 8px; border-color: rgba(59, 130, 246, 0.4); color: #93c5fd;">
+                        <span><i class="fa-solid fa-database"></i> Setup Database Otomatis</span>
+                    </button>
+                </div>
+
+                <!-- CARD PENGATURAN SEKOLAH & TAHUN PELAJARAN -->
+                <div class="glass-card panel-body" style="margin-top: 20px; padding: 25px;">
+                    <h3 style="margin-bottom: 15px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                        <span><i class="fa-solid fa-school"></i></span> Pengaturan Sekolah & Tahun Pelajaran
+                    </h3>
+                    <form id="formConfigSekolah" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; align-items: end;">
+                        <div>
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Sekolah:</label>
+                            <input type="text" id="inputNamaSekolah" required placeholder="Contoh: SMA Negeri Barunawati" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Tahun Pelajaran:</label>
+                            <input type="text" id="inputTahunPelajaran" required placeholder="Contoh: 2025/2026" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <button type="submit" id="btnSaveConfig" class="btn-primary" style="width: 100%; padding: 10px 20px;">
+                                <span><i class="fa-solid fa-floppy-disk"></i> Simpan Identitas</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- CARD PENGATURAN HARI LIBUR NASIONAL & CUTI BERSAMA -->
+                <div class="glass-card panel-body" style="margin-top: 25px; padding: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                            <span><i class="fa-solid fa-umbrella-beach" style="color: #f59e0b;"></i></span> Kelola Hari Libur Nasional & Cuti Bersama
+                        </h3>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" id="btnSyncHolidaysSheet" class="btn-primary" style="padding: 6px 14px; font-size: 0.82rem; background: #059669; border-color: #10b981;" title="Generate & Simpan seluruh data libur setahun ke Google Sheet">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Sync ke Google Sheet
+                            </button>
+                            <button type="button" id="btnFetchHolidaysSheet" class="btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;" title="Tarik data libur dari Google Sheet">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> Tarik dari Sheet
+                            </button>
+                            <button type="button" id="btnResetHolidays" class="btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;" title="Kembalikan daftar libur nasional ke preset 2026">
+                                <i class="fa-solid fa-rotate-left"></i> Reset Presets
+                            </button>
+                        </div>
+                    </div>
+
+                    <form id="formAddHoliday" style="display: grid; grid-template-columns: 160px 140px 1fr auto; gap: 12px; align-items: end; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Tanggal Libur:</label>
+                            <input type="date" id="inputHolidayDate" required style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Kategori:</label>
+                            <select id="selectHolidayCategory" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                <option value="Libur Sekolah">Libur Sekolah</option>
+                                <option value="Libur Nasional">Libur Nasional</option>
+                                <option value="Cuti Bersama">Cuti Bersama</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Nama / Keterangan Libur:</label>
+                            <input type="text" id="inputHolidayDesc" required placeholder="Contoh: Libur Sekolah Tambahan / Idul Fitri" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
+                        </div>
+                        <div>
+                            <button type="submit" class="btn-primary" style="padding: 8px 18px; font-size: 0.88rem;">
+                                <i class="fa-solid fa-plus"></i> Tambah Libur
+                            </button>
+                        </div>
+                    </form>
+
+                    <div style="max-height: 280px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                        <table class="data-table" style="width: 100%; margin: 0;">
+                            <thead style="position: sticky; top: 0; background: rgba(15, 23, 42, 0.95); z-index: 10;">
+                                <tr>
+                                    <th style="width: 40px; text-align: center;">No</th>
+                                    <th style="width: 120px;">Tanggal</th>
+                                    <th style="width: 180px;">Hari</th>
+                                    <th style="width: 140px;">Kategori</th>
+                                    <th>Keterangan Hari Libur</th>
+                                    <th style="width: 70px; text-align: center;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyHolidays">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CARD MANAJEMEN GURU -->
+                <div class="glass-card panel-body" style="margin-top: 25px; padding: 20px; overflow-x: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                        <h3 style="font-size: 1.1rem; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <span><i class="fa-solid fa-users"></i></span> Daftar Pengguna & Guru
+                        </h3>
+                        <button id="btnTambahUser" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 8px 16px;">
+                            <span><i class="fa-solid fa-user-plus"></i> Tambah Pengguna Baru</span>
+                        </button>
+                    </div>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th>Username</th>
+                                <th>Nama Lengkap</th>
+                                <th style="text-align: center;">Role</th>
+                                <th style="text-align: center; width: 140px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBodyUsers">
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <!-- PANEL: PENGAJUAN IZIN GURU & STAF           -->
+            <!-- ============================================ -->
+            <section id="panel-izin-guru" class="panel">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-paper-plane"></i> Pengajuan Izin Tidak Masuk</h2>
+                    <p>Formulir pengajuan izin / sakit / dinas luar & informasi daftar guru/staf tidak hadir hari ini</p>
+                </div>
+
+                <!-- WIDGET GURU TIDAK HADIR HARI INI -->
+                <div class="styled-card" style="border-left: 4px solid #ef4444; background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(15, 23, 42, 0.75) 100%);">
+                    <div class="styled-card-header">
+                        <div class="styled-card-title">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-bullhorn"></i></span> Informasi Guru & Staf Tidak Hadir Hari Ini — <span id="txtTanggalHariIni" style="color: #60a5fa; font-weight: 600;">-</span>
+                        </div>
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 5px 14px; font-size: 0.82rem; border-radius: 20px;" id="badgeTotalGuruTidakHadir">0 Guru / Staf</span>
+                    </div>
+                    <div id="containerGuruTidakHadirHariIni">
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0; font-style: italic;">Memuat data presensi...</p>
+                    </div>
+                </div>
+
+                <!-- FORM PENGAJUAN IZIN -->
+                <div class="styled-card" id="cardFormPengajuanIzin">
+                    <div class="styled-card-header">
+                        <div class="styled-card-title">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-file-pen"></i></span> Formulir Pengajuan Izin
+                        </div>
+                    </div>
+                    <form id="formPengajuanIzin">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 18px;">
+                            <div class="styled-form-group">
+                                <label class="styled-label"><i class="fa-solid fa-calendar-days"></i> Tanggal Izin / Tidak Masuk:</label>
+                                <input type="date" id="inputIzinTanggal" class="styled-input" required>
+                            </div>
+                            <div class="styled-form-group">
+                                <label class="styled-label"><i class="fa-solid fa-tag"></i> Kategori Izin:</label>
+                                <select id="inputIzinKategori" class="styled-select" required>
+                                    <option value="Izin">Izin Pribadi / Keperluan Keluarga</option>
+                                    <option value="Sakit">Sakit</option>
+                                    <option value="Dinas">Dinas Luar / Tugas Sekolah</option>
+                                    <option value="Cuti">Cuti</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="styled-form-group" style="margin-bottom: 22px;">
+                            <label class="styled-label"><i class="fa-solid fa-comment-dots"></i> Alasan / Keterangan Lengkap:</label>
+                            <textarea id="inputIzinKeterangan" rows="3" class="styled-textarea" required placeholder="Jelaskan alasan ketidakhadiran Anda secara singkat & jelas..."></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary" id="btnKirimIzin" style="padding: 12px 28px; width: fit-content;">
+                            <span><i class="fa-solid fa-paper-plane"></i> Kirim Pengajuan Izin</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- RIWAYAT PENGAJUAN SAYA -->
+                <div class="styled-card" id="cardRiwayatPengajuanIzin">
+                    <div class="styled-card-header">
+                        <div class="styled-card-title">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-clock-rotate-left"></i></span> Riwayat Pengajuan Izin Saya
+                        </div>
+                    </div>
+                    <div class="modern-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px; text-align: center;">No</th>
+                                    <th>Waktu Pengajuan</th>
+                                    <th>Tanggal Izin</th>
+                                    <th>Kategori</th>
+                                    <th>Keterangan</th>
+                                    <th style="text-align: center;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableRiwayatIzinSaya">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada riwayat pengajuan izin.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <!-- PANEL: PERSETUJUAN IZIN (KEPALA SEKOLAH)    -->
+            <!-- ============================================ -->
+            <section id="panel-approval-kepsek" class="panel">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-file-circle-check"></i> Persetujuan Izin Guru & Staf</h2>
+                    <p>Panel Kepala Sekolah / Admin untuk meninjau dan mengonfirmasi pengajuan izin tidak masuk</p>
+                </div>
+
+                <!-- MENUNGGU PERSETUJUAN -->
+                <div class="styled-card" style="border-top: 4px solid #f59e0b;">
+                    <div class="styled-card-header">
+                        <div class="styled-card-title">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-hourglass-half"></i></span> Pengajuan Menunggu Persetujuan
+                        </div>
+                        <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 5px 14px; border-radius: 20px;" id="badgeTotalPendingIzin">0 Menunggu</span>
+                    </div>
+                    <div class="modern-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px; text-align: center;">No</th>
+                                    <th>Waktu Pengajuan</th>
+                                    <th>Nama Guru / Staf</th>
+                                    <th>Role</th>
+                                    <th>Tanggal Izin</th>
+                                    <th>Kategori</th>
+                                    <th>Keterangan</th>
+                                    <th style="text-align: center; width: 180px;">Aksi Persetujuan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablePendingIzinKepsek">
+                                <tr>
+                                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">Tidak ada pengajuan izin yang menunggu persetujuan.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RIWAYAT PERSETUJUAN -->
+                <div class="styled-card">
+                    <div class="styled-card-header">
+                        <div class="styled-card-title">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-box-archive"></i></span> Riwayat Keputusan Persetujuan
+                        </div>
+                    </div>
+                    <div class="modern-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px; text-align: center;">No</th>
+                                    <th>Nama Guru / Staf</th>
+                                    <th>Tanggal Izin</th>
+                                    <th>Kategori</th>
+                                    <th>Keterangan</th>
+                                    <th style="text-align: center;">Status</th>
+                                    <th>Disetujui / Ditolak Oleh</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableRiwayatIzinKepsek">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada riwayat persetujuan.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <!-- PANEL: ABSEN GURU MANUAL & REKAP (ADMIN)     -->
+            <!-- ============================================ -->
+            <section id="panel-absen-guru-admin" class="panel">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-clipboard-check"></i> Presensi Guru, Kepala Sekolah & Tata Usaha</h2>
+                    <p>Pencatatan presensi harian untuk seluruh Guru, Kepala Sekolah, dan Tata Usaha secara kolektif</p>
+                </div>
+
+                <!-- FORM ABSEN GURU KOLEKTIF / BATCH -->
+                <div class="styled-card">
+                    <div class="styled-card-header" style="flex-wrap: wrap; gap: 15px;">
+                        <div class="styled-card-title">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-pen-to-square"></i></span> Form Presensi Kolektif Guru & Staf
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <div class="styled-form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                                <label class="styled-label" style="white-space: nowrap;"><i class="fa-solid fa-calendar-days"></i> Tanggal:</label>
+                                <input type="date" id="inputAbsenGuruTanggalBatch" class="styled-input" style="padding: 8px 12px; font-size: 0.88rem; width: auto;" required>
+                            </div>
+                            <button type="button" id="btnSetSemuaHadir" class="btn-secondary" style="padding: 8px 14px; font-size: 0.82rem; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4);"><i class="fa-solid fa-check"></i> Set Semua HADIR</button>
+                            <button type="button" id="btnSetSemuaTidakHadir" class="btn-secondary" style="padding: 8px 14px; font-size: 0.82rem; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);"><i class="fa-solid fa-xmark"></i> Set Semua TIDAK HADIR</button>
+                        </div>
+                    </div>
+
+                    <form id="formAbsenGuruBatch">
+                        <div class="modern-table-container" style="margin-bottom: 20px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">No</th>
+                                        <th>Nama Guru / Staf</th>
+                                        <th style="width: 140px;">Role</th>
+                                        <th style="width: 260px; text-align: center;">Status Presensi</th>
+                                        <th>Keterangan / Catatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodyAbsenGuruBatch">
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 25px;">Memuat data guru & staf...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button type="submit" class="btn-primary" id="btnSimpanAbsenGuruBatch" style="padding: 12px 32px; font-size: 1rem;">
+                                <span><i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Guru & Staf</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- REKAPITULASI PRESENSI GURU (MATRIKS BULANAN & LOG DETIL) -->
+                <div class="styled-card" id="cardRekapGuruArea">
+                    <div class="styled-card-header" style="flex-wrap: wrap; gap: 15px;">
+                        <div class="styled-card-title">
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-chart-column"></i></span> Rekapitulasi Kehadiran Guru & Staf (Bulanan)
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <div class="styled-form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                                <label class="styled-label" style="white-space: nowrap;"><i class="fa-solid fa-calendar-days"></i> Periode Bulan:</label>
+                                <input type="month" id="filterBulanAbsenGuru" class="styled-input" style="padding: 8px 14px; font-size: 0.88rem; width: auto;">
+                            </div>
+                            <button type="button" id="btnPrintRekapGuru" class="btn-secondary" style="padding: 8px 16px; font-size: 0.84rem; background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-print"></i> Cetak / Print PDF</button>
+                            <button type="button" id="btnExportRekapGuru" class="btn-secondary" style="padding: 8px 16px; font-size: 0.84rem; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4);"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                            <button type="button" id="btnRefreshAbsenGuru" class="btn-secondary" style="padding: 8px 14px; font-size: 0.84rem; border-radius: 10px;"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+                        </div>
+                    </div>
+
+                    <!-- RINGKASAN CARDS -->
+                    <div class="stats-container" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-bottom: 20px;">
+                        <div class="stat-card glass-card">
+                            <div class="stat-info">
+                                <h3 style="color:var(--primary);">Total Personil</h3>
+                                <p id="rekapGuruTotalPersonil" class="stat-value">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-info">
+                                <h3 style="color:#10b981;">Total Hadir</h3>
+                                <p id="rekapGuruTotalHadir" class="stat-value">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-info">
+                                <h3 style="color:#f59e0b;">Tidak Hadir / Izin</h3>
+                                <p id="rekapGuruTotalIzin" class="stat-value">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-info">
+                                <h3 style="color:#3b82f6;">Rata-Rata Kehadiran</h3>
+                                <p id="rekapGuruPersentase" class="stat-value">0%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TABEL MATRIKS REKAP BULANAN GURU -->
+                    <h3 style="margin: 0 0 12px 0; font-size: 1.05rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                        <span><i class="fa-solid fa-table-cells"></i></span> Matriks Kehadiran Per Guru & Staf
+                    </h3>
+                    <div class="modern-table-container" style="margin-bottom: 25px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px; text-align: center;">No</th>
+                                    <th>Nama Guru / Staf</th>
+                                    <th style="width: 140px;">Role / Jabatan</th>
+                                    <th style="text-align: center; color: #4ade80;">Hadir (H)</th>
+                                    <th style="text-align: center; color: #fbbf24;">Izin / Sakit (I)</th>
+                                    <th style="text-align: center; color: #f87171;">Alpa (A)</th>
+                                    <th style="text-align: center; color: #60a5fa;">Persentase (%)</th>
+                                    <th style="text-align: center;">Evaluasi Kehadiran</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyRekapGuruMatrix">
+                                <tr>
+                                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">Memuat rekapan data guru...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- TABEL RINCIAN LOG DETAIL HARIAN GURU -->
+                    <h3 style="margin: 0 0 12px 0; font-size: 1.05rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                        <span><i class="fa-solid fa-list-check"></i></span> Rincian Detail Log Presensi Harian
+                    </h3>
+                    <div class="modern-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px; text-align: center;">No</th>
+                                    <th>Waktu Input</th>
+                                    <th>Tanggal</th>
+                                    <th>Nama Guru / Staf</th>
+                                    <th style="text-align: center;">Status</th>
+                                    <th>Keterangan</th>
+                                    <th>Dicatat Oleh</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableLogAbsenGuru">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada log presensi guru.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODAL FORM EDIT / TAMBAH USER -->
+            <div id="modalUser" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+                <div class="glass-card" style="width: 100%; max-width: 480px; padding: 25px; border-radius: 16px; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+                        <h3 id="modalUserTitle" style="margin: 0; font-size: 1.2rem;">Tambah Pengguna Baru</h3>
+                        <button id="btnCloseModalUser" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+                    </div>
+                    <form id="formUserModal">
+                        <input type="hidden" id="modalOldUsername" value="">
+                        <div class="modal-form-group" style="margin-bottom: 15px;">
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Nama Lengkap:</label>
+                            <input type="text" id="modalNama" required placeholder="Contoh: Bapak Budi, S.Pd" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 15px;">
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Username:</label>
+                            <input type="text" id="modalUsername" required placeholder="Contoh: guru1" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 15px;">
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Password:</label>
+                            <input type="password" id="modalPassword" placeholder="Ketik password baru..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 25px;">
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Role / Hak Akses:</label>
+                            <select id="modalRole" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                                <option value="Guru">Guru</option>
+                                <option value="Tata Usaha">Tata Usaha</option>
+                                <option value="Kepala Sekolah">Kepala Sekolah</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" id="btnCancelModalUser" class="btn-secondary" style="padding: 8px 18px;">Batal</button>
+                            <button type="submit" id="btnSaveModalUser" class="btn-primary" style="padding: 8px 22px;">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notification Element -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ============================================ -->
+    <!-- KONFIGURASI APLIKASI (UBAH URL DI SINI)      -->
+    <!-- ============================================ -->
+    <script>
+        // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA YANG BARU!
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyg2ESZGJGiRj1p6MiW4NAFvR6hZ8Ed-qnEenhYBpo3W4m8TtkUCrmUdeHcEX6FaDz8/exec';
+    </script>
+
+    <!-- Modul JavaScript -->
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/holidays.js"></script>
+    <script src="js/users.js"></script>
+    <script src="js/rekap_matrix.js"></script>
+    <script src="js/pelanggaran.js?v=7.0"></script>
+    <script src="js/absen_guru.js?v=1.0"></script>
+</body>
+
+</html>
