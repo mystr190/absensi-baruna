@@ -56,8 +56,12 @@ async function syncMasterDataInBackground() {
                     renderAbsenGuruBatchTable();
                 }
             }
+            populateClassSelectOptions();
             if (typeof loadUsers === 'function') {
                 loadUsers();
+            }
+            if (pilihKelas && pilihKelas.value && typeof autoLoadStudents === 'function') {
+                autoLoadStudents();
             }
             console.log(`⚡ Master Data synced: ${localMasterStudents.length} students loaded.`);
         } else {
@@ -66,6 +70,33 @@ async function syncMasterDataInBackground() {
     } catch (e) {
         window.allStudents = localMasterStudents;
         console.warn("Background master data sync deferred (using offline storage).");
+    }
+}
+
+function populateClassSelectOptions() {
+    if (!pilihKelas || !Array.isArray(localMasterStudents) || localMasterStudents.length === 0) return;
+    
+    const uniqueClasses = [];
+    localMasterStudents.forEach(s => {
+        const cls = String(s.kelas || '').trim();
+        if (cls && !uniqueClasses.includes(cls)) {
+            uniqueClasses.push(cls);
+        }
+    });
+
+    if (uniqueClasses.length > 0) {
+        const currentVal = pilihKelas.value;
+        let html = '<option value="" disabled>Pilih Kelas...</option>';
+        uniqueClasses.sort().forEach(cls => {
+            const sel = (cls === currentVal) ? 'selected' : '';
+            html += `<option value="${cls}" ${sel}>${cls}</option>`;
+        });
+        pilihKelas.innerHTML = html;
+        if (currentVal && uniqueClasses.includes(currentVal)) {
+            pilihKelas.value = currentVal;
+        } else {
+            pilihKelas.value = uniqueClasses[0];
+        }
     }
 }
 
@@ -174,7 +205,19 @@ async function autoLoadStudents() {
     const tableBodySiswa = document.getElementById('tableBodySiswa');
     if (filteredStudents.length === 0) {
         if (tableBodySiswa) {
-            tableBodySiswa.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Tidak ada data siswa untuk kelas ${kelas}. Cek kembali sheet DataSiswa.</td></tr>`;
+            tableBodySiswa.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align:center; padding: 30px; color:var(--text-muted);">
+                        <div style="font-size: 1.5rem; margin-bottom: 8px; color: #f59e0b;"><i class="fa-solid fa-folder-open"></i></div>
+                        <div>Tidak ada data siswa untuk kelas <strong>${kelas}</strong> pada penyimpanan lokal.</div>
+                        <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 6px;">
+                            Pastikan nama kelas pada sheet <strong>DataSiswa</strong> sesuai (misal: 10-A), atau klik tombol di bawah untuk menyinkronkan data:
+                        </div>
+                        <button type="button" onclick="syncMasterDataInBackground().then(() => autoLoadStudents());" class="btn-primary" style="margin-top: 12px; padding: 6px 16px; font-size: 0.82rem; background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #60a5fa; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-rotate"></i> Sync Data Siswa dari Google Sheet
+                        </button>
+                    </td>
+                </tr>`;
         }
         showToast(`Tidak ada data siswa ditemukan untuk kelas ${kelas}.`, 'warning');
     } else {
