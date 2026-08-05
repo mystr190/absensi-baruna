@@ -100,23 +100,24 @@ function resetDefaultHolidays() {
  */
 async function syncHolidaysToSheet() {
     const url = getScriptUrl();
-    if (!url) {
-        console.warn("Script URL belum dikonfigurasi untuk sync Hari Libur.");
-        return false;
-    }
-    const holidays = getHolidays();
+    if (!url) return false;
     try {
+        const holidays = getHolidays();
         const formData = new URLSearchParams();
         formData.append('action', 'save_all_holidays');
         formData.append('data', JSON.stringify(holidays));
 
-        const res = await fetch(url, { method: 'POST', body: formData });
-        const json = await res.json();
-        if (json.status === 'success') {
+        const json = await fetchWithRetry(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        }, 2, 800);
+
+        if (json && json.status === 'success') {
             console.log("Holidays successfully synced to Google Sheet:", json);
             return true;
         } else {
-            console.error("Failed to sync holidays to Google Sheet:", json.message);
+            console.error("Failed to sync holidays to Google Sheet:", json ? json.message : '');
             return false;
         }
     } catch (e) {
@@ -133,9 +134,8 @@ async function fetchHolidaysFromSheet() {
     if (!url) return false;
     try {
         const fetchUrl = url + (url.includes('?') ? '&' : '?') + 'action=get_holidays';
-        const res = await fetch(fetchUrl);
-        const json = await res.json();
-        if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+        const json = await fetchWithRetry(fetchUrl, { method: 'GET' }, 2, 800);
+        if (json && json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
             const remoteHolidays = json.data.map(item => ({
                 date: item.date,
                 description: item.description,
@@ -163,7 +163,11 @@ async function syncSingleHolidayToSheet(date, description, category) {
         formData.append('description', description);
         formData.append('category', category);
 
-        fetch(url, { method: 'POST', body: formData }).catch(e => console.warn("Background add_holiday error", e));
+        fetchWithRetry(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        }, 1, 500).catch(e => console.warn("Background add_holiday error", e));
     } catch(e) {}
 }
 
@@ -175,7 +179,11 @@ async function deleteSingleHolidayFromSheet(date) {
         formData.append('action', 'delete_holiday');
         formData.append('date', date);
 
-        fetch(url, { method: 'POST', body: formData }).catch(e => console.warn("Background delete_holiday error", e));
+        fetchWithRetry(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        }, 1, 500).catch(e => console.warn("Background delete_holiday error", e));
     } catch(e) {}
 }
 
