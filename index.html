@@ -623,7 +623,7 @@
                 <!-- CARD PENGATURAN SEKOLAH & TAHUN PELAJARAN -->
                 <div class="glass-card panel-body" style="margin-top: 20px; padding: 25px;">
                     <h3 style="margin-bottom: 15px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                        <span><i class="fa-solid fa-school"></i></span> Pengaturan Sekolah & Tahun Pelajaran
+                        <span><i class="fa-solid fa-school"></i></span> Pengaturan Sekolah, Tahun Pelajaran & Server Database
                     </h3>
                     <form id="formConfigSekolah" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; align-items: end;">
                         <div>
@@ -634,9 +634,15 @@
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Tahun Pelajaran:</label>
                             <input type="text" id="inputTahunPelajaran" required placeholder="Contoh: 2025/2026" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                         </div>
-                        <div>
-                            <button type="submit" id="btnSaveConfig" class="btn-primary" style="width: 100%; padding: 10px 20px;">
-                                <span><i class="fa-solid fa-floppy-disk"></i> Simpan Identitas</span>
+                        <div style="grid-column: 1 / -1;">
+                            <label style="font-size: 0.85rem; color: #93c5fd; display: block; margin-bottom: 6px;">
+                                <i class="fa-solid fa-link"></i> URL Web App Google Apps Script (Deployment Production):
+                            </label>
+                            <input type="url" id="inputUrlScript" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+                        </div>
+                        <div style="grid-column: 1 / -1; justify-self: end;">
+                            <button type="submit" id="btnSaveConfig" class="btn-primary" style="padding: 10px 24px;">
+                                <span><i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan & Server URL</span>
                             </button>
                         </div>
                     </form>

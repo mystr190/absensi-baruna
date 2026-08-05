@@ -240,10 +240,11 @@ function updateAppSchoolConfigUI(config) {
     // Update input di Admin panel
     const inputNamaSekolah = document.getElementById('inputNamaSekolah');
     const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
+    const inputUrlScript = document.getElementById('inputUrlScript');
+
     if (inputNamaSekolah && !inputNamaSekolah.value) inputNamaSekolah.value = config.namaSekolah || '';
     if (inputTahunPelajaran && !inputTahunPelajaran.value) inputTahunPelajaran.value = config.tahunPelajaran || '';
-
-    // (loginSchoolTitle & sidebarSchoolName tetap 'Smart School' & 'SMART APP')
+    if (inputUrlScript) inputUrlScript.value = config.urlScript || config.url_script || window.SCRIPT_URL || '';
 
     // Update semua elemen tahun pelajaran di seluruh aplikasi
     const tpElements = document.querySelectorAll('.app-tp-text');
@@ -268,12 +269,21 @@ if (formConfigSekolah) {
     formConfigSekolah.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        const inputNamaSekolah = document.getElementById('inputNamaSekolah');
+        const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
+        const inputUrlScript = document.getElementById('inputUrlScript');
+
         const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : '';
         const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '';
+        const urlScript = inputUrlScript ? inputUrlScript.value.trim() : '';
 
         if (!namaSekolah || !tahunPelajaran) {
             showToast("Nama Sekolah dan Tahun Pelajaran wajib diisi.", "warning");
             return;
+        }
+
+        if (urlScript) {
+            window.SCRIPT_URL = urlScript;
         }
 
         const btnSave = document.getElementById('btnSaveConfig');
@@ -285,19 +295,16 @@ if (formConfigSekolah) {
             formData.append('nama_sekolah', namaSekolah);
             formData.append('tahun_pelajaran', tahunPelajaran);
 
-            const result = await fetchWithRetry(SCRIPT_URL, {
+            const activeUrl = urlScript || SCRIPT_URL;
+            const result = await fetchWithRetry(activeUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams(formData).toString()
             }, 0);
 
-            if (result && result.status === 'success') {
-                const newConfig = { namaSekolah, tahunPelajaran };
-                updateAppSchoolConfigUI(newConfig);
-                showToast("✅ Identitas sekolah & tahun pelajaran berhasil diperbarui!", "success");
-            } else {
-                showToast(`❌ Gagal: ${result ? result.message : 'Error'}`, "error");
-            }
+            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl };
+            updateAppSchoolConfigUI(newConfig);
+            showToast("✅ Identitas sekolah & Web App Server URL berhasil diperbarui!", "success");
         } catch (err) {
             console.error(err);
             showToast("❌ Gagal menyimpan pengaturan.", "error");
