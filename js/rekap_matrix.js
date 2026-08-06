@@ -185,24 +185,37 @@ async function renderMatrixReport() {
     // Dapatkan log absensi dari localRecentLogs
     let logs = localRecentLogs || [];
 
-    // Filter log berdasarkan rentang bulan, tahun, dan pastikan HANYA LOG SISWA (memiliki NIS/NISN)
+    // Filter log berdasarkan rentang bulan, tahun, dan pastikan LOG SISWA
     const filteredLogs = logs.filter(log => {
-        if (!log.tanggal) return false;
-        if (!log.nisn && !log.nis) return false; // Abaikan log presensi guru/non-siswa
-        const parts = log.tanggal.split('-');
+        const tgl = log.tanggal || (log.waktu ? String(log.waktu).substring(0, 10) : '');
+        if (!tgl) return false;
+        if (!log.nisn && !log.nis && !log.kelas) return false; // Abaikan presensi guru/non-siswa
+        const parts = tgl.split('-');
         if (parts.length < 2) return false;
         const logYear = parseInt(parts[0]);
         const logMonth = parseInt(parts[1]);
         return logYear === year && logMonth >= matrixMonthStart && logMonth <= matrixMonthEnd;
     });
 
-    // Peta log absensi per SISWA dan TANGGAL: logMap[nisn/nis][tanggal] = status
+    // Peta log absensi per SISWA dan TANGGAL: logMap[key][tanggal] = status
     const logMap = {};
     filteredLogs.forEach(log => {
-        const key = log.nisn || log.nis;
-        if (!key) return;
-        if (!logMap[key]) logMap[key] = {};
-        logMap[key][log.tanggal] = log.status;
+        const tgl = log.tanggal || (log.waktu ? String(log.waktu).substring(0, 10) : '');
+        if (!tgl) return;
+
+        if (log.nisn) {
+            if (!logMap[log.nisn]) logMap[log.nisn] = {};
+            logMap[log.nisn][tgl] = log.status;
+        }
+        if (log.nis) {
+            if (!logMap[log.nis]) logMap[log.nis] = {};
+            logMap[log.nis][tgl] = log.status;
+        }
+        if (log.nama) {
+            const normName = String(log.nama).trim().toLowerCase();
+            if (!logMap[normName]) logMap[normName] = {};
+            logMap[normName][tgl] = log.status;
+        }
     });
 
     // Config Identitas Sekolah
@@ -228,10 +241,15 @@ async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {
             const existingKeys = new Set((localRecentLogs || []).map(l => `${l.nisn || l.nis}_${l.tanggal}`));
             let newAdded = false;
             serverLogs.forEach(item => {
-                const key = `${item.nisn || item.nis}_${item.tanggal}`;
-                if (!existingKeys.has(key)) {
-                    localRecentLogs.push(item);
-                    newAdded = true;
+                if (!item.tanggal && item.waktu) {
+                    item.tanggal = String(item.waktu).substring(0, 10);
+                }
+                if (item.tanggal) {
+                    const key = `${item.nisn || item.nis || item.nama}_${item.tanggal}`;
+                    if (!existingKeys.has(key)) {
+                        localRecentLogs.push(item);
+                        newAdded = true;
+                    }
                 }
             });
             if (newAdded) {
@@ -362,8 +380,11 @@ function renderSingleMonthMatrix(students, logMap, month, year, targetKelas, hid
     `;
 
     students.forEach((student, index) => {
-        const studentKey = student.nisn || student.nis;
-        const studentLogs = logMap[studentKey] || {};
+        const studentNisn = student.nisn || '';
+        const studentNis = student.nis || '';
+        const studentNormName = String(student.nama || '').trim().toLowerCase();
+
+        const studentLogs = (studentNisn && logMap[studentNisn]) || (studentNis && logMap[studentNis]) || logMap[studentNormName] || {};
 
         let countH = 0, countS = 0, countI = 0, countA = 0, countT = 0;
         let dateCellsHtml = '';
@@ -561,8 +582,11 @@ function renderRangeMonthSummary(students, logMap, mStart, mEnd, year, targetKel
 
     // Render Baris Siswa
     students.forEach((student, index) => {
-        const studentKey = student.nisn || student.nis;
-        const studentLogs = logMap[studentKey] || {};
+        const studentNisn = student.nisn || '';
+        const studentNis = student.nis || '';
+        const studentNormName = String(student.nama || '').trim().toLowerCase();
+
+        const studentLogs = (studentNisn && logMap[studentNisn]) || (studentNis && logMap[studentNis]) || logMap[studentNormName] || {};
 
         let grandH = 0, grandS = 0, grandI = 0, grandA = 0, grandT = 0;
         let monthCellsHtml = '';
