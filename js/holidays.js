@@ -352,11 +352,19 @@ function initHolidaysUI() {
 
     const btnReset = document.getElementById('btnResetHolidays');
     if (btnReset) {
-        btnReset.addEventListener('click', () => {
-            if (confirm("Reset seluruh daftar ke Preset Libur Nasional 2026 dan Sync ke Google Sheet?")) {
+        btnReset.addEventListener('click', async () => {
+            const confirmed = await showCustomConfirm({
+                title: 'Reset Preset Hari Libur?',
+                message: 'Apakah Anda yakin ingin mereset seluruh daftar hari libur ke Preset Libur Nasional 2026 dan menyinkronkannya ke Google Sheet?',
+                icon: 'warning',
+                confirmText: 'Ya, Reset Preset',
+                cancelText: 'Batal'
+            });
+
+            if (confirmed) {
                 resetDefaultHolidays();
                 renderHolidaysTable();
-                if (typeof showToast === 'function') showToast("✅ Libur Nasional berhasil di-reset ke preset 2026 & disinkronkan!", "success");
+                if (typeof showToast === 'function') showToast("Libur Nasional berhasil di-reset ke preset 2026 & disinkronkan!", "success");
 
                 if (typeof renderRekapMatrix === 'function') renderRekapMatrix();
                 if (typeof renderMatrixRekapGuru === 'function') renderMatrixRekapGuru();

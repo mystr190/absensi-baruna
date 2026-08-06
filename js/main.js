@@ -403,11 +403,18 @@ window.enableEditAttendanceMode = function() {
 window.confirmDeleteAttendanceClass = async function(tanggal, kelas) {
     if (!tanggal || !kelas) return;
 
-    if (!confirm(`Apakah Anda yakin ingin menghapus SELURUH data absensi kelas "${kelas}" pada tanggal ${tanggal}?\n\nData absensi tanggal ini akan dihapus dari database sheet.`)) {
-        return;
-    }
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Absensi Kelas?',
+        message: `Apakah Anda yakin ingin menghapus SELURUH data absensi kelas <strong>"${kelas}"</strong> pada tanggal <strong>${tanggal}</strong>?<br><br><span style="color:#f87171; font-size:0.85rem;">⚠️ Data absensi tanggal ini akan dihapus permanen dari database sheet.</span>`,
+        icon: 'danger',
+        confirmText: 'Ya, Hapus Data',
+        cancelText: 'Batal',
+        danger: true
+    });
 
-    showToast("⏳ Menghapus data absensi...", "info");
+    if (!confirmed) return;
+
+    showToast("Menghapus data absensi...", "info");
     try {
         const payload = new URLSearchParams({
             action: 'delete_attendance_class',
@@ -617,20 +624,109 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
 });
 
 // ----------------------------------------------------
-// UI TOAST NOTIFICATION
+// UI TOAST NOTIFICATION (MODERN & GLASSMORPHIC)
 // ----------------------------------------------------
 function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
-    toast.innerText = message;
-    
-    toast.classList.remove('success', 'error', 'warning');
-    if (type === 'success') toast.classList.add('success');
-    if (type === 'error') toast.classList.add('error');
-    if (type === 'warning') toast.classList.add('warning');
-    
+    if (!toast) return;
+
+    let iconHtml = '<i class="fa-solid fa-circle-info"></i>';
+    let titleText = 'Informasi';
+
+    if (type === 'success') {
+        iconHtml = '<i class="fa-solid fa-circle-check"></i>';
+        titleText = 'Berhasil';
+    } else if (type === 'error') {
+        iconHtml = '<i class="fa-solid fa-circle-xmark"></i>';
+        titleText = 'Gagal / Error';
+    } else if (type === 'warning') {
+        iconHtml = '<i class="fa-solid fa-triangle-exclamation"></i>';
+        titleText = 'Peringatan';
+    }
+
+    const cleanMsg = String(message).replace(/^[✅❌⚠️⚡✏️⛔⏳]\s*/, '');
+
+    toast.innerHTML = `
+        <div class="toast-icon">${iconHtml}</div>
+        <div class="toast-content">
+            <span class="toast-title">${titleText}</span>
+            <span class="toast-message">${cleanMsg}</span>
+        </div>
+    `;
+
+    toast.className = `toast ${type}`;
+
+    void toast.offsetWidth;
     toast.classList.add('show');
-    
-    setTimeout(() => {
+
+    if (window.toastTimeout) clearTimeout(window.toastTimeout);
+    window.toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
-    }, 4000);
+    }, 4200);
+}
+
+// ----------------------------------------------------
+// UI CUSTOM MODAL DIALOG (REPLACES NATIVE ALERT & CONFIRM)
+// ----------------------------------------------------
+function showCustomConfirm({ title = 'Konfirmasi', message = 'Apakah Anda yakin?', icon = 'warning', confirmText = 'Ya, Lanjutkan', cancelText = 'Batal', danger = false }) {
+    return new Promise((resolve) => {
+        let overlay = document.getElementById('customAlertOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'customAlertOverlay';
+            overlay.className = 'custom-alert-overlay';
+            document.body.appendChild(overlay);
+        }
+
+        let iconClass = 'fa-solid fa-triangle-exclamation';
+        let iconTypeClass = 'warning';
+
+        if (icon === 'danger' || danger) {
+            iconClass = 'fa-solid fa-trash-can';
+            iconTypeClass = 'danger';
+        } else if (icon === 'info') {
+            iconClass = 'fa-solid fa-circle-info';
+            iconTypeClass = 'info';
+        } else if (icon === 'success') {
+            iconClass = 'fa-solid fa-circle-check';
+            iconTypeClass = 'success';
+        }
+
+        overlay.innerHTML = `
+            <div class="custom-alert-box">
+                <div class="custom-alert-icon-wrap ${iconTypeClass}">
+                    <i class="${iconClass}"></i>
+                </div>
+                <div class="custom-alert-title">${title}</div>
+                <div class="custom-alert-message">${message}</div>
+                <div class="custom-alert-actions">
+                    <button type="button" class="custom-alert-btn custom-alert-btn-cancel" id="btnCustomAlertCancel">
+                        <i class="fa-solid fa-xmark"></i> ${cancelText}
+                    </button>
+                    <button type="button" class="custom-alert-btn custom-alert-btn-confirm ${danger ? 'danger' : ''}" id="btnCustomAlertConfirm">
+                        <i class="fa-solid fa-check"></i> ${confirmText}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        void overlay.offsetWidth;
+        overlay.classList.add('active');
+
+        const btnCancel = overlay.querySelector('#btnCustomAlertCancel');
+        const btnConfirm = overlay.querySelector('#btnCustomAlertConfirm');
+
+        const closeDialog = (result) => {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                resolve(result);
+            }, 300);
+        };
+
+        btnCancel.onclick = () => closeDialog(false);
+        btnConfirm.onclick = () => closeDialog(true);
+        overlay.onclick = (e) => {
+            if (e.target === overlay) closeDialog(false);
+        };
+    });
 }

@@ -121,7 +121,16 @@ window.editUserByUsername = function(username) {
 };
 
 window.deleteUserByUsername = async function(username, nama) {
-    if (!confirm(`Apakah Anda yakin ingin menghapus pengguna "${nama}" (${username})?`)) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Akun Pengguna?',
+        message: `Apakah Anda yakin ingin menghapus akun guru <strong>"${nama}"</strong> (@${username})?`,
+        icon: 'danger',
+        confirmText: 'Ya, Hapus Pengguna',
+        cancelText: 'Batal',
+        danger: true
+    });
+
+    if (!confirmed) return;
 
     try {
         const formData = new FormData();

@@ -349,9 +349,16 @@ async function handleSaveStudentSingle(e) {
 
 // 3. HAPUS SISWA SATUAN
 async function confirmDeleteStudent(nis, nisn, nama) {
-    if (!confirm(`Apakah Anda yakin ingin menghapus data siswa "${nama}" (${nis || nisn})?`)) {
-        return;
-    }
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Data Siswa?',
+        message: `Apakah Anda yakin ingin menghapus siswa <strong>"${nama}"</strong> (${nis || nisn}) dari database sekolah?`,
+        icon: 'danger',
+        confirmText: 'Ya, Hapus Siswa',
+        cancelText: 'Batal',
+        danger: true
+    });
+
+    if (!confirmed) return;
 
     try {
         const payload = new URLSearchParams({

@@ -680,7 +680,16 @@ async function handleSavePelanggaran(e) {
 }
 
 async function deletePelanggaranRecord(id) {
-    if (!confirm('Apakah Anda yakin ingin menghapus catatan pelanggaran ini?')) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Catatan Pelanggaran?',
+        message: 'Apakah Anda yakin ingin menghapus catatan pelanggaran siswa ini dari database?',
+        icon: 'danger',
+        confirmText: 'Ya, Hapus Record',
+        cancelText: 'Batal',
+        danger: true
+    });
+
+    if (!confirmed) return;
 
     // Optimistic Remove
     localPelanggaranLogs = localPelanggaranLogs.filter(l => String(l.id) !== String(id));
@@ -750,7 +759,15 @@ async function handleAddJenisPelanggaranSubmit(e) {
 }
 
 async function deleteJenisPelanggaranHandler(namaJenis) {
-    if (!confirm(`Hapus jenis pelanggaran "${namaJenis}"?`)) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Jenis Pelanggaran?',
+        message: `Apakah Anda yakin ingin menghapus kategori pelanggaran <strong>"${namaJenis}"</strong>?`,
+        icon: 'warning',
+        confirmText: 'Ya, Hapus Kategori',
+        cancelText: 'Batal'
+    });
+
+    if (!confirmed) return;
 
     localJenisPelanggaran = localJenisPelanggaran.filter(j => j !== namaJenis);
     renderJenisPelanggaranBadgesList();
