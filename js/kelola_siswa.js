@@ -453,9 +453,21 @@ function handleProcessExcelFile(file) {
                 const nis = colNis !== -1 ? String(row[colNis] || '').trim() : '';
                 const nisn = colNisn !== -1 ? String(row[colNisn] || '').trim() : '';
                 const kelas = colKelas !== -1 ? String(row[colKelas] || '').trim() : '';
-                let gender = colGender !== -1 ? String(row[colGender] || '').trim().toUpperCase() : 'L';
-                if (gender.startsWith('P') || gender.includes('PEREMPUAN')) gender = 'P';
-                else gender = 'L';
+                let genderRaw = colGender !== -1 ? String(row[colGender] || '').trim().toUpperCase() : '';
+                let gender = 'L';
+                if (genderRaw.startsWith('P') || genderRaw.includes('PEREMPUAN')) {
+                    gender = 'P';
+                } else if (genderRaw.startsWith('L') || genderRaw.includes('LAKI')) {
+                    gender = 'L';
+                } else {
+                    // Jika kolom gender kosong di Excel, gunakan penemu nama otomatis
+                    const namaLower = nama.toLowerCase();
+                    if (/\b(putri|ni|dewi|sarah|siti|nur|anisa|annisa|adelia|aulia|zahra|fitri|laila|maria|selvi|wulan|krisna|tania|dita)\b/i.test(namaLower)) {
+                        gender = 'P';
+                    } else {
+                        gender = 'L';
+                    }
+                }
 
                 items.push({ nisn, nis, nama, kelas, gender });
             }

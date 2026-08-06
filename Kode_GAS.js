@@ -367,11 +367,14 @@ function getStudentsForClass(ss, normTargetKelas, rawTargetKelas) {
 
     const k = String(dataSiswa[i][3] || '').trim().toLowerCase();
     if (k === rawTargetKelas || k.replace(/[\s\-]/g, '') === normTargetKelas) {
+      const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
+      const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
       students.push({
         nisn: String(dataSiswa[i][0] || ''),
         nis: String(dataSiswa[i][1] || ''),
         nama: nama,
-        kelas: String(dataSiswa[i][3] || '')
+        kelas: String(dataSiswa[i][3] || ''),
+        gender: gender
       });
     }
   }
@@ -463,15 +466,19 @@ function handleGetAllMasterData() {
   const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
   let students = [];
   if (sheetSiswa) {
+    ensureStudentGenderColumn(sheetSiswa);
     const dataSiswa = sheetSiswa.getDataRange().getValues();
     for (let i = 1; i < dataSiswa.length; i++) {
       const nama = String(dataSiswa[i][2] || '').trim();
       if (!nama) continue;
+      const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
+      const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
       students.push({
         nisn: String(dataSiswa[i][0] || ''),
         nis: String(dataSiswa[i][1] || ''),
         nama: nama,
-        kelas: String(dataSiswa[i][3] || '')
+        kelas: String(dataSiswa[i][3] || ''),
+        gender: gender
       });
     }
   }
@@ -1612,21 +1619,65 @@ function handleDeleteHolidaySheet(date) {
 
 // === HANDLER MANAJEMEN DATA SISWA (CRUD & BULK EXCEL) ===
 
+function ensureStudentGenderColumn(sheetSiswa) {
+  if (!sheetSiswa) return;
+  try {
+    const lastRow = sheetSiswa.getLastRow();
+    if (lastRow < 1) return;
+
+    const lastCol = sheetSiswa.getLastColumn();
+    if (lastCol < 5) {
+      sheetSiswa.getRange(1, 5).setValue('JenisKelamin');
+      sheetSiswa.getRange(1, 5).setFontWeight('bold').setBackground('#c9daf8');
+    } else {
+      const headerVal = String(sheetSiswa.getRange(1, 5).getValue() || '').trim();
+      if (!headerVal) {
+        sheetSiswa.getRange(1, 5).setValue('JenisKelamin');
+        sheetSiswa.getRange(1, 5).setFontWeight('bold').setBackground('#c9daf8');
+      }
+    }
+
+    if (lastRow > 1) {
+      const dataRange = sheetSiswa.getRange(2, 1, lastRow - 1, Math.max(5, sheetSiswa.getLastColumn()));
+      const values = dataRange.getValues();
+      let hasChange = false;
+
+      for (let i = 0; i < values.length; i++) {
+        const currentGender = String(values[i][4] || '').trim();
+        if (!currentGender) {
+          const namaLower = String(values[i][2] || '').toLowerCase();
+          let defaultGender = 'L';
+          if (/\b(putri|ni|dewi|sarah|siti|nur|anisa|annisa|adelia|aulia|zahra|fitri|laila|maria|selvi|wulan|krisna|tania|dita)\b/i.test(namaLower)) {
+            defaultGender = 'P';
+          }
+          sheetSiswa.getRange(i + 2, 5).setValue(defaultGender);
+          hasChange = true;
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('ensureStudentGenderColumn error: ' + e.toString());
+  }
+}
+
 function handleGetStudents() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
   let students = [];
   if (sheetSiswa) {
+    ensureStudentGenderColumn(sheetSiswa);
     const dataSiswa = sheetSiswa.getDataRange().getValues();
     for (let i = 1; i < dataSiswa.length; i++) {
       const nama = String(dataSiswa[i][2] || '').trim();
       if (!nama) continue;
+      const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
+      const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
       students.push({
         nisn: String(dataSiswa[i][0] || '').trim(),
         nis: String(dataSiswa[i][1] || '').trim(),
         nama: nama,
         kelas: String(dataSiswa[i][3] || '').trim(),
-        gender: String(dataSiswa[i][4] || 'L').trim()
+        gender: gender
       });
     }
   }
