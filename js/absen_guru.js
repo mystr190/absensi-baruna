@@ -158,12 +158,22 @@ function renderWidgetGuruTidakHadirHariIni() {
     });
 
     localLogAbsenGuru.forEach(item => {
-        if (item.tanggal === todayStr && item.status && item.status.toUpperCase() !== 'HADIR') {
-            absentMap.set(item.username || item.nama, {
-                nama: item.nama,
-                status: item.status.toUpperCase(),
-                keterangan: item.keterangan || '-'
-            });
+        if (item.tanggal === todayStr) {
+            const st = String(item.status || '').toUpperCase();
+            const ket = String(item.keterangan || '').toUpperCase();
+            if (st !== 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) {
+                if (!absentMap.has(item.username || item.nama)) {
+                    let displayStat = st;
+                    if (st === 'HADIR') {
+                        displayStat = ket.includes('TUGAS SEKOLAH') ? 'Tugas Sekolah' : 'Tugas Luar';
+                    }
+                    absentMap.set(item.username || item.nama, {
+                        nama: item.nama,
+                        status: displayStat,
+                        keterangan: item.keterangan || '-'
+                    });
+                }
+            }
         }
     });
 
@@ -177,7 +187,7 @@ function renderWidgetGuruTidakHadirHariIni() {
         container.innerHTML = `
             <div style="background: rgba(34, 197, 94, 0.1); border: 1px dashed rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 12px;">
                 <span style="font-size: 1.3rem;"><i class="fa-solid fa-circle-check" style="color: #4ade80;"></i></span>
-                <span style="color: #4ade80; font-size: 0.92rem; font-weight: 500;">Hari ini semua Guru & Staf hadir / belum ada catatan ketidakhadiran.</span>
+                <span style="color: #4ade80; font-size: 0.92rem; font-weight: 500;">Hari ini seluruh Guru & Staf mengajar di sekolah / belum ada pengajuan izin & tugas luar.</span>
             </div>`;
         return;
     }
@@ -185,8 +195,23 @@ function renderWidgetGuruTidakHadirHariIni() {
     let html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">`;
     absentList.forEach(g => {
         let badgeColor = '#f59e0b';
-        if (g.status === 'SAKIT') badgeColor = '#ec4899';
-        else if (g.status === 'ALPHA' || g.status === 'TIDAK HADIR') badgeColor = '#ef4444';
+        let badgeIcon = '<i class="fa-solid fa-note-sticky"></i>';
+        const upperStatus = String(g.status || '').toUpperCase();
+        const upperKet = String(g.keterangan || '').toUpperCase();
+
+        if (upperStatus.includes('TUGAS') || upperStatus.includes('DINAS') || upperKet.includes('TUGAS') || upperKet.includes('DINAS')) {
+            badgeColor = '#3b82f6'; // Biru untuk Tugas Sekolah / Tugas Luar
+            badgeIcon = '<i class="fa-solid fa-briefcase"></i>';
+        } else if (upperStatus === 'SAKIT') {
+            badgeColor = '#ec4899';
+            badgeIcon = '<i class="fa-solid fa-hospital"></i>';
+        } else if (upperStatus === 'CUTI') {
+            badgeColor = '#d97706';
+            badgeIcon = '<i class="fa-solid fa-umbrella-beach"></i>';
+        } else if (upperStatus === 'ALPHA' || upperStatus === 'ALPA' || upperStatus === 'TIDAK HADIR') {
+            badgeColor = '#ef4444';
+            badgeIcon = '<i class="fa-solid fa-circle-xmark"></i>';
+        }
 
         const cleanKet = cleanKeterangan(g.keterangan);
 
@@ -194,7 +219,9 @@ function renderWidgetGuruTidakHadirHariIni() {
             <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); backdrop-filter: blur(10px);">
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                     <span style="font-weight: 700; font-size: 0.98rem; color: #ffffff; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-user-tie" style="color: #93c5fd;"></i> ${g.nama}</span>
-                    <span class="badge" style="background: ${badgeColor}25; color: ${badgeColor}; border: 1px solid ${badgeColor}55; font-size: 0.76rem; padding: 4px 12px; border-radius: 20px; font-weight: 700;">${g.status}</span>
+                    <span class="badge" style="background: ${badgeColor}25; color: ${badgeColor}; border: 1px solid ${badgeColor}55; font-size: 0.76rem; padding: 4px 12px; border-radius: 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        ${badgeIcon} ${g.status}
+                    </span>
                 </div>
                 <div style="font-size: 0.85rem; color: #94a3b8; display: flex; align-items: flex-start; gap: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px;">
                     <span style="color: #64748b; font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Ket:</span> <span style="color: #cbd5e1; font-style: italic;">${cleanKet}</span>
@@ -280,13 +307,15 @@ async function handleSubmiIzinGuru(e) {
     localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
 
     if (isAutoApprove) {
+        const rawKat = String(kategori || '').trim().toLowerCase();
+        const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
         localLogAbsenGuru.unshift({
             id: 'AG-APP-' + Date.now(),
             waktu: timeNowStr,
             tanggal: tgl,
             username: loggedUser.username || '',
             nama: loggedUser.nama || 'Guru',
-            status: 'TIDAK HADIR',
+            status: isDutyHadir ? 'HADIR' : 'TIDAK HADIR',
             keterangan: `[${kategori}] ${keterangan}`,
             inputBy: disetujuiOleh
         });
@@ -396,13 +425,15 @@ async function approveIzinKepsek(id) {
         localPengajuanIzin[itemIndex].waktuPersetujuan = new Date().toLocaleString('id-ID');
 
         const item = localPengajuanIzin[itemIndex];
+        const rawKat = String(item.kategori || '').trim().toLowerCase();
+        const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
         localLogAbsenGuru.unshift({
             id: 'AG-APP-' + Date.now(),
             waktu: new Date().toLocaleString('id-ID'),
             tanggal: item.tanggal,
             username: item.username,
             nama: item.nama,
-            status: 'TIDAK HADIR',
+            status: isDutyHadir ? 'HADIR' : 'TIDAK HADIR',
             keterangan: `[${item.kategori}] ${cleanKeterangan(item.keterangan)}`,
             inputBy: approverName
         });
@@ -725,8 +756,10 @@ function renderTableLogAbsenGuru() {
     filtered.forEach((item, idx) => {
         let badgeColor = '#22c55e'; // HADIR
         const st = (item.status || 'HADIR').toUpperCase();
-        if (st === 'IZIN' || st === 'DINAS' || st === 'SAKIT') badgeColor = '#f59e0b';
-        else if (st === 'ALPHA' || st === 'TIDAK HADIR') badgeColor = '#ef4444';
+        const ket = (item.keterangan || '').toUpperCase();
+        if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) badgeColor = '#22c55e';
+        else if (st === 'IZIN' || st === 'DINAS' || st === 'SAKIT' || st === 'CUTI') badgeColor = '#f59e0b';
+        else if (st === 'ALPHA' || st === 'ALPA' || st === 'TIDAK HADIR') badgeColor = '#ef4444';
 
         html += `
             <tr>
@@ -849,7 +882,10 @@ function renderRekapMatrixGuru() {
 
         userLogs.forEach(l => {
             const st = String(l.status || '').toUpperCase();
-            if (st === 'HADIR') {
+            const ket = String(l.keterangan || '').toUpperCase();
+            const isHadirDuty = st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS');
+
+            if (isHadirDuty) {
                 hadirCount++;
             } else if (st === 'ALPHA' || st === 'ALPA') {
                 alpaCount++;
