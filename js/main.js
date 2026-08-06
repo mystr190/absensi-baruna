@@ -143,43 +143,22 @@ function populateClassSelectOptions() {
             html += `<option value="${cls}" ${sel}>Kelas ${cls}</option>`;
         });
         filterPelanggaranKelas.innerHTML = html;
-    // 5. Dropdown deleteSelectKelas (Modal Hapus Presensi Per Tanggal)
-    const deleteSelectKelas = document.getElementById('deleteSelectKelas');
-    if (deleteSelectKelas) {
-        const currentVal = deleteSelectKelas.value;
-        let html = '<option value="" disabled selected>Pilih Kelas...</option>';
-        uniqueClasses.forEach(cls => {
-            const sel = (cls === currentVal) ? 'selected' : '';
-            html += `<option value="${cls}" ${sel}>Kelas ${cls}</option>`;
-        });
-        deleteSelectKelas.innerHTML = html;
-        if (currentVal && uniqueClasses.includes(currentVal)) {
-            deleteSelectKelas.value = currentVal;
+        if (currentVal && (currentVal === 'Semua' || uniqueClasses.includes(currentVal))) {
+            filterPelanggaranKelas.value = currentVal;
         }
     }
 }
 
 // Inisialisasi awal saat halaman dimuat
 window.addEventListener('DOMContentLoaded', () => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    let mm = (today.getMonth() + 1).toString().padStart(2, '0');
-    let dd = today.getDate().toString().padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-
-    if (inputTanggalAbsen) {
-        inputTanggalAbsen.setAttribute('max', todayStr);
-        if (!inputTanggalAbsen.value) {
-            inputTanggalAbsen.value = todayStr;
-        }
-    }
-
-    const deleteInputTanggal = document.getElementById('deleteInputTanggal');
-    if (deleteInputTanggal) {
-        deleteInputTanggal.setAttribute('max', todayStr);
-        if (!deleteInputTanggal.value) {
-            deleteInputTanggal.value = todayStr;
-        }
+    if (inputTanggalAbsen && !inputTanggalAbsen.value) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        let mm = (today.getMonth() + 1).toString();
+        let dd = today.getDate().toString();
+        if (mm.length === 1) mm = '0' + mm;
+        if (dd.length === 1) dd = '0' + dd;
+        inputTanggalAbsen.value = `${yyyy}-${mm}-${dd}`;
     }
     
     // Jalankan sync background master data
@@ -301,14 +280,9 @@ async function autoLoadStudents() {
             submittedBannerText.innerHTML = `
                 <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;">
                     <span>Absensi kelas <strong>${kelas}</strong> pada tanggal <strong>${tanggal}</strong> sudah diinput oleh <strong>${submittedBy}</strong> (Pukul ${submittedTime}).</span>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button type="button" onclick="enableEditAttendanceMode()" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
-                            <i class="fa-solid fa-pen-to-square"></i> Edit Data Absensi
-                        </button>
-                        <button type="button" onclick="deleteAttendanceForCurrentClassAndDate()" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
-                            <i class="fa-solid fa-trash-can"></i> Hapus Presensi
-                        </button>
-                    </div>
+                    <button type="button" onclick="enableEditAttendanceMode()" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit Data Absensi
+                    </button>
                 </div>
             `;
             
@@ -439,18 +413,6 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
     const namaPetugas = session.nama || 'Sistem';
     const tanggalAbsen = inputTanggalAbsen ? inputTanggalAbsen.value : '';
 
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    let mm = (today.getMonth() + 1).toString().padStart(2, '0');
-    let dd = today.getDate().toString().padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-
-    if (tanggalAbsen > todayStr) {
-        showToast(`⚠️ Presensi untuk tanggal mendatang (${tanggalAbsen}) tidak dapat disimpan!`, 'error');
-        isSavingAttendance = false;
-        return;
-    }
-
     const text = btnSimpanAbsenKelas.querySelector('.btn-text');
     const loader = btnSimpanAbsenKelas.querySelector('.loader');
 
@@ -554,97 +516,4 @@ function showToast(message, type = 'info') {
     setTimeout(() => {
         toast.classList.remove('show');
     }, 4000);
-}
-
-// ----------------------------------------------------
-// FUNGSI HAPUS DATA PRESENSI PER TANGGAL BERDASARKAN KELAS
-// ----------------------------------------------------
-window.openModalDeleteAttendance = function() {
-    const modal = document.getElementById('modalDeleteAttendance');
-    const deleteSelectKelas = document.getElementById('deleteSelectKelas');
-    const deleteInputTanggal = document.getElementById('deleteInputTanggal');
-
-    if (pilihKelas && pilihKelas.value && deleteSelectKelas) {
-        deleteSelectKelas.value = pilihKelas.value;
-    }
-    if (inputTanggalAbsen && inputTanggalAbsen.value && deleteInputTanggal) {
-        deleteInputTanggal.value = inputTanggalAbsen.value;
-    }
-
-    if (modal) modal.style.display = 'flex';
-};
-
-window.closeModalDeleteAttendance = function() {
-    const modal = document.getElementById('modalDeleteAttendance');
-    if (modal) modal.style.display = 'none';
-};
-
-window.deleteAttendanceForCurrentClassAndDate = function() {
-    const kelas = pilihKelas ? pilihKelas.value : '';
-    const tanggal = inputTanggalAbsen ? inputTanggalAbsen.value : '';
-    if (!kelas || !tanggal) {
-        showToast("⚠️ Silakan pilih Kelas dan Tanggal terlebih dahulu.", "warning");
-        return;
-    }
-    executeDeleteAttendance(kelas, tanggal);
-};
-
-window.handleConfirmDeleteAttendance = function(event) {
-    if (event) event.preventDefault();
-    const deleteSelectKelas = document.getElementById('deleteSelectKelas');
-    const deleteInputTanggal = document.getElementById('deleteInputTanggal');
-
-    const kelas = deleteSelectKelas ? deleteSelectKelas.value : '';
-    const tanggal = deleteInputTanggal ? deleteInputTanggal.value : '';
-
-    if (!kelas || !tanggal) {
-        showToast("⚠️ Pilih kelas dan tanggal secara lengkap.", "warning");
-        return;
-    }
-
-    closeModalDeleteAttendance();
-    executeDeleteAttendance(kelas, tanggal);
-};
-
-async function executeDeleteAttendance(kelas, tanggal) {
-    const isConfirmed = confirm(`🚨 Konfirmasi Hapus Presensi!\n\nApakah Anda yakin ingin menghapus SELURUH data presensi kelas ${kelas} pada tanggal ${tanggal}?\n\nData yang dihapus dari Google Sheets tidak dapat dikembalikan.`);
-    if (!isConfirmed) return;
-
-    showToast(`⏳ Menghapus data presensi kelas ${kelas} (${tanggal})...`, 'info');
-
-    try {
-        const formData = new FormData();
-        formData.append('action', 'delete_absensi_kelas');
-        formData.append('kelas', kelas);
-        formData.append('tanggal', tanggal);
-
-        const result = await fetchWithRetry(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(formData).toString()
-        }, 1, 1000);
-
-        if (result && result.status === 'success') {
-            showToast("🗑️ " + result.message, 'success');
-
-            // Hapus log dari localRecentLogs di localStorage
-            const normK = kelas.trim().toLowerCase().replace(/[\s\-]/g, '');
-            localRecentLogs = localRecentLogs.filter(log => {
-                const logK = String(log.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
-                return !(logK === normK && log.tanggal === tanggal);
-            });
-            localStorage.setItem('smart_absen_recent_logs', JSON.stringify(localRecentLogs));
-
-            if (typeof invalidateReportCache === 'function') invalidateReportCache();
-
-            isEditAttendanceMode = false;
-            autoLoadStudents();
-
-        } else {
-            showToast("❌ Gagal: " + (result ? result.message : 'Respon gagal dari server'), 'error');
-        }
-    } catch (e) {
-        console.error("Error menghapus presensi:", e);
-        showToast("❌ Terjadi kesalahan koneksi saat menghapus data presensi.", 'error');
-    }
 }

@@ -64,126 +64,15 @@ function initAbsenGuruEventListeners() {
     }
 
     const filterBulan = document.getElementById('filterBulanAbsenGuru');
-    if (filterBulan && !filterBulan.value) {
+    if (filterBulan) {
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         filterBulan.value = `${yyyy}-${mm}`;
-    }
-    if (filterBulan) {
         filterBulan.addEventListener('change', () => {
             renderTableLogAbsenGuru();
             renderRekapMatrixGuru();
         });
-    }
-
-    // Event listener untuk mode periode (Bulan / Rentang Payroll)
-    const selectMode = document.getElementById('selectModeAbsenGuru');
-    const containerBulan = document.getElementById('containerFilterBulanGuru');
-    const containerRentang = document.getElementById('containerFilterRentangGuru');
-    const startInput = document.getElementById('filterStartDateGuru');
-    const endInput = document.getElementById('filterEndDateGuru');
-    const btnQuickCutoff = document.getElementById('btnQuickCutoffPayroll');
-
-    if (selectMode) {
-        selectMode.addEventListener('change', () => {
-            if (selectMode.value === 'rentang') {
-                if (containerBulan) containerBulan.style.display = 'none';
-                if (containerRentang) containerRentang.style.display = 'flex';
-                if (startInput && !startInput.value) {
-                    setPayrollCutoffDates();
-                }
-            } else {
-                if (containerBulan) containerBulan.style.display = 'flex';
-                if (containerRentang) containerRentang.style.display = 'none';
-            }
-            renderTableLogAbsenGuru();
-            renderRekapMatrixGuru();
-        });
-    }
-
-    if (startInput) {
-        startInput.addEventListener('change', () => {
-            renderTableLogAbsenGuru();
-            renderRekapMatrixGuru();
-        });
-    }
-
-    if (endInput) {
-        endInput.addEventListener('change', () => {
-            renderTableLogAbsenGuru();
-            renderRekapMatrixGuru();
-        });
-    }
-
-    if (btnQuickCutoff) {
-        btnQuickCutoff.addEventListener('click', () => {
-            setPayrollCutoffDates();
-            renderTableLogAbsenGuru();
-            renderRekapMatrixGuru();
-            showToast("✨ Set rentang tanggal cut-off penggajian (21 s/d 20).", "success");
-        });
-    }
-}
-
-function setPayrollCutoffDates() {
-    const today = new Date();
-    let startYear = today.getFullYear();
-    let startMonth = today.getMonth(); // 0-indexed
-    let endYear = today.getFullYear();
-    let endMonth = today.getMonth();
-
-    if (today.getDate() >= 21) {
-        // Cut-off tgl 21 bulan ini s/d tgl 20 bulan depan
-        endMonth = startMonth + 1;
-        if (endMonth > 11) {
-            endMonth = 0;
-            endYear++;
-        }
-    } else {
-        // Cut-off tgl 21 bulan lalu s/d tgl 20 bulan ini
-        startMonth = startMonth - 1;
-        if (startMonth < 0) {
-            startMonth = 11;
-            startYear--;
-        }
-    }
-
-    const startMm = String(startMonth + 1).padStart(2, '0');
-    const endMm = String(endMonth + 1).padStart(2, '0');
-
-    const startDateStr = `${startYear}-${startMm}-21`;
-    const endDateStr = `${endYear}-${endMm}-20`;
-
-    const startInput = document.getElementById('filterStartDateGuru');
-    const endInput = document.getElementById('filterEndDateGuru');
-
-    if (startInput) startInput.value = startDateStr;
-    if (endInput) endInput.value = endDateStr;
-}
-
-function getFilteredGuruLogs() {
-    const selectMode = document.getElementById('selectModeAbsenGuru');
-    const mode = selectMode ? selectMode.value : 'bulan';
-
-    if (mode === 'rentang') {
-        const startVal = document.getElementById('filterStartDateGuru')?.value || '';
-        const endVal = document.getElementById('filterEndDateGuru')?.value || '';
-
-        if (!startVal && !endVal) return localLogAbsenGuru;
-
-        return localLogAbsenGuru.filter(item => {
-            if (!item.tanggal) return false;
-            const tgl = item.tanggal.substring(0, 10);
-            if (startVal && tgl < startVal) return false;
-            if (endVal && tgl > endVal) return false;
-            return true;
-        });
-    } else {
-        const filterBulan = document.getElementById('filterBulanAbsenGuru');
-        const monthVal = filterBulan ? filterBulan.value : '';
-        if (!monthVal) return localLogAbsenGuru;
-        return localLogAbsenGuru.filter(item => item.tanggal && item.tanggal.startsWith(monthVal));
     }
 }
 
@@ -871,9 +760,13 @@ async function handleSaveAbsenGuruBatch(e) {
 
 function renderTableLogAbsenGuru() {
     const tbody = document.getElementById('tableLogAbsenGuru');
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
     if (!tbody) return;
 
-    let filtered = getFilteredGuruLogs();
+    let filtered = localLogAbsenGuru;
+    if (filterBulan && filterBulan.value) {
+        filtered = localLogAbsenGuru.filter(i => i.tanggal && i.tanggal.startsWith(filterBulan.value));
+    }
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada log presensi guru pada periode ini.</td></tr>`;
@@ -987,8 +880,11 @@ function renderRekapMatrixGuru() {
         return;
     }
 
-    // Filter log berdasarkan periode terpilih (Bulan atau Rentang Payroll)
-    let filteredLogs = getFilteredGuruLogs();
+    // Filter log berdasarkan bulan
+    let filteredLogs = localLogAbsenGuru;
+    if (monthValue) {
+        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
+    }
 
     let sumTotalHadir = 0;
     let sumTotalIzin = 0;
@@ -1085,26 +981,14 @@ function renderRekapMatrixGuru() {
 }
 
 function printRekapGuru() {
-    const selectMode = document.getElementById('selectModeAbsenGuru');
-    const mode = selectMode ? selectMode.value : 'bulan';
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
     
-    let labelPeriodeHeader = '';
-    let filteredLogs = getFilteredGuruLogs();
-
-    if (mode === 'rentang') {
-        const sVal = document.getElementById('filterStartDateGuru')?.value || '';
-        const eVal = document.getElementById('filterEndDateGuru')?.value || '';
-        labelPeriodeHeader = `PAYROLL (${getFormattedDisplayDate(sVal)} S/D ${getFormattedDisplayDate(eVal)})`;
-    } else {
-        const filterBulan = document.getElementById('filterBulanAbsenGuru');
-        const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
-        const parts = monthValue.split('-');
-        const yearStr = parts[0] || new Date().getFullYear();
-        const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
-        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        const monthName = monthNames[monthIdx] || 'Bulanan';
-        labelPeriodeHeader = `${monthName.toUpperCase()} ${yearStr}`;
-    }
+    const parts = monthValue.split('-');
+    const yearStr = parts[0] || new Date().getFullYear();
+    const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const monthName = monthNames[monthIdx] || 'Bulanan';
 
     // 1. Ambil Nama Sekolah dari Config Google Sheet
     let namaSekolah = '';
@@ -1146,6 +1030,11 @@ function printRekapGuru() {
         return r !== 'admin' && r !== 'administrator';
     });
 
+    let filteredLogs = localLogAbsenGuru;
+    if (monthValue) {
+        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
+    }
+
     let tableRowsHtml = '';
 
     staffList.forEach((staff, idx) => {
@@ -1159,8 +1048,7 @@ function printRekapGuru() {
 
         userLogs.forEach(l => {
             const st = String(l.status || '').toUpperCase();
-            const ket = String(l.keterangan || '').toUpperCase();
-            if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) {
+            if (st === 'HADIR') {
                 hadirCount++;
             } else {
                 tidakHadirCount++;
@@ -1178,12 +1066,25 @@ function printRekapGuru() {
         `;
     });
 
+    let holidaySubtext = '';
+    if (monthValue) {
+        const parts = monthValue.split('-');
+        if (parts.length === 2) {
+            const yr = parseInt(parts[0]);
+            const mo = parseInt(parts[1]);
+            const weekdayHolidays = typeof getWeekdayHolidaysInMonth === 'function' ? getWeekdayHolidaysInMonth(yr, mo) : [];
+            if (weekdayHolidays.length > 0) {
+                holidaySubtext = ` • (Terdapat ${weekdayHolidays.length} Hari Libur Nasional)`;
+            }
+        }
+    }
+
     const printWin = window.open('', '_blank', 'width=900,height=700');
     const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${labelPeriodeHeader}</title>
+            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${monthName} ${yearStr}</title>
             <style>
                 body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 30px; }
                 .kop { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
@@ -1212,8 +1113,8 @@ function printRekapGuru() {
             </div>
 
             <div class="report-title">
-                <h3>REKAPITULASI KEHADIRAN PERIODE ${labelPeriodeHeader}</h3>
-                <p>Total Personil: ${staffList.length} Orang | Dicetak Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
+                <h3>REKAPITULASI KEHADIRAN PERIODE ${monthName.toUpperCase()} ${yearStr}</h3>
+                <p>Total Personil: ${staffList.length} Orang${holidaySubtext} | Dicetak Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
             </div>
 
             <table>
@@ -1258,18 +1159,8 @@ function printRekapGuru() {
 }
 
 function exportRekapGuruCSV() {
-    const selectMode = document.getElementById('selectModeAbsenGuru');
-    const mode = selectMode ? selectMode.value : 'bulan';
-    
-    let fileSuffix = '';
-    if (mode === 'rentang') {
-        const sVal = document.getElementById('filterStartDateGuru')?.value || 'Awal';
-        const eVal = document.getElementById('filterEndDateGuru')?.value || 'Akhir';
-        fileSuffix = `Payroll_${sVal}_sd_${eVal}`;
-    } else {
-        const filterBulan = document.getElementById('filterBulanAbsenGuru');
-        fileSuffix = filterBulan ? filterBulan.value : 'Bulanan';
-    }
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
 
     let users = [];
     if (window.allTeachers && window.allTeachers.length > 0) {
@@ -1282,7 +1173,10 @@ function exportRekapGuruCSV() {
         return r !== 'admin' && r !== 'administrator';
     });
 
-    let filteredLogs = getFilteredGuruLogs();
+    let filteredLogs = localLogAbsenGuru;
+    if (monthValue) {
+        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
+    }
 
     let csvContent = "data:text/csv;charset=utf-8,No,Nama Guru / Staf,Role / Jabatan,Jumlah Hadir,Jumlah Tidak Hadir\n";
 
@@ -1296,8 +1190,7 @@ function exportRekapGuruCSV() {
 
         userLogs.forEach(l => {
             const st = String(l.status || '').toUpperCase();
-            const ket = String(l.keterangan || '').toUpperCase();
-            if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) hadirCount++;
+            if (st === 'HADIR') hadirCount++;
             else tidakHadirCount++;
         });
 
@@ -1307,7 +1200,7 @@ function exportRekapGuruCSV() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Rekap_Kehadiran_Guru_${fileSuffix}.csv`);
+    link.setAttribute("download", `Rekap_Kehadiran_Guru_${monthValue || 'Semua'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
