@@ -63,34 +63,7 @@ function initAbsenGuruEventListeners() {
         btnExportGuru.addEventListener('click', exportRekapGuruCSV);
     }
 
-    const filterMode = document.getElementById('filterModeAbsenGuru');
     const filterBulan = document.getElementById('filterBulanAbsenGuru');
-    const filterStart = document.getElementById('filterStartDateGuru');
-    const filterEnd = document.getElementById('filterEndDateGuru');
-    const containerBulan = document.getElementById('containerFilterBulanGuru');
-    const containerRentang = document.getElementById('containerFilterRentangGuru');
-
-    if (filterMode) {
-        filterMode.addEventListener('change', () => {
-            if (filterMode.value === 'rentang') {
-                if (containerBulan) containerBulan.style.display = 'none';
-                if (containerRentang) containerRentang.style.display = 'inline-flex';
-                if (filterStart && !filterStart.value) {
-                    const now = new Date();
-                    filterStart.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-                }
-                if (filterEnd && !filterEnd.value) {
-                    filterEnd.value = getTodayFormattedDate();
-                }
-            } else {
-                if (containerBulan) containerBulan.style.display = 'inline-flex';
-                if (containerRentang) containerRentang.style.display = 'none';
-            }
-            renderTableLogAbsenGuru();
-            renderRekapMatrixGuru();
-        });
-    }
-
     if (filterBulan) {
         const today = new Date();
         const yyyy = today.getFullYear();
@@ -101,127 +74,6 @@ function initAbsenGuruEventListeners() {
             renderRekapMatrixGuru();
         });
     }
-
-    if (filterStart) {
-        filterStart.addEventListener('change', () => {
-            renderTableLogAbsenGuru();
-            renderRekapMatrixGuru();
-        });
-    }
-
-    if (filterEnd) {
-        filterEnd.addEventListener('change', () => {
-            renderTableLogAbsenGuru();
-            renderRekapMatrixGuru();
-        });
-    }
-}
-
-function normalizeDateToYYYYMMDD(dateStr) {
-    if (!dateStr) return '';
-    const str = String(dateStr).trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-        return str.substring(0, 10);
-    }
-    const parts = str.split(/[\/\.-]/);
-    if (parts.length === 3) {
-        if (parts[2].length === 4) {
-            const dd = parts[0].padStart(2, '0');
-            const mm = parts[1].padStart(2, '0');
-            const yyyy = parts[2];
-            return `${yyyy}-${mm}-${dd}`;
-        }
-    }
-    return str;
-}
-
-function getAllStaffList() {
-    let users = [];
-    if (window.allTeachers && Array.isArray(window.allTeachers) && window.allTeachers.length > 0) {
-        users = window.allTeachers;
-    }
-    if (!users || users.length === 0) {
-        const keys = ['smart_absen_users_cache', 'smart_absen_teachers', 'smart_absen_users', 'smart_absen_guru_list'];
-        for (const k of keys) {
-            try {
-                const parsed = JSON.parse(localStorage.getItem(k) || '[]');
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    users = parsed;
-                    break;
-                }
-            } catch(e) {}
-        }
-    }
-
-    if (!users || users.length === 0) {
-        users = [
-            { username: 'guru1', namaLengkap: 'Bapak Budi, S.Pd', role: 'Guru' },
-            { username: 'tu1', namaLengkap: 'Staf Tata Usaha', role: 'Tata Usaha' },
-            { username: 'kepsek', namaLengkap: 'Kepala Sekolah', role: 'Kepala Sekolah' }
-        ];
-    }
-
-    return users.filter(u => {
-        const r = String(u.role || '').trim().toLowerCase();
-        return r !== 'admin' && r !== 'administrator';
-    });
-}
-
-function getFilteredGuruLogs() {
-    const filterMode = document.getElementById('filterModeAbsenGuru');
-    const filterBulan = document.getElementById('filterBulanAbsenGuru');
-    const filterStart = document.getElementById('filterStartDateGuru');
-    const filterEnd = document.getElementById('filterEndDateGuru');
-
-    const mode = filterMode ? filterMode.value : 'bulan';
-
-    if (mode === 'rentang' && filterStart && filterEnd) {
-        const startVal = filterStart ? filterStart.value : '';
-        const endVal = filterEnd ? filterEnd.value : '';
-        if (startVal || endVal) {
-            return localLogAbsenGuru.filter(i => {
-                const norm = normalizeDateToYYYYMMDD(i.tanggal);
-                if (!norm) return false;
-                if (startVal && endVal) return norm >= startVal && norm <= endVal;
-                if (startVal) return norm >= startVal;
-                if (endVal) return norm <= endVal;
-                return true;
-            });
-        }
-    }
-
-    if (filterBulan && filterBulan.value) {
-        const monthVal = filterBulan.value;
-        return localLogAbsenGuru.filter(i => {
-            const norm = normalizeDateToYYYYMMDD(i.tanggal);
-            return norm && norm.startsWith(monthVal);
-        });
-    }
-
-    return localLogAbsenGuru;
-}
-
-function getFilteredGuruPeriodLabel() {
-    const filterMode = document.getElementById('filterModeAbsenGuru');
-    const filterBulan = document.getElementById('filterBulanAbsenGuru');
-    const filterStart = document.getElementById('filterStartDateGuru');
-    const filterEnd = document.getElementById('filterEndDateGuru');
-
-    const mode = filterMode ? filterMode.value : 'bulan';
-
-    if (mode === 'rentang' && filterStart && filterEnd && filterStart.value && filterEnd.value) {
-        return `Rentang ${getFormattedDisplayDate(filterStart.value)} s/d ${getFormattedDisplayDate(filterEnd.value)}`;
-    }
-
-    if (filterBulan && filterBulan.value) {
-        const parts = filterBulan.value.split('-');
-        const yearStr = parts[0] || new Date().getFullYear();
-        const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
-        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        return `Bulan ${monthNames[monthIdx] || filterBulan.value} ${yearStr}`;
-    }
-
-    return `Seluruh Periode`;
 }
 
 function applyCachedAbsenGuruData() {
@@ -297,30 +149,26 @@ function renderWidgetGuruTidakHadirHariIni() {
 
     localPengajuanIzin.forEach(item => {
         if (item.status === 'Disetujui' && item.tanggal === todayStr) {
-            absentMap.set(item.username || item.nama, {
-                nama: item.nama,
-                status: item.kategori || 'IZIN',
-                keterangan: item.keterangan || '-'
-            });
+            const kat = String(item.kategori || '').toLowerCase();
+            if (!kat.includes('tugas') && !kat.includes('dinas')) {
+                absentMap.set(item.username || item.nama, {
+                    nama: item.nama,
+                    status: item.kategori || 'IZIN',
+                    keterangan: item.keterangan || '-'
+                });
+            }
         }
     });
 
     localLogAbsenGuru.forEach(item => {
-        if (item.tanggal === todayStr) {
-            const st = String(item.status || '').toUpperCase();
-            const ket = String(item.keterangan || '').toUpperCase();
-            if (st !== 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) {
-                if (!absentMap.has(item.username || item.nama)) {
-                    let displayStat = st;
-                    if (st === 'HADIR') {
-                        displayStat = ket.includes('TUGAS SEKOLAH') ? 'Tugas Sekolah' : 'Tugas Luar';
-                    }
-                    absentMap.set(item.username || item.nama, {
-                        nama: item.nama,
-                        status: displayStat,
-                        keterangan: item.keterangan || '-'
-                    });
-                }
+        if (item.tanggal === todayStr && item.status && item.status.toUpperCase() !== 'HADIR') {
+            const ket = String(item.keterangan || '').toLowerCase();
+            if (!ket.includes('tugas') && !ket.includes('dinas')) {
+                absentMap.set(item.username || item.nama, {
+                    nama: item.nama,
+                    status: item.status.toUpperCase(),
+                    keterangan: item.keterangan || '-'
+                });
             }
         }
     });
@@ -335,7 +183,7 @@ function renderWidgetGuruTidakHadirHariIni() {
         container.innerHTML = `
             <div style="background: rgba(34, 197, 94, 0.1); border: 1px dashed rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 12px;">
                 <span style="font-size: 1.3rem;"><i class="fa-solid fa-circle-check" style="color: #4ade80;"></i></span>
-                <span style="color: #4ade80; font-size: 0.92rem; font-weight: 500;">Hari ini seluruh Guru & Staf mengajar di sekolah / belum ada pengajuan izin & tugas luar.</span>
+                <span style="color: #4ade80; font-size: 0.92rem; font-weight: 500;">Hari ini semua Guru & Staf hadir / belum ada catatan ketidakhadiran.</span>
             </div>`;
         return;
     }
@@ -343,23 +191,8 @@ function renderWidgetGuruTidakHadirHariIni() {
     let html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">`;
     absentList.forEach(g => {
         let badgeColor = '#f59e0b';
-        let badgeIcon = '<i class="fa-solid fa-note-sticky"></i>';
-        const upperStatus = String(g.status || '').toUpperCase();
-        const upperKet = String(g.keterangan || '').toUpperCase();
-
-        if (upperStatus.includes('TUGAS') || upperStatus.includes('DINAS') || upperKet.includes('TUGAS') || upperKet.includes('DINAS')) {
-            badgeColor = '#3b82f6'; // Biru untuk Tugas Sekolah / Tugas Luar
-            badgeIcon = '<i class="fa-solid fa-briefcase"></i>';
-        } else if (upperStatus === 'SAKIT') {
-            badgeColor = '#ec4899';
-            badgeIcon = '<i class="fa-solid fa-hospital"></i>';
-        } else if (upperStatus === 'CUTI') {
-            badgeColor = '#d97706';
-            badgeIcon = '<i class="fa-solid fa-umbrella-beach"></i>';
-        } else if (upperStatus === 'ALPHA' || upperStatus === 'ALPA' || upperStatus === 'TIDAK HADIR') {
-            badgeColor = '#ef4444';
-            badgeIcon = '<i class="fa-solid fa-circle-xmark"></i>';
-        }
+        if (g.status === 'SAKIT') badgeColor = '#ec4899';
+        else if (g.status === 'ALPHA' || g.status === 'TIDAK HADIR') badgeColor = '#ef4444';
 
         const cleanKet = cleanKeterangan(g.keterangan);
 
@@ -367,9 +200,7 @@ function renderWidgetGuruTidakHadirHariIni() {
             <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); backdrop-filter: blur(10px);">
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                     <span style="font-weight: 700; font-size: 0.98rem; color: #ffffff; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-user-tie" style="color: #93c5fd;"></i> ${g.nama}</span>
-                    <span class="badge" style="background: ${badgeColor}25; color: ${badgeColor}; border: 1px solid ${badgeColor}55; font-size: 0.76rem; padding: 4px 12px; border-radius: 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        ${badgeIcon} ${g.status}
-                    </span>
+                    <span class="badge" style="background: ${badgeColor}25; color: ${badgeColor}; border: 1px solid ${badgeColor}55; font-size: 0.76rem; padding: 4px 12px; border-radius: 20px; font-weight: 700;">${g.status}</span>
                 </div>
                 <div style="font-size: 0.85rem; color: #94a3b8; display: flex; align-items: flex-start; gap: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px;">
                     <span style="color: #64748b; font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> Ket:</span> <span style="color: #cbd5e1; font-style: italic;">${cleanKet}</span>
@@ -693,7 +524,29 @@ function renderAbsenGuruBatchTable() {
     if (btnHadir) btnHadir.disabled = false;
     if (btnTidakHadir) btnTidakHadir.disabled = false;
 
-    const staffList = getAllStaffList();
+    // Ambil daftar seluruh user dari database / cache / fallback
+    let users = [];
+    if (window.allTeachers && window.allTeachers.length > 0) {
+        users = window.allTeachers;
+    } else {
+        const cachedUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]');
+        users = cachedUsers;
+    }
+
+    // Jika belum ada cache sama sekali (initial load), gunakan default staff fallback
+    if (!users || users.length === 0) {
+        users = [
+            { username: 'guru1', namaLengkap: 'Bapak Budi, S.Pd', role: 'Guru' },
+            { username: 'tu1', namaLengkap: 'Staf Tata Usaha', role: 'Tata Usaha' },
+            { username: 'kepsek', namaLengkap: 'Kepala Sekolah', role: 'Kepala Sekolah' }
+        ];
+    }
+
+    // Filter pengguna: Seluruh data user KECUALI Administrator (role 'Admin' atau 'Administrator')
+    const staffList = users.filter(u => {
+        const r = String(u.role || '').trim().toLowerCase();
+        return r !== 'admin' && r !== 'administrator';
+    });
 
     if (staffList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada data pengguna (selain Administrator) yang terdaftar.</td></tr>`;
@@ -715,47 +568,25 @@ function renderAbsenGuruBatchTable() {
         let currentStatus = 'HADIR';
         let currentKeterangan = '';
         let hasAutoLeave = false;
-        let leaveBadgeHtml = '';
 
         if (approvedLeave) {
+            currentStatus = 'TIDAK HADIR';
             hasAutoLeave = true;
-            const rawKat = String(approvedLeave.kategori || '').trim().toLowerCase();
-            const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
-
-            if (isDutyHadir) {
-                currentStatus = 'HADIR';
-                currentKeterangan = `[${approvedLeave.kategori}] ${cleanKeterangan(approvedLeave.keterangan)}`;
-                leaveBadgeHtml = `<span class="badge" style="background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.5); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-briefcase"></i> ${approvedLeave.kategori} (Hadir - Locked)</span>`;
-            } else {
-                currentStatus = 'TIDAK HADIR';
-                currentKeterangan = `Izin Disetujui (${approvedLeave.kategori}: ${cleanKeterangan(approvedLeave.keterangan)})`;
-                leaveBadgeHtml = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>`;
-            }
+            currentKeterangan = `Izin Disetujui (${approvedLeave.kategori}: ${cleanKeterangan(approvedLeave.keterangan)})`;
         } else if (existingLog) {
             currentStatus = (existingLog.status || 'HADIR').toUpperCase();
-            const ketUpper = String(existingLog.keterangan || '').toUpperCase();
-            const isDutyHadir = ketUpper.includes('TUGAS') || ketUpper.includes('DINAS');
-
-            if (isDutyHadir) {
-                currentStatus = 'HADIR';
-            } else if (currentStatus !== 'HADIR' && currentStatus !== 'TIDAK HADIR') {
+            if (currentStatus !== 'HADIR' && currentStatus !== 'TIDAK HADIR') {
                 currentStatus = 'TIDAK HADIR';
             }
             currentKeterangan = cleanKeterangan(existingLog.keterangan || '');
-
             if (existingLog.keterangan && (existingLog.keterangan.toLowerCase().includes('izin') || existingLog.id.startsWith('AG-APP'))) {
                 hasAutoLeave = true;
-                if (isDutyHadir) {
-                    leaveBadgeHtml = `<span class="badge" style="background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.5); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-briefcase"></i> Tugas Luar / Dinas (Hadir - Locked)</span>`;
-                } else {
-                    leaveBadgeHtml = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>`;
-                }
             }
         }
 
         const isHadir = (currentStatus === 'HADIR');
         const disabledAttr = hasAutoLeave ? 'disabled' : '';
-        const cursorStyle = hasAutoLeave ? 'cursor: not-allowed; opacity: 0.85;' : 'cursor: pointer;';
+        const cursorStyle = hasAutoLeave ? 'cursor: not-allowed; opacity: 0.75;' : 'cursor: pointer;';
 
         html += `
             <tr data-username="${uname}" data-nama="${name}" data-role="${role}">
@@ -763,12 +594,12 @@ function renderAbsenGuruBatchTable() {
                 <td style="font-weight: 600; color: #ffffff;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span><i class="fa-solid fa-user"></i> ${name}</span>
-                        ${leaveBadgeHtml}
+                        ${hasAutoLeave ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>` : ''}
                     </div>
                 </td>
                 <td><span class="badge" style="background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 500;">${role}</span></td>
                 <td style="text-align: center;">
-                    <div style="display: inline-flex; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); gap: 4px; ${hasAutoLeave ? 'opacity: 0.9;' : ''}">
+                    <div style="display: inline-flex; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); gap: 4px; ${hasAutoLeave ? 'opacity: 0.8;' : ''}">
                         <label style="${cursorStyle} padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: all 0.2s ease; ${isHadir ? 'background: #16a34a; color: white; box-shadow: 0 2px 8px rgba(22,163,74,0.4);' : 'color: #94a3b8;'}">
                             <input type="radio" name="status_absen_${idx}" value="HADIR" ${isHadir ? 'checked' : ''} ${disabledAttr} onchange="toggleRadioStyle(this)" style="display: none;"> <i class="fa-solid fa-check"></i> HADIR
                         </label>
@@ -778,7 +609,7 @@ function renderAbsenGuruBatchTable() {
                     </div>
                 </td>
                 <td>
-                    <input type="text" class="styled-input input-keterangan-batch" value="${currentKeterangan}" placeholder="Catatan presensi..." ${disabledAttr} style="padding: 8px 12px; font-size: 0.85rem; ${hasAutoLeave ? 'opacity: 0.85; cursor: not-allowed; background: rgba(255,255,255,0.04);' : ''}">
+                    <input type="text" class="styled-input input-keterangan-batch" value="${currentKeterangan}" placeholder="Catatan presensi..." ${disabledAttr} style="padding: 8px 12px; font-size: 0.85rem; ${hasAutoLeave ? 'opacity: 0.75; cursor: not-allowed; background: rgba(255,255,255,0.04);' : ''}">
                 </td>
             </tr>
         `;
@@ -837,7 +668,6 @@ async function handleSaveAbsenGuruBatch(e) {
         return;
     }
 
-    const isEditFlag = isEditAbsenGuruBatchMode ? 'true' : 'false';
     const batchData = [];
 
     rows.forEach(tr => {
@@ -868,23 +698,17 @@ async function handleSaveAbsenGuruBatch(e) {
 
     localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
 
-    const wasEditMode = isEditAbsenGuruBatchMode;
     isEditAbsenGuruBatchMode = false;
     renderAbsenGuruBatchTable();
     renderTableLogAbsenGuru();
-    renderRekapMatrixGuru();
     renderWidgetGuruTidakHadirHariIni();
 
-    showToast(wasEditMode ? `✏️ Berhasil memperbarui presensi ${batchData.length} Guru & Staf!` : `💾 Berhasil menyimpan presensi kolektif ${batchData.length} Guru & Staf!`, 'success');
+    showToast(`💾 Berhasil menyimpan presensi kolektif untuk ${batchData.length} Guru & Staf!`, 'success');
 
     try {
         const payload = encodeURIComponent(JSON.stringify(batchData));
-        const res = await fetchWithRetry(`${SCRIPT_URL}?action=add_absen_guru&data=${payload}&is_edit=${isEditFlag}`, { method: 'POST' }, 2, 800);
-        if (res && res.status === 'error') {
-            showToast(res.message || "Gagal menyimpan ke server.", 'error');
-        } else {
-            syncAbsenGuruDataFromServer();
-        }
+        await fetchWithRetry(`${SCRIPT_URL}?action=add_absen_guru&data=${payload}`, { method: 'POST' }, 2, 800);
+        syncAbsenGuruDataFromServer();
     } catch (err) {
         console.warn("Backend sync batch absen guru postponed.");
     } finally {
@@ -894,12 +718,16 @@ async function handleSaveAbsenGuruBatch(e) {
 
 function renderTableLogAbsenGuru() {
     const tbody = document.getElementById('tableLogAbsenGuru');
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
     if (!tbody) return;
 
-    let filtered = getFilteredGuruLogs();
+    let filtered = localLogAbsenGuru;
+    if (filterBulan && filterBulan.value) {
+        filtered = localLogAbsenGuru.filter(i => i.tanggal && i.tanggal.startsWith(filterBulan.value));
+    }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada log presensi guru pada periode/rentang ini.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada log presensi guru pada periode ini.</td></tr>`;
         return;
     }
 
@@ -982,15 +810,37 @@ function renderRekapMatrixGuru() {
 
     const monthValue = filterBulan ? filterBulan.value : '';
 
-    const staffList = getAllStaffList();
+    // Ambil daftar seluruh user dari database / cache / fallback
+    let users = [];
+    if (window.allTeachers && window.allTeachers.length > 0) {
+        users = window.allTeachers;
+    } else {
+        users = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]');
+    }
+
+    if (!users || users.length === 0) {
+        users = [
+            { username: 'guru1', namaLengkap: 'Bapak Budi, S.Pd', role: 'Guru' },
+            { username: 'tu1', namaLengkap: 'Staf Tata Usaha', role: 'Tata Usaha' },
+            { username: 'kepsek', namaLengkap: 'Kepala Sekolah', role: 'Kepala Sekolah' }
+        ];
+    }
+
+    const staffList = users.filter(u => {
+        const r = String(u.role || '').trim().toLowerCase();
+        return r !== 'admin' && r !== 'administrator';
+    });
 
     if (staffList.length === 0) {
         tbodyMatrix.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada data Guru / Staf terdaftar.</td></tr>`;
         return;
     }
 
-    // Filter log berdasarkan mode (Bulan atau Rentang Tanggal)
-    let filteredLogs = getFilteredGuruLogs();
+    // Filter log berdasarkan bulan
+    let filteredLogs = localLogAbsenGuru;
+    if (monthValue) {
+        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
+    }
 
     let sumTotalHadir = 0;
     let sumTotalIzin = 0;
@@ -1002,18 +852,8 @@ function renderRekapMatrixGuru() {
         const name = staff.namaLengkap || staff.nama || uname;
         const role = staff.role || 'Guru';
 
-        const normUname = String(uname).trim().toLowerCase();
-        const normName = String(name).trim().toLowerCase();
-
-        // Filter log milik staff ini
-        const userLogs = filteredLogs.filter(l => {
-            const logUname = String(l.username || '').trim().toLowerCase();
-            const logName = String(l.nama || '').trim().toLowerCase();
-            if (normUname && logUname && normUname === logUname) return true;
-            if (normName && logName && normName === logName) return true;
-            if (normName && logName && (normName.includes(logName) || logName.includes(normName))) return true;
-            return false;
-        });
+        // Filter log milik staff ini di bulan terpilih
+        const userLogs = filteredLogs.filter(l => (l.username === uname || l.nama === name));
 
         let hadirCount = 0;
         let izinCount = 0;
@@ -1097,8 +937,15 @@ function renderRekapMatrixGuru() {
 }
 
 function printRekapGuru() {
-    const periodLabel = getFilteredGuruPeriodLabel();
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
     
+    const parts = monthValue.split('-');
+    const yearStr = parts[0] || new Date().getFullYear();
+    const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const monthName = monthNames[monthIdx] || 'Bulanan';
+
     // 1. Ambil Nama Sekolah dari Config Google Sheet
     let namaSekolah = '';
     try {
@@ -1139,7 +986,10 @@ function printRekapGuru() {
         return r !== 'admin' && r !== 'administrator';
     });
 
-    let filteredLogs = getFilteredGuruLogs();
+    let filteredLogs = localLogAbsenGuru;
+    if (monthValue) {
+        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
+    }
 
     let tableRowsHtml = '';
 
@@ -1190,7 +1040,7 @@ function printRekapGuru() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${periodLabel}</title>
+            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${monthName} ${yearStr}</title>
             <style>
                 body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 30px; }
                 .kop { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
@@ -1219,8 +1069,8 @@ function printRekapGuru() {
             </div>
 
             <div class="report-title">
-                <h3>LAPORAN REKAPITULASI KEHADIRAN GURU & STAF</h3>
-                <p><strong>${periodLabel.toUpperCase()}</strong> | Total Personil: ${staffList.length} Orang | Dicetak Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
+                <h3>REKAPITULASI KEHADIRAN PERIODE ${monthName.toUpperCase()} ${yearStr}</h3>
+                <p>Total Personil: ${staffList.length} Orang${holidaySubtext} | Dicetak Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
             </div>
 
             <table>
@@ -1265,7 +1115,8 @@ function printRekapGuru() {
 }
 
 function exportRekapGuruCSV() {
-    const periodLabel = getFilteredGuruPeriodLabel();
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
 
     let users = [];
     if (window.allTeachers && window.allTeachers.length > 0) {
@@ -1278,7 +1129,10 @@ function exportRekapGuruCSV() {
         return r !== 'admin' && r !== 'administrator';
     });
 
-    let filteredLogs = getFilteredGuruLogs();
+    let filteredLogs = localLogAbsenGuru;
+    if (monthValue) {
+        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
+    }
 
     let csvContent = "data:text/csv;charset=utf-8,No,Nama Guru / Staf,Role / Jabatan,Jumlah Hadir,Jumlah Tidak Hadir\n";
 
@@ -1292,8 +1146,7 @@ function exportRekapGuruCSV() {
 
         userLogs.forEach(l => {
             const st = String(l.status || '').toUpperCase();
-            const ket = String(l.keterangan || '').toUpperCase();
-            if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) hadirCount++;
+            if (st === 'HADIR') hadirCount++;
             else tidakHadirCount++;
         });
 
@@ -1303,7 +1156,7 @@ function exportRekapGuruCSV() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Rekap_Kehadiran_Guru_${periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+    link.setAttribute("download", `Rekap_Kehadiran_Guru_${monthValue || 'Semua'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
