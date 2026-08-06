@@ -185,10 +185,10 @@ async function renderMatrixReport() {
     // Dapatkan log absensi dari localRecentLogs
     let logs = localRecentLogs || [];
 
-    // Filter log berdasarkan rentang bulan, tahun, dan pastikan HANYA LOG SISWA (memiliki NIS/NISN)
+    // Filter log berdasarkan rentang bulan, tahun, dan pastikan LOG SISWA
     const filteredLogs = logs.filter(log => {
         if (!log.tanggal) return false;
-        if (!log.nisn && !log.nis) return false; // Abaikan log presensi guru/non-siswa
+        if (!log.nisn && !log.nis && !log.nama) return false; // Abaikan log tanpa identitas
         const parts = log.tanggal.split('-');
         if (parts.length < 2) return false;
         const logYear = parseInt(parts[0]);
@@ -196,13 +196,22 @@ async function renderMatrixReport() {
         return logYear === year && logMonth >= matrixMonthStart && logMonth <= matrixMonthEnd;
     });
 
-    // Peta log absensi per SISWA dan TANGGAL: logMap[nisn/nis][tanggal] = status
+    // Peta log absensi per SISWA dan TANGGAL: logMap[key][tanggal] = status
+    // Menerapkan multi-indexing (nisn, nis, nis tanpa leading zero, nama) agar 100% selalu cocok
     const logMap = {};
     filteredLogs.forEach(log => {
-        const key = log.nisn || log.nis;
-        if (!key) return;
-        if (!logMap[key]) logMap[key] = {};
-        logMap[key][log.tanggal] = log.status;
+        const nisn = String(log.nisn || '').trim();
+        const nis = String(log.nis || '').trim();
+        const nama = String(log.nama || '').trim().toLowerCase().replace(/\s+/g, '');
+        const normNisn = nisn.replace(/^0+/, '');
+        const normNis = nis.replace(/^0+/, '');
+
+        const keys = [nisn, nis, normNisn, normNis, nama].filter(Boolean);
+
+        keys.forEach(k => {
+            if (!logMap[k]) logMap[k] = {};
+            logMap[k][log.tanggal] = log.status;
+        });
     });
 
     // Config Identitas Sekolah
@@ -217,26 +226,45 @@ async function renderMatrixReport() {
     }
 }
 
+// Helper untuk mencocokkan log siswa secara presisi
+function getStudentLogs(student, logMap) {
+    if (!student || !logMap) return {};
+    const nisn = String(student.nisn || '').trim();
+    const nis = String(student.nis || '').trim();
+    const nama = String(student.nama || '').trim().toLowerCase().replace(/\s+/g, '');
+    const normNisn = nisn.replace(/^0+/, '');
+    const normNis = nis.replace(/^0+/, '');
+
+    const foundMap = (nisn && logMap[nisn]) || 
+                     (nis && logMap[nis]) || 
+                     (normNisn && logMap[normNisn]) || 
+                     (normNis && logMap[normNis]) || 
+                     (nama && logMap[nama]) || {};
+    return foundMap;
+}
+
 async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {
     if (typeof fetchWithRetry !== 'function' || !SCRIPT_URL) return [];
     try {
         const fetchMonthStr = (mStart === mEnd) ? (mStart < 10 ? '0' + mStart : '' + mStart) : 'Semua';
-        const url = `${SCRIPT_URL}?action=get_report&bulan=${fetchMonthStr}&kelas=${encodeURIComponent(targetKelas || 'Semua')}&tanggal=Semua`;
+        let kelasParam = targetKelas || 'Semua';
+        if (kelasParam.toLowerCase() === 'semua kelas') kelasParam = 'Semua';
+
+        const url = `${SCRIPT_URL}?action=get_report&bulan=${fetchMonthStr}&kelas=${encodeURIComponent(kelasParam)}&tanggal=Semua`;
         const res = await fetchWithRetry(url, { method: 'GET' }, 1, 1000);
         if (res && res.status === 'success' && Array.isArray(res.data)) {
             const serverLogs = res.data;
-            const existingKeys = new Set((localRecentLogs || []).map(l => `${l.nisn || l.nis}_${l.tanggal}`));
-            let newAdded = false;
-            serverLogs.forEach(item => {
-                const key = `${item.nisn || item.nis}_${item.tanggal}`;
-                if (!existingKeys.has(key)) {
-                    localRecentLogs.push(item);
-                    newAdded = true;
-                }
+            const logMapTemp = new Map();
+            (localRecentLogs || []).forEach(l => {
+                const k = `${l.nisn || l.nis || l.nama}_${l.tanggal}`;
+                logMapTemp.set(k, l);
             });
-            if (newAdded) {
-                localStorage.setItem('smart_absen_recent_logs', JSON.stringify(localRecentLogs));
-            }
+            serverLogs.forEach(item => {
+                const k = `${item.nisn || item.nis || item.nama}_${item.tanggal}`;
+                logMapTemp.set(k, item);
+            });
+            localRecentLogs = Array.from(logMapTemp.values());
+            localStorage.setItem('smart_absen_recent_logs', JSON.stringify(localRecentLogs));
             return serverLogs;
         }
     } catch (e) {
@@ -362,8 +390,7 @@ function renderSingleMonthMatrix(students, logMap, month, year, targetKelas, hid
     `;
 
     students.forEach((student, index) => {
-        const studentKey = student.nisn || student.nis;
-        const studentLogs = logMap[studentKey] || {};
+        const studentLogs = getStudentLogs(student, logMap);
 
         let countH = 0, countS = 0, countI = 0, countA = 0, countT = 0;
         let dateCellsHtml = '';
@@ -561,8 +588,7 @@ function renderRangeMonthSummary(students, logMap, mStart, mEnd, year, targetKel
 
     // Render Baris Siswa
     students.forEach((student, index) => {
-        const studentKey = student.nisn || student.nis;
-        const studentLogs = logMap[studentKey] || {};
+        const studentLogs = getStudentLogs(student, logMap);
 
         let grandH = 0, grandS = 0, grandI = 0, grandA = 0, grandT = 0;
         let monthCellsHtml = '';
