@@ -33,7 +33,10 @@ function doGet(e) {
       return handleGetAllMasterData();
     }
     else if (action === 'absen_bulk') {
-      return handleAbsenBulk(e.parameter.data, e.parameter.tanggal);
+      return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
+    }
+    else if (action === 'delete_absensi_kelas') {
+      return handleDeleteAbsensiKelas(e.parameter.kelas, e.parameter.tanggal);
     }
     else if (action === 'get_report') {
       return handleGetReport(e.parameter.bulan, e.parameter.kelas, e.parameter.tanggal);
@@ -145,6 +148,9 @@ function doPost(e) {
     }
     else if (action === 'absen_bulk') {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
+    }
+    else if (action === 'delete_absensi_kelas') {
+      return handleDeleteAbsensiKelas(e.parameter.kelas, e.parameter.tanggal);
     }
     else if (action === 'add_user') {
       return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama);
@@ -695,6 +701,12 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
     } catch (e) { }
   }
 
+  // VALIDASI TANGGAL MASA DEPAN (TIDAK BOLEH LEBIH DARI HARI INI)
+  const todayStr = Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd");
+  if (targetTanggalStr > todayStr) {
+    return jsonResponse('error', `Gagal menyimpan: Presensi untuk tanggal mendatang/masa depan (${targetTanggalStr}) tidak diizinkan!`);
+  }
+
   const firstStudent = dataObj[0];
   const sampleKelas = String(firstStudent.kelas || '').trim().toLowerCase();
   const normSampleKelas = sampleKelas.replace(/[\s\-]/g, '');
@@ -753,6 +765,59 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
     : `Berhasil menyimpan absensi ${rowsToAppend.length} siswa.`;
 
   return jsonResponse('success', msgText);
+}
+
+// === HANDLER HAPUS PRESENSI PER TANGGAL BERDASARKAN KELAS ===
+function handleDeleteAbsensiKelas(targetKelas, targetTanggal) {
+  if (!targetKelas || !targetTanggal) {
+    return jsonResponse('error', 'Kelas dan Tanggal wajib ditentukan.');
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetLog = ss.getSheetByName(SHEET_LOG);
+  if (!sheetLog) {
+    return jsonResponse('error', 'Sheet LogAbsen tidak ditemukan.');
+  }
+
+  const lastRow = sheetLog.getLastRow();
+  if (lastRow <= 1) {
+    return jsonResponse('info', 'Tidak ada data presensi yang tersimpan di sheet.');
+  }
+
+  const normTargetKelas = String(targetKelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+  const targetTanggalStr = String(targetTanggal || '').trim();
+
+  const checkStart = 2;
+  const numCheck = lastRow - checkStart + 1;
+  const existingLogs = sheetLog.getRange(checkStart, 1, numCheck, 7).getValues();
+
+  let deletedCount = 0;
+
+  // Hapus dari baris terbawah ke atas agar posisi baris tidak bergeser
+  for (let i = existingLogs.length - 1; i >= 0; i--) {
+    const rawDate = existingLogs[i][0];
+    if (!rawDate) continue;
+
+    let logDateStr = '';
+    if (rawDate instanceof Date) {
+      logDateStr = getFormattedDate(rawDate);
+    } else {
+      logDateStr = String(rawDate).trim().substring(0, 10);
+    }
+
+    const logKelas = String(existingLogs[i][4] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+
+    if (logKelas === normTargetKelas && logDateStr === targetTanggalStr) {
+      sheetLog.deleteRow(checkStart + i);
+      deletedCount++;
+    }
+  }
+
+  if (deletedCount > 0) {
+    return jsonResponse('success', `Berhasil menghapus ${deletedCount} data presensi kelas ${targetKelas} pada tanggal ${targetTanggalStr}.`);
+  } else {
+    return jsonResponse('info', `Tidak ditemukan data presensi untuk kelas ${targetKelas} pada tanggal ${targetTanggalStr}.`);
+  }
 }
 
 // === ACCURATE & FULL GET REPORT (Fast Date Formatting) ===

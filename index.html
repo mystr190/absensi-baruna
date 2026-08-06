@@ -232,6 +232,7 @@
                             <option value="11-A">11-A</option>
                         </select>
                         <button class="btn-secondary" id="btnRefreshData"><i class="fa-solid fa-rotate-right"></i> Muat Data</button>
+                        <button class="btn-secondary" type="button" onclick="openModalDeleteAttendance()" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Hapus data presensi per tanggal berdasarkan kelas"><i class="fa-solid fa-trash-can"></i> Hapus Presensi Per Tanggal</button>
                     </div>
                 </div>
 
@@ -1321,6 +1322,41 @@
             </div>
 
         </main>
+    </div>
+
+    <!-- MODAL HAPUS ABSENSI PER TANGGAL & KELAS -->
+    <div id="modalDeleteAttendance" class="modal" style="display: none;">
+        <div class="modal-content glass-card" style="max-width: 480px; padding: 24px; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 1.1rem; color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Hapus Data Presensi Per Tanggal
+                </h3>
+                <button type="button" class="btn-close-modal" onclick="closeModalDeleteAttendance()" style="background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer;">&times;</button>
+            </div>
+            <p style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 16px; line-height: 1.5;">
+                Pilih kelas dan tanggal yang ingin dihapus datanya dari database Google Sheet. Tindakan ini akan menghapus seluruh rekaman presensi kelas tersebut pada tanggal yang dipilih.
+            </p>
+            <form id="formDeleteAttendance" onsubmit="handleConfirmDeleteAttendance(event)">
+                <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+                    <div>
+                        <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Pilih Kelas:</label>
+                        <select id="deleteSelectKelas" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.4); color: white; border: 1px solid var(--card-border); border-radius: 8px;" required>
+                            <option value="" disabled selected>Pilih Kelas...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Pilih Tanggal:</label>
+                        <input type="date" id="deleteInputTanggal" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.4); color: white; border: 1px solid var(--card-border); border-radius: 8px;" required>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="closeModalDeleteAttendance()" class="btn-secondary" style="padding: 9px 18px; font-size: 0.88rem;">Batal</button>
+                    <button type="submit" id="btnSubmitDeleteAttendance" class="btn-primary" style="padding: 9px 18px; font-size: 0.88rem; background: #dc2626; border: none; color: white; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-trash-can"></i> Ya, Hapus Data Presensi
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Toast Notification Element -->
