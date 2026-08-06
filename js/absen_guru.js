@@ -149,24 +149,28 @@ function renderWidgetGuruTidakHadirHariIni() {
 
     localPengajuanIzin.forEach(item => {
         if (item.status === 'Disetujui' && item.tanggal === todayStr) {
-            const kat = String(item.kategori || '').toLowerCase();
-            if (!kat.includes('tugas') && !kat.includes('dinas')) {
-                absentMap.set(item.username || item.nama, {
-                    nama: item.nama,
-                    status: item.kategori || 'IZIN',
-                    keterangan: item.keterangan || '-'
-                });
-            }
+            absentMap.set(item.username || item.nama, {
+                nama: item.nama,
+                status: item.kategori || 'IZIN',
+                keterangan: item.keterangan || '-'
+            });
         }
     });
 
     localLogAbsenGuru.forEach(item => {
-        if (item.tanggal === todayStr && item.status && item.status.toUpperCase() !== 'HADIR') {
-            const ket = String(item.keterangan || '').toLowerCase();
-            if (!ket.includes('tugas') && !ket.includes('dinas')) {
+        if (item.tanggal === todayStr && item.status) {
+            const stUpper = item.status.toUpperCase();
+            const ketLower = String(item.keterangan || '').toLowerCase();
+            const isDuty = ketLower.includes('tugas') || ketLower.includes('dinas');
+            
+            if (stUpper !== 'HADIR' || isDuty) {
+                let displayStatus = stUpper;
+                if (isDuty) {
+                    displayStatus = item.keterangan.match(/\[([^\]]+)\]/)?.[1] || 'TUGAS';
+                }
                 absentMap.set(item.username || item.nama, {
                     nama: item.nama,
-                    status: item.status.toUpperCase(),
+                    status: displayStatus,
                     keterangan: item.keterangan || '-'
                 });
             }
@@ -191,8 +195,13 @@ function renderWidgetGuruTidakHadirHariIni() {
     let html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">`;
     absentList.forEach(g => {
         let badgeColor = '#f59e0b';
-        if (g.status === 'SAKIT') badgeColor = '#ec4899';
-        else if (g.status === 'ALPHA' || g.status === 'TIDAK HADIR') badgeColor = '#ef4444';
+        const stUpper = String(g.status || '').toUpperCase();
+        const ketLower = String(g.keterangan || '').toLowerCase();
+        const isDuty = stUpper.includes('TUGAS') || stUpper.includes('DINAS') || ketLower.includes('tugas') || ketLower.includes('dinas');
+        
+        if (isDuty) badgeColor = '#38bdf8';
+        else if (stUpper === 'SAKIT') badgeColor = '#ec4899';
+        else if (stUpper === 'ALPHA' || stUpper === 'ALPA' || stUpper === 'TIDAK HADIR') badgeColor = '#ef4444';
 
         const cleanKet = cleanKeterangan(g.keterangan);
 
@@ -568,8 +577,30 @@ function renderAbsenGuruBatchTable() {
         let currentStatus = 'HADIR';
         let currentKeterangan = '';
         let hasAutoLeave = false;
+        let isDutyHadir = false;
+        let dutyCategory = '';
 
         if (approvedLeave) {
+            const katLower = String(approvedLeave.kategori || '').toLowerCase();
+            if (katLower.includes('tugas') || katLower.includes('dinas')) {
+                isDutyHadir = true;
+                dutyCategory = approvedLeave.kategori;
+            }
+        }
+        if (!isDutyHadir && existingLog) {
+            const ketLower = String(existingLog.keterangan || '').toLowerCase();
+            if (ketLower.includes('tugas') || ketLower.includes('dinas')) {
+                isDutyHadir = true;
+                dutyCategory = existingLog.keterangan.match(/\[([^\]]+)\]/)?.[1] || 'Tugas Sekolah/Luar';
+            }
+        }
+
+        if (isDutyHadir) {
+            currentStatus = 'HADIR';
+            hasAutoLeave = true;
+            const cleanKet = approvedLeave ? cleanKeterangan(approvedLeave.keterangan) : cleanKeterangan(existingLog?.keterangan || '');
+            currentKeterangan = `[${dutyCategory}] ${cleanKet}`;
+        } else if (approvedLeave) {
             currentStatus = 'TIDAK HADIR';
             hasAutoLeave = true;
             currentKeterangan = `Izin Disetujui (${approvedLeave.kategori}: ${cleanKeterangan(approvedLeave.keterangan)})`;
@@ -588,13 +619,20 @@ function renderAbsenGuruBatchTable() {
         const disabledAttr = hasAutoLeave ? 'disabled' : '';
         const cursorStyle = hasAutoLeave ? 'cursor: not-allowed; opacity: 0.75;' : 'cursor: pointer;';
 
+        let leaveBadgeHtml = '';
+        if (isDutyHadir) {
+            leaveBadgeHtml = `<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-lock"></i> ${dutyCategory} (Terkunci HADIR)</span>`;
+        } else if (hasAutoLeave) {
+            leaveBadgeHtml = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>`;
+        }
+
         html += `
             <tr data-username="${uname}" data-nama="${name}" data-role="${role}">
                 <td style="text-align: center; font-weight: 600; color: #94a3b8;">${idx + 1}</td>
                 <td style="font-weight: 600; color: #ffffff;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span><i class="fa-solid fa-user"></i> ${name}</span>
-                        ${hasAutoLeave ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>` : ''}
+                        ${leaveBadgeHtml}
                     </div>
                 </td>
                 <td><span class="badge" style="background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 500;">${role}</span></td>
@@ -736,7 +774,9 @@ function renderTableLogAbsenGuru() {
         let badgeColor = '#22c55e'; // HADIR
         const st = (item.status || 'HADIR').toUpperCase();
         const ket = (item.keterangan || '').toUpperCase();
-        if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) badgeColor = '#22c55e';
+        if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) {
+            badgeColor = (ket.includes('TUGAS') || ket.includes('DINAS')) ? '#38bdf8' : '#22c55e';
+        }
         else if (st === 'IZIN' || st === 'DINAS' || st === 'SAKIT' || st === 'CUTI') badgeColor = '#f59e0b';
         else if (st === 'ALPHA' || st === 'ALPA' || st === 'TIDAK HADIR') badgeColor = '#ef4444';
 

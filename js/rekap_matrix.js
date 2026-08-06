@@ -185,9 +185,10 @@ async function renderMatrixReport() {
     // Dapatkan log absensi dari localRecentLogs
     let logs = localRecentLogs || [];
 
-    // Filter log berdasarkan rentang bulan dan tahun
+    // Filter log berdasarkan rentang bulan, tahun, dan pastikan HANYA LOG SISWA (memiliki NIS/NISN)
     const filteredLogs = logs.filter(log => {
         if (!log.tanggal) return false;
+        if (!log.nisn && !log.nis) return false; // Abaikan log presensi guru/non-siswa
         const parts = log.tanggal.split('-');
         if (parts.length < 2) return false;
         const logYear = parseInt(parts[0]);
@@ -199,6 +200,7 @@ async function renderMatrixReport() {
     const logMap = {};
     filteredLogs.forEach(log => {
         const key = log.nisn || log.nis;
+        if (!key) return;
         if (!logMap[key]) logMap[key] = {};
         logMap[key][log.tanggal] = log.status;
     });
