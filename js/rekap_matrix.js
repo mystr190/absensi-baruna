@@ -2,6 +2,53 @@
 // REKAP ABSENSI KEHADIRAN SISWA (BULANAN & RENTANG BULAN / SEMESTER)
 // =========================================================================
 
+function parseLogYearMonthDate(dateStr) {
+    if (!dateStr) return { year: 0, month: 0, dateFormatted: '' };
+    let s = String(dateStr).trim();
+    if (s.includes('T')) s = s.split('T')[0];
+    else if (s.includes(' ')) s = s.split(' ')[0];
+
+    let year = 0, month = 0, day = 0;
+    if (s.includes('-')) {
+        const parts = s.split('-');
+        if (parts.length === 3) {
+            if (parts[0].length === 4) {
+                year = parseInt(parts[0], 10);
+                month = parseInt(parts[1], 10);
+                day = parseInt(parts[2], 10);
+            } else if (parts[2].length === 4) {
+                year = parseInt(parts[2], 10);
+                month = parseInt(parts[1], 10);
+                day = parseInt(parts[0], 10);
+            }
+        }
+    } else if (s.includes('/')) {
+        const parts = s.split('/');
+        if (parts.length === 3) {
+            if (parts[2].length === 4) {
+                year = parseInt(parts[2], 10);
+                month = parseInt(parts[0], 10);
+                day = parseInt(parts[1], 10);
+                if (month > 12) {
+                    const tmp = month;
+                    month = day;
+                    day = tmp;
+                }
+            } else if (parts[0].length === 4) {
+                year = parseInt(parts[0], 10);
+                month = parseInt(parts[1], 10);
+                day = parseInt(parts[2], 10);
+            }
+        }
+    }
+
+    const mm = month < 10 ? '0' + month : '' + month;
+    const dd = day < 10 ? '0' + day : '' + day;
+    const dateFormatted = (year > 0 && month > 0 && day > 0) ? `${year}-${mm}-${dd}` : s;
+
+    return { year, month, dateFormatted };
+}
+
 let matrixTypeState = 'single'; // 'single' atau 'range'
 let matrixMonthStart = new Date().getMonth() + 1;
 let matrixMonthEnd = new Date().getMonth() + 1;
@@ -186,20 +233,14 @@ async function renderMatrixReport() {
     let logs = localRecentLogs || [];
 
     // Filter log berdasarkan rentang bulan, tahun, dan pastikan LOG SISWA
-    const filteredLogs = logs.filter(log => {
-        if (!log.tanggal) return false;
-        if (!log.nisn && !log.nis && !log.nama) return false; // Abaikan log tanpa identitas
-        const parts = log.tanggal.split('-');
-        if (parts.length < 2) return false;
-        const logYear = parseInt(parts[0]);
-        const logMonth = parseInt(parts[1]);
-        return logYear === year && logMonth >= matrixMonthStart && logMonth <= matrixMonthEnd;
-    });
-
-    // Peta log absensi per SISWA dan TANGGAL: logMap[key][tanggal] = status
-    // Menerapkan multi-indexing (nisn, nis, nis tanpa leading zero, nama) agar 100% selalu cocok
     const logMap = {};
-    filteredLogs.forEach(log => {
+    logs.forEach(log => {
+        if (!log.tanggal) return;
+        if (!log.nisn && !log.nis && !log.nama) return; // Abaikan log tanpa identitas
+
+        const { year: logYear, month: logMonth, dateFormatted } = parseLogYearMonthDate(log.tanggal);
+        if (logYear !== year || logMonth < matrixMonthStart || logMonth > matrixMonthEnd) return;
+
         const nisn = String(log.nisn || '').trim();
         const nis = String(log.nis || '').trim();
         const nama = String(log.nama || '').trim().toLowerCase().replace(/\s+/g, '');
@@ -210,6 +251,7 @@ async function renderMatrixReport() {
 
         keys.forEach(k => {
             if (!logMap[k]) logMap[k] = {};
+            logMap[k][dateFormatted] = log.status;
             logMap[k][log.tanggal] = log.status;
         });
     });

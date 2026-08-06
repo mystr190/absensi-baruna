@@ -251,11 +251,15 @@ async function autoLoadStudents() {
 
     localRecentLogs.forEach(log => {
         const logKelas = String(log.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
-        if (logKelas === normSelectedKelas && log.tanggal === tanggal) {
+        const logDateNorm = String(log.tanggal || '').trim();
+        if (logKelas === normSelectedKelas && (logDateNorm === tanggal || logDateNorm.includes(tanggal))) {
             alreadySubmitted = true;
             submittedBy = log.petugas || 'Petugas';
             submittedTime = log.jam || '08:00';
-            if (log.nis) todayStatusMap[log.nis] = log.status || 'HADIR';
+            const status = log.status || 'HADIR';
+            if (log.nis) todayStatusMap[String(log.nis).trim()] = status;
+            if (log.nisn) todayStatusMap[String(log.nisn).trim()] = status;
+            if (log.nama) todayStatusMap[String(log.nama).trim().toLowerCase()] = status;
         }
     });
 
@@ -464,7 +468,10 @@ function renderStudentList(students, isSubmitted, todayStatusMap) {
 
     students.forEach((siswa, index) => {
         let radioButtons = '';
-        const existingStatus = todayStatusMap[siswa.nis] || 'HADIR';
+        const nisKey = String(siswa.nis || '').trim();
+        const nisnKey = String(siswa.nisn || '').trim();
+        const namaKey = String(siswa.nama || '').trim().toLowerCase();
+        const existingStatus = todayStatusMap[nisKey] || todayStatusMap[nisnKey] || todayStatusMap[namaKey] || 'HADIR';
 
         statuses.forEach(status => {
             const checked = status === existingStatus ? 'checked' : '';

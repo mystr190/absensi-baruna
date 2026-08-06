@@ -418,7 +418,7 @@ function handleGetStudents(kelas, tanggal) {
   if (sheetLog) {
     const lastRow = sheetLog.getLastRow();
     if (lastRow > 1) {
-      const startRow = Math.max(2, lastRow - 500);
+      const startRow = 2; // Scan SELURUH data log agar rekap dan status kunci absensi 100% akurat
       const numRows = lastRow - startRow + 1;
       const maxCols = Math.min(7, sheetLog.getLastColumn() || 7);
       const logData = sheetLog.getRange(startRow, 1, numRows, maxCols).getValues();
@@ -427,16 +427,8 @@ function handleGetStudents(kelas, tanggal) {
         const rawDate = logData[i][0];
         if (!rawDate) continue;
 
-        let logDateStr = '';
-        let logTimeStr = '';
-        if (rawDate instanceof Date) {
-          logDateStr = getFormattedDate(rawDate);
-          logTimeStr = getFormattedTime(rawDate);
-        } else {
-          const strVal = String(rawDate).trim();
-          logDateStr = strVal.substring(0, 10);
-          logTimeStr = strVal.length >= 19 ? strVal.substring(11, 19) : '08:00:00';
-        }
+        const logDateStr = getFormattedDate(rawDate);
+        const logTimeStr = getFormattedTime(rawDate);
 
         const logKelas = String(logData[i][4] || '').trim().toLowerCase();
         const normLogKelas = logKelas.replace(/[\s\-]/g, '');
@@ -446,9 +438,14 @@ function handleGetStudents(kelas, tanggal) {
           submittedBy = String(logData[i][6] || 'Petugas');
           submittedTime = logTimeStr;
 
-          const nis = String(logData[i][2] || '');
+          const nisn = String(logData[i][1] || '').trim();
+          const nis = String(logData[i][2] || '').trim();
+          const nama = String(logData[i][3] || '').trim().toLowerCase();
           const status = String(logData[i][5] || 'HADIR');
-          todayStatus[nis] = status;
+
+          if (nis) todayStatus[nis] = status;
+          if (nisn) todayStatus[nisn] = status;
+          if (nama) todayStatus[nama] = status;
         }
       }
     }
@@ -489,13 +486,13 @@ function handleGetAllMasterData() {
     }
   }
 
-  // 2. Ambil Log Absen Terbaru (500 baris terakhir)
+  // 2. Ambil Log Absen Terbaru (Semua baris log untuk rekap 100% lengkap)
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   let recentLogs = [];
   if (sheetLog) {
     const lastRow = sheetLog.getLastRow();
     if (lastRow > 1) {
-      const startRow = Math.max(2, lastRow - 500);
+      const startRow = 2; // Tarik seluruh log absensi agar rekap bulanan & semester terhitung sempurna
       const numRows = lastRow - startRow + 1;
       const maxCols = Math.min(7, sheetLog.getLastColumn() || 7);
       const logData = sheetLog.getRange(startRow, 1, numRows, maxCols).getValues();
@@ -504,16 +501,8 @@ function handleGetAllMasterData() {
         const rawDate = logData[i][0];
         if (!rawDate) continue;
 
-        let logDateStr = '';
-        let logTimeStr = '';
-        if (rawDate instanceof Date) {
-          logDateStr = getFormattedDate(rawDate);
-          logTimeStr = getFormattedTime(rawDate);
-        } else {
-          const strVal = String(rawDate).trim();
-          logDateStr = strVal.substring(0, 10);
-          logTimeStr = strVal.length >= 19 ? strVal.substring(11, 19) : '08:00:00';
-        }
+        const logDateStr = getFormattedDate(rawDate);
+        const logTimeStr = getFormattedTime(rawDate);
 
         recentLogs.push({
           tanggal: logDateStr,
@@ -1537,9 +1526,49 @@ function getFormattedDate(d) {
       return `${yyyy}-${mm}-${dd}`;
     }
   }
-  const str = String(d).trim();
-  if (str.includes('T')) return str.split('T')[0];
-  if (str.includes(' ')) return str.split(' ')[0];
+  
+  let str = String(d).trim();
+  if (str.includes('T')) str = str.split('T')[0];
+  else if (str.includes(' ')) str = str.split(' ')[0];
+
+  if (str.includes('/')) {
+    const parts = str.split('/');
+    if (parts.length === 3) {
+      if (parts[2].length === 4) {
+        const yyyy = parts[2];
+        const p1 = parseInt(parts[0], 10);
+        const p2 = parseInt(parts[1], 10);
+        let mm = String(p2).padStart(2, '0');
+        let dd = String(p1).padStart(2, '0');
+        if (p1 <= 12 && p2 > 12) {
+          mm = String(p1).padStart(2, '0');
+          dd = String(p2).padStart(2, '0');
+        }
+        return `${yyyy}-${mm}-${dd}`;
+      } else if (parts[0].length === 4) {
+        const yyyy = parts[0];
+        const mm = String(parseInt(parts[1], 10)).padStart(2, '0');
+        const dd = String(parseInt(parts[2], 10)).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+    }
+  } else if (str.includes('-')) {
+    const parts = str.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        const yyyy = parts[0];
+        const mm = String(parseInt(parts[1], 10)).padStart(2, '0');
+        const dd = String(parseInt(parts[2], 10)).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      } else if (parts[2].length === 4) {
+        const yyyy = parts[2];
+        const mm = String(parseInt(parts[1], 10)).padStart(2, '0');
+        const dd = String(parseInt(parts[0], 10)).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+    }
+  }
+
   return str;
 }
 
