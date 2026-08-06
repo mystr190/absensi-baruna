@@ -74,6 +74,43 @@ function initAbsenGuruEventListeners() {
             renderRekapMatrixGuru();
         });
     }
+
+    const selectTipeMode = document.getElementById('selectTipeRekapGuru');
+    const containerBulan = document.getElementById('containerFilterBulanGuru');
+    const containerRentang = document.getElementById('containerFilterRentangGuru');
+    const inputMulai = document.getElementById('inputTanggalMulaiGuru');
+    const inputSelesai = document.getElementById('inputTanggalSelesaiGuru');
+
+    if (inputMulai && !inputMulai.value) inputMulai.value = getTodayFormattedDate();
+    if (inputSelesai && !inputSelesai.value) inputSelesai.value = getTodayFormattedDate();
+
+    if (selectTipeMode) {
+        selectTipeMode.addEventListener('change', () => {
+            const val = selectTipeMode.value;
+            if (val === 'rentang') {
+                if (containerBulan) containerBulan.style.display = 'none';
+                if (containerRentang) containerRentang.style.display = 'flex';
+            } else {
+                if (containerBulan) containerBulan.style.display = 'flex';
+                if (containerRentang) containerRentang.style.display = 'none';
+            }
+            renderTableLogAbsenGuru();
+            renderRekapMatrixGuru();
+        });
+    }
+
+    if (inputMulai) {
+        inputMulai.addEventListener('change', () => {
+            renderTableLogAbsenGuru();
+            renderRekapMatrixGuru();
+        });
+    }
+    if (inputSelesai) {
+        inputSelesai.addEventListener('change', () => {
+            renderTableLogAbsenGuru();
+            renderRekapMatrixGuru();
+        });
+    }
 }
 
 function applyCachedAbsenGuruData() {
@@ -758,15 +795,39 @@ async function handleSaveAbsenGuruBatch(e) {
     }
 }
 
+function getFilteredLogsGuru() {
+    const selectTipeMode = document.getElementById('selectTipeRekapGuru');
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const inputMulai = document.getElementById('inputTanggalMulaiGuru');
+    const inputSelesai = document.getElementById('inputTanggalSelesaiGuru');
+
+    const mode = selectTipeMode ? selectTipeMode.value : 'bulanan';
+
+    if (mode === 'rentang') {
+        const tglMulai = inputMulai ? inputMulai.value : '';
+        const tglSelesai = inputSelesai ? inputSelesai.value : '';
+        if (tglMulai && tglSelesai) {
+            return localLogAbsenGuru.filter(l => l.tanggal && l.tanggal >= tglMulai && l.tanggal <= tglSelesai);
+        } else if (tglMulai) {
+            return localLogAbsenGuru.filter(l => l.tanggal && l.tanggal >= tglMulai);
+        } else if (tglSelesai) {
+            return localLogAbsenGuru.filter(l => l.tanggal && l.tanggal <= tglSelesai);
+        }
+        return localLogAbsenGuru;
+    } else {
+        const monthValue = filterBulan ? filterBulan.value : '';
+        if (monthValue) {
+            return localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
+        }
+        return localLogAbsenGuru;
+    }
+}
+
 function renderTableLogAbsenGuru() {
     const tbody = document.getElementById('tableLogAbsenGuru');
-    const filterBulan = document.getElementById('filterBulanAbsenGuru');
     if (!tbody) return;
 
-    let filtered = localLogAbsenGuru;
-    if (filterBulan && filterBulan.value) {
-        filtered = localLogAbsenGuru.filter(i => i.tanggal && i.tanggal.startsWith(filterBulan.value));
-    }
+    let filtered = getFilteredLogsGuru();
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada log presensi guru pada periode ini.</td></tr>`;
@@ -880,11 +941,8 @@ function renderRekapMatrixGuru() {
         return;
     }
 
-    // Filter log berdasarkan bulan
-    let filteredLogs = localLogAbsenGuru;
-    if (monthValue) {
-        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
-    }
+    // Filter log berdasarkan mode (Bulan / Rentang Tanggal)
+    let filteredLogs = getFilteredLogsGuru();
 
     let sumTotalHadir = 0;
     let sumTotalIzin = 0;
@@ -981,14 +1039,27 @@ function renderRekapMatrixGuru() {
 }
 
 function printRekapGuru() {
-    const filterBulan = document.getElementById('filterBulanAbsenGuru');
-    const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
-    
-    const parts = monthValue.split('-');
-    const yearStr = parts[0] || new Date().getFullYear();
-    const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
-    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const monthName = monthNames[monthIdx] || 'Bulanan';
+    const selectTipeMode = document.getElementById('selectTipeRekapGuru');
+    const mode = selectTipeMode ? selectTipeMode.value : 'bulanan';
+
+    let periodeLabel = '';
+
+    if (mode === 'rentang') {
+        const inputMulai = document.getElementById('inputTanggalMulaiGuru');
+        const inputSelesai = document.getElementById('inputTanggalSelesaiGuru');
+        const tglMulai = inputMulai ? inputMulai.value : '';
+        const tglSelesai = inputSelesai ? inputSelesai.value : '';
+        periodeLabel = `Rentang Tanggal ${getFormattedDisplayDate(tglMulai)} s/d ${getFormattedDisplayDate(tglSelesai)}`;
+    } else {
+        const filterBulan = document.getElementById('filterBulanAbsenGuru');
+        const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
+        const parts = monthValue.split('-');
+        const yearStr = parts[0] || new Date().getFullYear();
+        const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const monthName = monthNames[monthIdx] || 'Bulanan';
+        periodeLabel = `Bulan ${monthName} ${yearStr}`;
+    }
 
     // 1. Ambil Nama Sekolah dari Config Google Sheet
     let namaSekolah = '';
@@ -1030,10 +1101,7 @@ function printRekapGuru() {
         return r !== 'admin' && r !== 'administrator';
     });
 
-    let filteredLogs = localLogAbsenGuru;
-    if (monthValue) {
-        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
-    }
+    let filteredLogs = getFilteredLogsGuru();
 
     let tableRowsHtml = '';
 
@@ -1084,7 +1152,7 @@ function printRekapGuru() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${monthName} ${yearStr}</title>
+            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${periodeLabel}</title>
             <style>
                 body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 30px; }
                 .kop { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
@@ -1113,7 +1181,7 @@ function printRekapGuru() {
             </div>
 
             <div class="report-title">
-                <h3>REKAPITULASI KEHADIRAN PERIODE ${monthName.toUpperCase()} ${yearStr}</h3>
+                <h3>REKAPITULASI KEHADIRAN ${periodeLabel.toUpperCase()}</h3>
                 <p>Total Personil: ${staffList.length} Orang${holidaySubtext} | Dicetak Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
             </div>
 
@@ -1173,10 +1241,7 @@ function exportRekapGuruCSV() {
         return r !== 'admin' && r !== 'administrator';
     });
 
-    let filteredLogs = localLogAbsenGuru;
-    if (monthValue) {
-        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
-    }
+    let filteredLogs = getFilteredLogsGuru();
 
     let csvContent = "data:text/csv;charset=utf-8,No,Nama Guru / Staf,Role / Jabatan,Jumlah Hadir,Jumlah Tidak Hadir\n";
 
