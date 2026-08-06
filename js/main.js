@@ -270,23 +270,37 @@ async function autoLoadStudents() {
         }
         showToast(`Tidak ada data siswa ditemukan untuk kelas ${kelas}.`, 'warning');
     } else {
-        renderStudentList(currentStudents, currentAlreadySubmitted, currentTodayStatus);
+        renderStudentList(currentStudents, currentAlreadySubmitted && !isEditAttendanceMode, currentTodayStatus);
 
         const btnTextElem = btnSimpanAbsenKelas.querySelector('.btn-text');
-        if (currentAlreadySubmitted) {
+        if (currentAlreadySubmitted && !isEditAttendanceMode) {
             alreadySubmittedBanner.style.display = 'flex';
-            submittedBannerText.innerHTML = `Absensi kelas <strong>${kelas}</strong> pada tanggal <strong>${tanggal}</strong> sudah diinput oleh <strong>${submittedBy}</strong> (Pukul ${submittedTime}).`;
+            alreadySubmittedBanner.style.background = 'rgba(34, 197, 94, 0.1)';
+            alreadySubmittedBanner.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+            submittedBannerText.innerHTML = `
+                <span>Absensi kelas <strong>${kelas}</strong> pada tanggal <strong>${tanggal}</strong> sudah diinput oleh <strong>${submittedBy}</strong> (Pukul ${submittedTime}).</span>
+                <button type="button" onclick="enableEditAttendanceMode()" class="btn-secondary" style="margin-left: auto; padding: 6px 14px; font-size: 0.8rem; background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit Data Absensi
+                </button>
+            `;
             
             btnSimpanAbsenKelas.disabled = true;
             btnSimpanAbsenKelas.style.opacity = '0.6';
             btnSimpanAbsenKelas.style.cursor = 'not-allowed';
             if (btnTextElem) btnTextElem.innerText = 'Absensi Tanggal Ini Sudah Disimpan';
         } else {
-            alreadySubmittedBanner.style.display = 'none';
+            alreadySubmittedBanner.style.display = isEditAttendanceMode ? 'flex' : 'none';
+            if (isEditAttendanceMode) {
+                alreadySubmittedBanner.style.background = 'rgba(234, 179, 8, 0.15)';
+                alreadySubmittedBanner.style.borderColor = 'rgba(234, 179, 8, 0.4)';
+                submittedBannerText.innerHTML = `<span><strong><i class="fa-solid fa-pen"></i> Mode Edit Absensi Aktif:</strong> Silakan sesuaikan status siswa lalu klik tombol simpan di bawah.</span>`;
+            }
             btnSimpanAbsenKelas.disabled = false;
             btnSimpanAbsenKelas.style.opacity = '1';
             btnSimpanAbsenKelas.style.cursor = 'pointer';
-            if (btnTextElem) btnTextElem.innerText = `Simpan Absensi Kelas (${tanggal})`;
+            if (btnTextElem) {
+                btnTextElem.innerText = isEditAttendanceMode ? `Update / Simpan Perubahan Absensi (${tanggal})` : `Simpan Absensi Kelas (${tanggal})`;
+            }
         }
 
         showToast(`⚡ ${filteredStudents.length} siswa kelas ${kelas} siap.`, 'info');
@@ -295,12 +309,41 @@ async function autoLoadStudents() {
     if (studentListContainer) studentListContainer.style.display = 'block';
 }
 
-// Pasang Event Listener Otomatis saat Kelas atau Tanggal Berubah
+let isEditAttendanceMode = false;
+
+window.enableEditAttendanceMode = function() {
+    isEditAttendanceMode = true;
+    renderStudentList(currentStudents, false, currentTodayStatus);
+    
+    if (btnSimpanAbsenKelas) {
+        btnSimpanAbsenKelas.disabled = false;
+        btnSimpanAbsenKelas.style.opacity = '1';
+        btnSimpanAbsenKelas.style.cursor = 'pointer';
+        const btnTextElem = btnSimpanAbsenKelas.querySelector('.btn-text');
+        const tanggal = inputTanggalAbsen ? inputTanggalAbsen.value : '';
+        if (btnTextElem) btnTextElem.innerText = `Update / Simpan Perubahan Absensi (${tanggal})`;
+    }
+
+    if (alreadySubmittedBanner && submittedBannerText) {
+        alreadySubmittedBanner.style.display = 'flex';
+        alreadySubmittedBanner.style.background = 'rgba(234, 179, 8, 0.15)';
+        alreadySubmittedBanner.style.borderColor = 'rgba(234, 179, 8, 0.4)';
+        submittedBannerText.innerHTML = `<span><strong><i class="fa-solid fa-pen"></i> Mode Edit Absensi Aktif:</strong> Silakan sesuaikan status siswa lalu klik tombol simpan di bawah.</span>`;
+    }
+
+    showToast("✏️ Mode Edit aktif: Anda dapat mengubah status presensi siswa.", "info");
+};
+
+// Reset edit mode saat kelas/tanggal diganti
 if (pilihKelas) {
-    pilihKelas.addEventListener('change', autoLoadStudents);
+    pilihKelas.addEventListener('change', () => {
+        isEditAttendanceMode = false;
+        autoLoadStudents();
+    });
 }
 if (inputTanggalAbsen) {
     inputTanggalAbsen.addEventListener('change', () => {
+        isEditAttendanceMode = false;
         if (pilihKelas && pilihKelas.value) {
             autoLoadStudents();
         }
@@ -352,10 +395,10 @@ function renderStudentList(students, isSubmitted, todayStatusMap) {
 let isSavingAttendance = false;
 
 // ----------------------------------------------------
-// FUNGSI SIMPAN ABSEN MASSAL (CEGAH SIMPAN GANDA & RETRY BERLEBIHAN)
+// FUNGSI SIMPAN ABSEN MASSAL (CEGAH SIMPAN GANDA & SUPPORT EDIT)
 // ----------------------------------------------------
 btnSimpanAbsenKelas.addEventListener('click', async () => {
-    if (currentStudents.length === 0 || currentAlreadySubmitted || isSavingAttendance) return;
+    if (currentStudents.length === 0 || (currentAlreadySubmitted && !isEditAttendanceMode) || isSavingAttendance) return;
 
     isSavingAttendance = true; // Kunci proses simpan agar tidak bisa diklik berulang kali
 
@@ -397,7 +440,6 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
         formData.append('tanggal', tanggalAbsen);
         formData.append('data', JSON.stringify(bulkData));
 
-        // PENTING: Gunakan retries = 0 saat SIMPAN agar request tidak dikirim 2x jika ada hambatan jaringan
         const result = await fetchWithRetry(SCRIPT_URL, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -407,7 +449,14 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
         if (result && result.status === 'success') {
             showToast("✅ " + result.message, 'success');
             
-            // Push ke localRecentLogs agar UI langsung ter-update
+            // Hapus log lama kelas ini pada tanggal ini dari localRecentLogs (agar tidak ada duplikat di lokal)
+            const sampleK = String(currentStudents[0]?.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+            localRecentLogs = localRecentLogs.filter(log => {
+                const logK = String(log.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+                return !(logK === sampleK && log.tanggal === tanggalAbsen);
+            });
+
+            // Push log absensi terbaru hasil update
             const nowTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
             bulkData.forEach(item => {
                 localRecentLogs.push({
@@ -425,7 +474,8 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
 
             if (typeof invalidateReportCache === 'function') invalidateReportCache();
 
-            // Update UI lokal instan
+            // Matikan mode edit dan refresh tampilan
+            isEditAttendanceMode = false;
             autoLoadStudents();
 
         } else {
