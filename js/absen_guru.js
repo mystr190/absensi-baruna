@@ -562,69 +562,63 @@ function renderAbsenGuruBatchTable() {
         return;
     }
 
+    // Filter out guru yang SUDAH memiliki pengajuan izin / tugas disetujui pada tanggal terpilih
+    const visibleStaff = [];
+    let hiddenCount = 0;
+
+    staffList.forEach(staff => {
+        const uname = staff.username || '';
+        const name = staff.namaLengkap || staff.nama || uname;
+
+        // Cek pengajuan izin disetujui untuk tanggal terpilih
+        const approvedLeave = localPengajuanIzin.find(p => p.status === 'Disetujui' && p.tanggal === selectedDate && (p.username === uname || p.nama === name));
+        
+        // Cek log presensi otomatis pengajuan izin (AG-APP)
+        const appLog = localLogAbsenGuru.find(l => l.tanggal === selectedDate && (l.username === uname || l.nama === name) && (String(l.id || '').startsWith('AG-APP') || String(l.keterangan || '').toLowerCase().includes('izin disetujui')));
+
+        if (approvedLeave || appLog) {
+            hiddenCount++;
+        } else {
+            visibleStaff.push(staff);
+        }
+    });
+
+    if (visibleStaff.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 40px 20px; background: rgba(59, 130, 246, 0.04); border-radius: 12px; border: 1px dashed rgba(59, 130, 246, 0.2);">
+                    <div style="font-size: 2.2rem; margin-bottom: 8px;"><i class="fa-solid fa-circle-check" style="color: #60a5fa;"></i></div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: #60a5fa; margin-bottom: 6px;">Seluruh Guru & Staf Sudah Punya Catatan Izin / Tugas</div>
+                    <div style="color: #cbd5e1; font-size: 0.88rem; max-width: 540px; margin: 0 auto;">
+                        Seluruh <strong>${hiddenCount} Guru / Staf</strong> pada tanggal <strong>${getFormattedDisplayDate(selectedDate)}</strong> telah memiliki data Pengajuan Izin / Tugas Sekolah yang disetujui dan tersimpan otomatis. Tidak ada data yang perlu diabsen manual.
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
     let html = '';
-    staffList.forEach((staff, idx) => {
+    visibleStaff.forEach((staff, idx) => {
         const uname = staff.username || '';
         const name = staff.namaLengkap || staff.nama || uname;
         const role = staff.role || 'Guru';
 
-        // Cek log presensi yang sudah tersimpan untuk tanggal terpilih
+        // Cek log presensi manual yang sudah tersimpan untuk tanggal terpilih
         const existingLog = localLogAbsenGuru.find(l => l.tanggal === selectedDate && (l.username === uname || l.nama === name));
-
-        // Cek pengajuan izin disetujui untuk tanggal terpilih
-        const approvedLeave = localPengajuanIzin.find(p => p.status === 'Disetujui' && p.tanggal === selectedDate && (p.username === uname || p.nama === name));
 
         let currentStatus = 'HADIR';
         let currentKeterangan = '';
-        let hasAutoLeave = false;
-        let isDutyHadir = false;
-        let dutyCategory = '';
 
-        if (approvedLeave) {
-            const katLower = String(approvedLeave.kategori || '').toLowerCase();
-            if (katLower.includes('tugas') || katLower.includes('dinas')) {
-                isDutyHadir = true;
-                dutyCategory = approvedLeave.kategori;
-            }
-        }
-        if (!isDutyHadir && existingLog) {
-            const ketLower = String(existingLog.keterangan || '').toLowerCase();
-            if (ketLower.includes('tugas') || ketLower.includes('dinas')) {
-                isDutyHadir = true;
-                dutyCategory = existingLog.keterangan.match(/\[([^\]]+)\]/)?.[1] || 'Tugas Sekolah/Luar';
-            }
-        }
-
-        if (isDutyHadir) {
-            currentStatus = 'HADIR';
-            hasAutoLeave = true;
-            const cleanKet = approvedLeave ? cleanKeterangan(approvedLeave.keterangan) : cleanKeterangan(existingLog?.keterangan || '');
-            currentKeterangan = `[${dutyCategory}] ${cleanKet}`;
-        } else if (approvedLeave) {
-            currentStatus = 'TIDAK HADIR';
-            hasAutoLeave = true;
-            currentKeterangan = `Izin Disetujui (${approvedLeave.kategori}: ${cleanKeterangan(approvedLeave.keterangan)})`;
-        } else if (existingLog) {
+        if (existingLog) {
             currentStatus = (existingLog.status || 'HADIR').toUpperCase();
             if (currentStatus !== 'HADIR' && currentStatus !== 'TIDAK HADIR') {
                 currentStatus = 'TIDAK HADIR';
             }
             currentKeterangan = cleanKeterangan(existingLog.keterangan || '');
-            if (existingLog.keterangan && (existingLog.keterangan.toLowerCase().includes('izin') || existingLog.id.startsWith('AG-APP'))) {
-                hasAutoLeave = true;
-            }
         }
 
         const isHadir = (currentStatus === 'HADIR');
-        const disabledAttr = hasAutoLeave ? 'disabled' : '';
-        const cursorStyle = hasAutoLeave ? 'cursor: not-allowed; opacity: 0.75;' : 'cursor: pointer;';
-
-        let leaveBadgeHtml = '';
-        if (isDutyHadir) {
-            leaveBadgeHtml = `<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-lock"></i> ${dutyCategory} (Terkunci HADIR)</span>`;
-        } else if (hasAutoLeave) {
-            leaveBadgeHtml = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>`;
-        }
 
         html += `
             <tr data-username="${uname}" data-nama="${name}" data-role="${role}">
@@ -632,26 +626,36 @@ function renderAbsenGuruBatchTable() {
                 <td style="font-weight: 600; color: #ffffff;">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span><i class="fa-solid fa-user"></i> ${name}</span>
-                        ${leaveBadgeHtml}
                     </div>
                 </td>
                 <td><span class="badge" style="background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 500;">${role}</span></td>
                 <td style="text-align: center;">
-                    <div style="display: inline-flex; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); gap: 4px; ${hasAutoLeave ? 'opacity: 0.8;' : ''}">
-                        <label style="${cursorStyle} padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: all 0.2s ease; ${isHadir ? 'background: #16a34a; color: white; box-shadow: 0 2px 8px rgba(22,163,74,0.4);' : 'color: #94a3b8;'}">
-                            <input type="radio" name="status_absen_${idx}" value="HADIR" ${isHadir ? 'checked' : ''} ${disabledAttr} onchange="toggleRadioStyle(this)" style="display: none;"> <i class="fa-solid fa-check"></i> HADIR
+                    <div style="display: inline-flex; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); gap: 4px;">
+                        <label style="cursor: pointer; padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: all 0.2s ease; ${isHadir ? 'background: #16a34a; color: white; box-shadow: 0 2px 8px rgba(22,163,74,0.4);' : 'color: #94a3b8;'}">
+                            <input type="radio" name="status_absen_${idx}" value="HADIR" ${isHadir ? 'checked' : ''} onchange="toggleRadioStyle(this)" style="display: none;"> <i class="fa-solid fa-check"></i> HADIR
                         </label>
-                        <label style="${cursorStyle} padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: all 0.2s ease; ${!isHadir ? 'background: #dc2626; color: white; box-shadow: 0 2px 8px rgba(220,38,38,0.4);' : 'color: #94a3b8;'}">
-                            <input type="radio" name="status_absen_${idx}" value="TIDAK HADIR" ${!isHadir ? 'checked' : ''} ${disabledAttr} onchange="toggleRadioStyle(this)" style="display: none;"> <i class="fa-solid fa-xmark"></i> TIDAK HADIR
+                        <label style="cursor: pointer; padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: all 0.2s ease; ${!isHadir ? 'background: #dc2626; color: white; box-shadow: 0 2px 8px rgba(220,38,38,0.4);' : 'color: #94a3b8;'}">
+                            <input type="radio" name="status_absen_${idx}" value="TIDAK HADIR" ${!isHadir ? 'checked' : ''} onchange="toggleRadioStyle(this)" style="display: none;"> <i class="fa-solid fa-xmark"></i> TIDAK HADIR
                         </label>
                     </div>
                 </td>
                 <td>
-                    <input type="text" class="styled-input input-keterangan-batch" value="${currentKeterangan}" placeholder="Catatan presensi..." ${disabledAttr} style="padding: 8px 12px; font-size: 0.85rem; ${hasAutoLeave ? 'opacity: 0.75; cursor: not-allowed; background: rgba(255,255,255,0.04);' : ''}">
+                    <input type="text" class="styled-input input-keterangan-batch" value="${currentKeterangan}" placeholder="Catatan presensi..." style="padding: 8px 12px; font-size: 0.85rem;">
                 </td>
             </tr>
         `;
     });
+
+    if (hiddenCount > 0) {
+        html += `
+            <tr>
+                <td colspan="5" style="padding: 10px 16px; background: rgba(59, 130, 246, 0.08); border-top: 1px solid rgba(59, 130, 246, 0.2); color: #93c5fd; font-size: 0.82rem; text-align: left;">
+                    <i class="fa-solid fa-circle-info" style="color: #60a5fa; margin-right: 6px;"></i>
+                    <strong>Catatan:</strong> <strong>${hiddenCount} Guru/Staf</strong> disembunyikan dari form ini karena telah memiliki Pengajuan Izin / Tugas yang disetujui pada tanggal ini untuk mencegah duplikasi data.
+                </td>
+            </tr>
+        `;
+    }
 
     tbody.innerHTML = html;
 }
