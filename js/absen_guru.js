@@ -117,6 +117,56 @@ function initAbsenGuruEventListeners() {
     }
 }
 
+function normalizeDateToYYYYMMDD(dateStr) {
+    if (!dateStr) return '';
+    const str = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        return str.substring(0, 10);
+    }
+    const parts = str.split(/[\/\.-]/);
+    if (parts.length === 3) {
+        if (parts[2].length === 4) {
+            const dd = parts[0].padStart(2, '0');
+            const mm = parts[1].padStart(2, '0');
+            const yyyy = parts[2];
+            return `${yyyy}-${mm}-${dd}`;
+        }
+    }
+    return str;
+}
+
+function getAllStaffList() {
+    let users = [];
+    if (window.allTeachers && Array.isArray(window.allTeachers) && window.allTeachers.length > 0) {
+        users = window.allTeachers;
+    }
+    if (!users || users.length === 0) {
+        const keys = ['smart_absen_users_cache', 'smart_absen_teachers', 'smart_absen_users', 'smart_absen_guru_list'];
+        for (const k of keys) {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(k) || '[]');
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    users = parsed;
+                    break;
+                }
+            } catch(e) {}
+        }
+    }
+
+    if (!users || users.length === 0) {
+        users = [
+            { username: 'guru1', namaLengkap: 'Bapak Budi, S.Pd', role: 'Guru' },
+            { username: 'tu1', namaLengkap: 'Staf Tata Usaha', role: 'Tata Usaha' },
+            { username: 'kepsek', namaLengkap: 'Kepala Sekolah', role: 'Kepala Sekolah' }
+        ];
+    }
+
+    return users.filter(u => {
+        const r = String(u.role || '').trim().toLowerCase();
+        return r !== 'admin' && r !== 'administrator';
+    });
+}
+
 function getFilteredGuruLogs() {
     const filterMode = document.getElementById('filterModeAbsenGuru');
     const filterBulan = document.getElementById('filterBulanAbsenGuru');
@@ -126,19 +176,26 @@ function getFilteredGuruLogs() {
     const mode = filterMode ? filterMode.value : 'bulan';
 
     if (mode === 'rentang' && filterStart && filterEnd) {
-        const startVal = filterStart.value;
-        const endVal = filterEnd.value;
-        if (startVal && endVal) {
-            return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal >= startVal && i.tanggal <= endVal);
-        } else if (startVal) {
-            return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal >= startVal);
-        } else if (endVal) {
-            return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal <= endVal);
+        const startVal = filterStart ? filterStart.value : '';
+        const endVal = filterEnd ? filterEnd.value : '';
+        if (startVal || endVal) {
+            return localLogAbsenGuru.filter(i => {
+                const norm = normalizeDateToYYYYMMDD(i.tanggal);
+                if (!norm) return false;
+                if (startVal && endVal) return norm >= startVal && norm <= endVal;
+                if (startVal) return norm >= startVal;
+                if (endVal) return norm <= endVal;
+                return true;
+            });
         }
     }
 
     if (filterBulan && filterBulan.value) {
-        return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal.startsWith(filterBulan.value));
+        const monthVal = filterBulan.value;
+        return localLogAbsenGuru.filter(i => {
+            const norm = normalizeDateToYYYYMMDD(i.tanggal);
+            return norm && norm.startsWith(monthVal);
+        });
     }
 
     return localLogAbsenGuru;
@@ -165,6 +222,7 @@ function getFilteredGuruPeriodLabel() {
     }
 
     return `Seluruh Periode`;
+}
 
 function applyCachedAbsenGuruData() {
     renderIzinGuruPanel();
@@ -635,29 +693,7 @@ function renderAbsenGuruBatchTable() {
     if (btnHadir) btnHadir.disabled = false;
     if (btnTidakHadir) btnTidakHadir.disabled = false;
 
-    // Ambil daftar seluruh user dari database / cache / fallback
-    let users = [];
-    if (window.allTeachers && window.allTeachers.length > 0) {
-        users = window.allTeachers;
-    } else {
-        const cachedUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]');
-        users = cachedUsers;
-    }
-
-    // Jika belum ada cache sama sekali (initial load), gunakan default staff fallback
-    if (!users || users.length === 0) {
-        users = [
-            { username: 'guru1', namaLengkap: 'Bapak Budi, S.Pd', role: 'Guru' },
-            { username: 'tu1', namaLengkap: 'Staf Tata Usaha', role: 'Tata Usaha' },
-            { username: 'kepsek', namaLengkap: 'Kepala Sekolah', role: 'Kepala Sekolah' }
-        ];
-    }
-
-    // Filter pengguna: Seluruh data user KECUALI Administrator (role 'Admin' atau 'Administrator')
-    const staffList = users.filter(u => {
-        const r = String(u.role || '').trim().toLowerCase();
-        return r !== 'admin' && r !== 'administrator';
-    });
+    const staffList = getAllStaffList();
 
     if (staffList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada data pengguna (selain Administrator) yang terdaftar.</td></tr>`;
@@ -946,26 +982,7 @@ function renderRekapMatrixGuru() {
 
     const monthValue = filterBulan ? filterBulan.value : '';
 
-    // Ambil daftar seluruh user dari database / cache / fallback
-    let users = [];
-    if (window.allTeachers && window.allTeachers.length > 0) {
-        users = window.allTeachers;
-    } else {
-        users = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]');
-    }
-
-    if (!users || users.length === 0) {
-        users = [
-            { username: 'guru1', namaLengkap: 'Bapak Budi, S.Pd', role: 'Guru' },
-            { username: 'tu1', namaLengkap: 'Staf Tata Usaha', role: 'Tata Usaha' },
-            { username: 'kepsek', namaLengkap: 'Kepala Sekolah', role: 'Kepala Sekolah' }
-        ];
-    }
-
-    const staffList = users.filter(u => {
-        const r = String(u.role || '').trim().toLowerCase();
-        return r !== 'admin' && r !== 'administrator';
-    });
+    const staffList = getAllStaffList();
 
     if (staffList.length === 0) {
         tbodyMatrix.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada data Guru / Staf terdaftar.</td></tr>`;
@@ -985,8 +1002,18 @@ function renderRekapMatrixGuru() {
         const name = staff.namaLengkap || staff.nama || uname;
         const role = staff.role || 'Guru';
 
-        // Filter log milik staff ini di bulan terpilih
-        const userLogs = filteredLogs.filter(l => (l.username === uname || l.nama === name));
+        const normUname = String(uname).trim().toLowerCase();
+        const normName = String(name).trim().toLowerCase();
+
+        // Filter log milik staff ini
+        const userLogs = filteredLogs.filter(l => {
+            const logUname = String(l.username || '').trim().toLowerCase();
+            const logName = String(l.nama || '').trim().toLowerCase();
+            if (normUname && logUname && normUname === logUname) return true;
+            if (normName && logName && normName === logName) return true;
+            if (normName && logName && (normName.includes(logName) || logName.includes(normName))) return true;
+            return false;
+        });
 
         let hadirCount = 0;
         let izinCount = 0;
