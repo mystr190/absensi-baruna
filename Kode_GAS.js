@@ -101,6 +101,9 @@ function doGet(e) {
     else if (action === 'save_all_students') {
       return handleSaveAllStudents(e.parameter.data, e.parameter.mode);
     }
+    else if (action === 'delete_attendance_class') {
+      return handleDeleteAttendanceByDateAndClass(e.parameter.tanggal, e.parameter.kelas);
+    }
 
     return jsonResponse('success', 'API Active');
   } catch (err) {
@@ -184,6 +187,9 @@ function doPost(e) {
     }
     else if (action === 'reject_pengajuan_izin') {
       return handleRejectPengajuanIzin(e.parameter.id, e.parameter.approver);
+    }
+    else if (action === 'delete_attendance_class') {
+      return handleDeleteAttendanceByDateAndClass(e.parameter.tanggal, e.parameter.kelas);
     }
 
     return jsonResponse('error', 'Action tidak ditemukan.');
@@ -699,6 +705,11 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
   const sampleKelas = String(firstStudent.kelas || '').trim().toLowerCase();
   const normSampleKelas = sampleKelas.replace(/[\s\-]/g, '');
 
+  const todayStr = getFormattedDate(now);
+  if (targetTanggalStr > todayStr) {
+    return jsonResponse('error', `Gagal menyimpan: Tidak dapat melakukan absensi untuk tanggal yang belum terjadi (${targetTanggalStr}).`);
+  }
+
   const lastRow = sheetLog.getLastRow();
   let updatedCount = 0;
 
@@ -753,6 +764,49 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
     : `Berhasil menyimpan absensi ${rowsToAppend.length} siswa.`;
 
   return jsonResponse('success', msgText);
+}
+
+// === HANDLER HAPUS ABSENSI PER KELAS & TANGGAL (PEMBERSIHAN DATA MASA DEPAN / ANOMALI) ===
+function handleDeleteAttendanceByDateAndClass(tanggal, targetKelas) {
+  try {
+    if (!tanggal || !targetKelas) {
+      return jsonResponse('error', 'Tanggal dan Kelas wajib diisi.');
+    }
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (!sheetLog) {
+      return jsonResponse('error', 'Sheet LogAbsen tidak ditemukan.');
+    }
+
+    const normTargetKelas = String(targetKelas).trim().toLowerCase().replace(/[\s\-]/g, '');
+    const targetTanggalStr = getFormattedDate(tanggal);
+
+    const lastRow = sheetLog.getLastRow();
+    let deletedCount = 0;
+
+    if (lastRow > 1) {
+      const data = sheetLog.getRange(2, 1, lastRow - 1, 7).getValues();
+      for (let i = data.length - 1; i >= 0; i--) {
+        const rawDate = data[i][0];
+        if (!rawDate) continue;
+
+        let logDateStr = '';
+        if (rawDate instanceof Date) logDateStr = getFormattedDate(rawDate);
+        else logDateStr = String(rawDate).trim().substring(0, 10);
+
+        const logKelas = String(data[i][4] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+
+        if (logDateStr === targetTanggalStr && logKelas === normTargetKelas) {
+          sheetLog.deleteRow(i + 2);
+          deletedCount++;
+        }
+      }
+    }
+
+    return jsonResponse('success', `Berhasil menghapus ${deletedCount} data absensi kelas ${targetKelas} pada tanggal ${targetTanggalStr}.`);
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menghapus data absensi: ' + err.toString());
+  }
 }
 
 // === ACCURATE & FULL GET REPORT (Fast Date Formatting) ===
