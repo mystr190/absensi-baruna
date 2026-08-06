@@ -63,7 +63,34 @@ function initAbsenGuruEventListeners() {
         btnExportGuru.addEventListener('click', exportRekapGuruCSV);
     }
 
+    const filterMode = document.getElementById('filterModeAbsenGuru');
     const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const filterStart = document.getElementById('filterStartDateGuru');
+    const filterEnd = document.getElementById('filterEndDateGuru');
+    const containerBulan = document.getElementById('containerFilterBulanGuru');
+    const containerRentang = document.getElementById('containerFilterRentangGuru');
+
+    if (filterMode) {
+        filterMode.addEventListener('change', () => {
+            if (filterMode.value === 'rentang') {
+                if (containerBulan) containerBulan.style.display = 'none';
+                if (containerRentang) containerRentang.style.display = 'inline-flex';
+                if (filterStart && !filterStart.value) {
+                    const now = new Date();
+                    filterStart.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                }
+                if (filterEnd && !filterEnd.value) {
+                    filterEnd.value = getTodayFormattedDate();
+                }
+            } else {
+                if (containerBulan) containerBulan.style.display = 'inline-flex';
+                if (containerRentang) containerRentang.style.display = 'none';
+            }
+            renderTableLogAbsenGuru();
+            renderRekapMatrixGuru();
+        });
+    }
+
     if (filterBulan) {
         const today = new Date();
         const yyyy = today.getFullYear();
@@ -74,7 +101,70 @@ function initAbsenGuruEventListeners() {
             renderRekapMatrixGuru();
         });
     }
+
+    if (filterStart) {
+        filterStart.addEventListener('change', () => {
+            renderTableLogAbsenGuru();
+            renderRekapMatrixGuru();
+        });
+    }
+
+    if (filterEnd) {
+        filterEnd.addEventListener('change', () => {
+            renderTableLogAbsenGuru();
+            renderRekapMatrixGuru();
+        });
+    }
 }
+
+function getFilteredGuruLogs() {
+    const filterMode = document.getElementById('filterModeAbsenGuru');
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const filterStart = document.getElementById('filterStartDateGuru');
+    const filterEnd = document.getElementById('filterEndDateGuru');
+
+    const mode = filterMode ? filterMode.value : 'bulan';
+
+    if (mode === 'rentang' && filterStart && filterEnd) {
+        const startVal = filterStart.value;
+        const endVal = filterEnd.value;
+        if (startVal && endVal) {
+            return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal >= startVal && i.tanggal <= endVal);
+        } else if (startVal) {
+            return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal >= startVal);
+        } else if (endVal) {
+            return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal <= endVal);
+        }
+    }
+
+    if (filterBulan && filterBulan.value) {
+        return localLogAbsenGuru.filter(i => i.tanggal && i.tanggal.startsWith(filterBulan.value));
+    }
+
+    return localLogAbsenGuru;
+}
+
+function getFilteredGuruPeriodLabel() {
+    const filterMode = document.getElementById('filterModeAbsenGuru');
+    const filterBulan = document.getElementById('filterBulanAbsenGuru');
+    const filterStart = document.getElementById('filterStartDateGuru');
+    const filterEnd = document.getElementById('filterEndDateGuru');
+
+    const mode = filterMode ? filterMode.value : 'bulan';
+
+    if (mode === 'rentang' && filterStart && filterEnd && filterStart.value && filterEnd.value) {
+        return `Rentang ${getFormattedDisplayDate(filterStart.value)} s/d ${getFormattedDisplayDate(filterEnd.value)}`;
+    }
+
+    if (filterBulan && filterBulan.value) {
+        const parts = filterBulan.value.split('-');
+        const yearStr = parts[0] || new Date().getFullYear();
+        const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        return `Bulan ${monthNames[monthIdx] || filterBulan.value} ${yearStr}`;
+    }
+
+    return `Seluruh Periode`;
 
 function applyCachedAbsenGuruData() {
     renderIzinGuruPanel();
@@ -589,25 +679,47 @@ function renderAbsenGuruBatchTable() {
         let currentStatus = 'HADIR';
         let currentKeterangan = '';
         let hasAutoLeave = false;
+        let leaveBadgeHtml = '';
 
         if (approvedLeave) {
-            currentStatus = 'TIDAK HADIR';
             hasAutoLeave = true;
-            currentKeterangan = `Izin Disetujui (${approvedLeave.kategori}: ${cleanKeterangan(approvedLeave.keterangan)})`;
+            const rawKat = String(approvedLeave.kategori || '').trim().toLowerCase();
+            const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
+
+            if (isDutyHadir) {
+                currentStatus = 'HADIR';
+                currentKeterangan = `[${approvedLeave.kategori}] ${cleanKeterangan(approvedLeave.keterangan)}`;
+                leaveBadgeHtml = `<span class="badge" style="background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.5); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-briefcase"></i> ${approvedLeave.kategori} (Hadir - Locked)</span>`;
+            } else {
+                currentStatus = 'TIDAK HADIR';
+                currentKeterangan = `Izin Disetujui (${approvedLeave.kategori}: ${cleanKeterangan(approvedLeave.keterangan)})`;
+                leaveBadgeHtml = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>`;
+            }
         } else if (existingLog) {
             currentStatus = (existingLog.status || 'HADIR').toUpperCase();
-            if (currentStatus !== 'HADIR' && currentStatus !== 'TIDAK HADIR') {
+            const ketUpper = String(existingLog.keterangan || '').toUpperCase();
+            const isDutyHadir = ketUpper.includes('TUGAS') || ketUpper.includes('DINAS');
+
+            if (isDutyHadir) {
+                currentStatus = 'HADIR';
+            } else if (currentStatus !== 'HADIR' && currentStatus !== 'TIDAK HADIR') {
                 currentStatus = 'TIDAK HADIR';
             }
             currentKeterangan = cleanKeterangan(existingLog.keterangan || '');
+
             if (existingLog.keterangan && (existingLog.keterangan.toLowerCase().includes('izin') || existingLog.id.startsWith('AG-APP'))) {
                 hasAutoLeave = true;
+                if (isDutyHadir) {
+                    leaveBadgeHtml = `<span class="badge" style="background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.5); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-briefcase"></i> Tugas Luar / Dinas (Hadir - Locked)</span>`;
+                } else {
+                    leaveBadgeHtml = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>`;
+                }
             }
         }
 
         const isHadir = (currentStatus === 'HADIR');
         const disabledAttr = hasAutoLeave ? 'disabled' : '';
-        const cursorStyle = hasAutoLeave ? 'cursor: not-allowed; opacity: 0.75;' : 'cursor: pointer;';
+        const cursorStyle = hasAutoLeave ? 'cursor: not-allowed; opacity: 0.85;' : 'cursor: pointer;';
 
         html += `
             <tr data-username="${uname}" data-nama="${name}" data-role="${role}">
@@ -615,12 +727,12 @@ function renderAbsenGuruBatchTable() {
                 <td style="font-weight: 600; color: #ffffff;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span><i class="fa-solid fa-user"></i> ${name}</span>
-                        ${hasAutoLeave ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;"><i class="fa-solid fa-envelope"></i> Ada Pengajuan Izin (Locked)</span>` : ''}
+                        ${leaveBadgeHtml}
                     </div>
                 </td>
                 <td><span class="badge" style="background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 500;">${role}</span></td>
                 <td style="text-align: center;">
-                    <div style="display: inline-flex; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); gap: 4px; ${hasAutoLeave ? 'opacity: 0.8;' : ''}">
+                    <div style="display: inline-flex; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); gap: 4px; ${hasAutoLeave ? 'opacity: 0.9;' : ''}">
                         <label style="${cursorStyle} padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: all 0.2s ease; ${isHadir ? 'background: #16a34a; color: white; box-shadow: 0 2px 8px rgba(22,163,74,0.4);' : 'color: #94a3b8;'}">
                             <input type="radio" name="status_absen_${idx}" value="HADIR" ${isHadir ? 'checked' : ''} ${disabledAttr} onchange="toggleRadioStyle(this)" style="display: none;"> <i class="fa-solid fa-check"></i> HADIR
                         </label>
@@ -630,7 +742,7 @@ function renderAbsenGuruBatchTable() {
                     </div>
                 </td>
                 <td>
-                    <input type="text" class="styled-input input-keterangan-batch" value="${currentKeterangan}" placeholder="Catatan presensi..." ${disabledAttr} style="padding: 8px 12px; font-size: 0.85rem; ${hasAutoLeave ? 'opacity: 0.75; cursor: not-allowed; background: rgba(255,255,255,0.04);' : ''}">
+                    <input type="text" class="styled-input input-keterangan-batch" value="${currentKeterangan}" placeholder="Catatan presensi..." ${disabledAttr} style="padding: 8px 12px; font-size: 0.85rem; ${hasAutoLeave ? 'opacity: 0.85; cursor: not-allowed; background: rgba(255,255,255,0.04);' : ''}">
                 </td>
             </tr>
         `;
@@ -689,6 +801,7 @@ async function handleSaveAbsenGuruBatch(e) {
         return;
     }
 
+    const isEditFlag = isEditAbsenGuruBatchMode ? 'true' : 'false';
     const batchData = [];
 
     rows.forEach(tr => {
@@ -719,17 +832,23 @@ async function handleSaveAbsenGuruBatch(e) {
 
     localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
 
+    const wasEditMode = isEditAbsenGuruBatchMode;
     isEditAbsenGuruBatchMode = false;
     renderAbsenGuruBatchTable();
     renderTableLogAbsenGuru();
+    renderRekapMatrixGuru();
     renderWidgetGuruTidakHadirHariIni();
 
-    showToast(`💾 Berhasil menyimpan presensi kolektif untuk ${batchData.length} Guru & Staf!`, 'success');
+    showToast(wasEditMode ? `✏️ Berhasil memperbarui presensi ${batchData.length} Guru & Staf!` : `💾 Berhasil menyimpan presensi kolektif ${batchData.length} Guru & Staf!`, 'success');
 
     try {
         const payload = encodeURIComponent(JSON.stringify(batchData));
-        await fetchWithRetry(`${SCRIPT_URL}?action=add_absen_guru&data=${payload}`, { method: 'POST' }, 2, 800);
-        syncAbsenGuruDataFromServer();
+        const res = await fetchWithRetry(`${SCRIPT_URL}?action=add_absen_guru&data=${payload}&is_edit=${isEditFlag}`, { method: 'POST' }, 2, 800);
+        if (res && res.status === 'error') {
+            showToast(res.message || "Gagal menyimpan ke server.", 'error');
+        } else {
+            syncAbsenGuruDataFromServer();
+        }
     } catch (err) {
         console.warn("Backend sync batch absen guru postponed.");
     } finally {
@@ -739,16 +858,12 @@ async function handleSaveAbsenGuruBatch(e) {
 
 function renderTableLogAbsenGuru() {
     const tbody = document.getElementById('tableLogAbsenGuru');
-    const filterBulan = document.getElementById('filterBulanAbsenGuru');
     if (!tbody) return;
 
-    let filtered = localLogAbsenGuru;
-    if (filterBulan && filterBulan.value) {
-        filtered = localLogAbsenGuru.filter(i => i.tanggal && i.tanggal.startsWith(filterBulan.value));
-    }
+    let filtered = getFilteredGuruLogs();
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada log presensi guru pada periode ini.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada log presensi guru pada periode/rentang ini.</td></tr>`;
         return;
     }
 
@@ -857,11 +972,8 @@ function renderRekapMatrixGuru() {
         return;
     }
 
-    // Filter log berdasarkan bulan
-    let filteredLogs = localLogAbsenGuru;
-    if (monthValue) {
-        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
-    }
+    // Filter log berdasarkan mode (Bulan atau Rentang Tanggal)
+    let filteredLogs = getFilteredGuruLogs();
 
     let sumTotalHadir = 0;
     let sumTotalIzin = 0;
@@ -958,15 +1070,8 @@ function renderRekapMatrixGuru() {
 }
 
 function printRekapGuru() {
-    const filterBulan = document.getElementById('filterBulanAbsenGuru');
-    const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
+    const periodLabel = getFilteredGuruPeriodLabel();
     
-    const parts = monthValue.split('-');
-    const yearStr = parts[0] || new Date().getFullYear();
-    const monthIdx = parseInt(parts[1] || (new Date().getMonth() + 1)) - 1;
-    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const monthName = monthNames[monthIdx] || 'Bulanan';
-
     // 1. Ambil Nama Sekolah dari Config Google Sheet
     let namaSekolah = '';
     try {
@@ -1007,10 +1112,7 @@ function printRekapGuru() {
         return r !== 'admin' && r !== 'administrator';
     });
 
-    let filteredLogs = localLogAbsenGuru;
-    if (monthValue) {
-        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
-    }
+    let filteredLogs = getFilteredGuruLogs();
 
     let tableRowsHtml = '';
 
@@ -1061,7 +1163,7 @@ function printRekapGuru() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${monthName} ${yearStr}</title>
+            <title>Cetak Rekapitulasi Presensi Guru & Staf - ${periodLabel}</title>
             <style>
                 body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 30px; }
                 .kop { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
@@ -1090,8 +1192,8 @@ function printRekapGuru() {
             </div>
 
             <div class="report-title">
-                <h3>REKAPITULASI KEHADIRAN PERIODE ${monthName.toUpperCase()} ${yearStr}</h3>
-                <p>Total Personil: ${staffList.length} Orang${holidaySubtext} | Dicetak Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
+                <h3>LAPORAN REKAPITULASI KEHADIRAN GURU & STAF</h3>
+                <p><strong>${periodLabel.toUpperCase()}</strong> | Total Personil: ${staffList.length} Orang | Dicetak Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
             </div>
 
             <table>
@@ -1136,8 +1238,7 @@ function printRekapGuru() {
 }
 
 function exportRekapGuruCSV() {
-    const filterBulan = document.getElementById('filterBulanAbsenGuru');
-    const monthValue = filterBulan ? filterBulan.value : getTodayFormattedDate().substring(0, 7);
+    const periodLabel = getFilteredGuruPeriodLabel();
 
     let users = [];
     if (window.allTeachers && window.allTeachers.length > 0) {
@@ -1150,10 +1251,7 @@ function exportRekapGuruCSV() {
         return r !== 'admin' && r !== 'administrator';
     });
 
-    let filteredLogs = localLogAbsenGuru;
-    if (monthValue) {
-        filteredLogs = localLogAbsenGuru.filter(l => l.tanggal && l.tanggal.startsWith(monthValue));
-    }
+    let filteredLogs = getFilteredGuruLogs();
 
     let csvContent = "data:text/csv;charset=utf-8,No,Nama Guru / Staf,Role / Jabatan,Jumlah Hadir,Jumlah Tidak Hadir\n";
 
@@ -1167,7 +1265,8 @@ function exportRekapGuruCSV() {
 
         userLogs.forEach(l => {
             const st = String(l.status || '').toUpperCase();
-            if (st === 'HADIR') hadirCount++;
+            const ket = String(l.keterangan || '').toUpperCase();
+            if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) hadirCount++;
             else tidakHadirCount++;
         });
 
@@ -1177,7 +1276,7 @@ function exportRekapGuruCSV() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Rekap_Kehadiran_Guru_${monthValue || 'Semua'}.csv`);
+    link.setAttribute("download", `Rekap_Kehadiran_Guru_${periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

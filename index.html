@@ -952,13 +952,28 @@
                 <div class="styled-card" id="cardRekapGuruArea">
                     <div class="styled-card-header" style="flex-wrap: wrap; gap: 15px;">
                         <div class="styled-card-title">
-                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-chart-column"></i></span> Rekapitulasi Kehadiran Guru & Staf (Bulanan)
+                            <span style="font-size: 1.2rem;"><i class="fa-solid fa-chart-column"></i></span> Rekapitulasi Kehadiran Guru & Staf
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <div class="styled-form-group" style="flex-direction: row; align-items: center; gap: 8px;">
-                                <label class="styled-label" style="white-space: nowrap;"><i class="fa-solid fa-calendar-days"></i> Periode Bulan:</label>
-                                <input type="month" id="filterBulanAbsenGuru" class="styled-input" style="padding: 8px 14px; font-size: 0.88rem; width: auto;">
+                            <div class="styled-form-group" style="flex-direction: row; align-items: center; gap: 6px;">
+                                <label class="styled-label" style="white-space: nowrap;"><i class="fa-solid fa-filter"></i> Mode Filter:</label>
+                                <select id="filterModeAbsenGuru" class="styled-select" style="padding: 8px 12px; font-size: 0.85rem; width: auto; background: rgba(15, 23, 42, 0.8); cursor: pointer;">
+                                    <option value="bulan">Per Periode Bulan</option>
+                                    <option value="rentang">Per Rentang Tanggal</option>
+                                </select>
                             </div>
+
+                            <div id="containerFilterBulanGuru" class="styled-form-group" style="flex-direction: row; align-items: center; gap: 6px;">
+                                <label class="styled-label" style="white-space: nowrap;"><i class="fa-solid fa-calendar-days"></i> Bulan:</label>
+                                <input type="month" id="filterBulanAbsenGuru" class="styled-input" style="padding: 8px 12px; font-size: 0.88rem; width: auto;">
+                            </div>
+
+                            <div id="containerFilterRentangGuru" style="display: none; align-items: center; gap: 6px;">
+                                <input type="date" id="filterStartDateGuru" class="styled-input" style="padding: 8px 10px; font-size: 0.88rem; width: auto;" title="Tanggal Mulai">
+                                <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: bold;">s/d</span>
+                                <input type="date" id="filterEndDateGuru" class="styled-input" style="padding: 8px 10px; font-size: 0.88rem; width: auto;" title="Tanggal Selesai">
+                            </div>
+
                             <button type="button" id="btnPrintRekapGuru" class="btn-secondary" style="padding: 8px 16px; font-size: 0.84rem; background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-print"></i> Cetak / Print PDF</button>
                             <button type="button" id="btnExportRekapGuru" class="btn-secondary" style="padding: 8px 16px; font-size: 0.84rem; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4);"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
                             <button type="button" id="btnRefreshAbsenGuru" class="btn-secondary" style="padding: 8px 14px; font-size: 0.84rem; border-radius: 10px;"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
