@@ -331,13 +331,38 @@ function doPost(e) {
   }
 }
 
+// Helper Pastikan Header Kolom Users & Device Sesuai Format (Auto-Fix Columns)
+function ensureUserColumns() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_USERS);
+  if (!sheet) return;
+
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, 7).setValues([['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram']]);
+    return;
+  }
+
+  const headers = sheet.getRange(1, 1, 1, Math.max(7, sheet.getLastColumn())).getValues()[0];
+  if (!headers[5] || headers[5].toString().trim() === '') sheet.getRange(1, 6).setValue('ID_Mesin');
+  if (!headers[6] || headers[6].toString().trim() === '') sheet.getRange(1, 7).setValue('ID_Telegram');
+}
+
+function ensureDeviceUserIdColumns() {
+  ensureUserColumns();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa && sheetSiswa.getLastRow() > 0) {
+    const headers = sheetSiswa.getRange(1, 1, 1, Math.max(7, sheetSiswa.getLastColumn())).getValues()[0];
+    if (!headers[5] || headers[5].toString().trim() === '') sheetSiswa.getRange(1, 6).setValue('ID_Mesin');
+    if (!headers[6] || headers[6].toString().trim() === '') sheetSiswa.getRange(1, 7).setValue('ID_Telegram');
+  }
+}
+
 // Helper Ambil Data Pengguna / User
 function getUsersFromCacheOrSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return [];
-
-  ensureUserColumns();
 
   const data = sheet.getDataRange().getValues();
   let users = [];
@@ -370,11 +395,16 @@ function handleLogin(username, password) {
   const users = getUsersFromCacheOrSheet();
 
   for (let i = 0; i < users.length; i++) {
-    if (users[i].username === u && users[i].password === p) {
-      return jsonResponse('success', 'Berhasil', {
+    const userU = String(users[i].username || '').trim();
+    const userP = String(users[i].password || '').trim();
+
+    if (userU.toLowerCase() === u.toLowerCase() && userP === p) {
+      return jsonResponse('success', 'Berhasil login', {
         username: users[i].username,
         role: users[i].role,
-        nama: users[i].nama
+        nama: users[i].nama,
+        id_mesin: users[i].id_mesin || '',
+        id_telegram: users[i].id_telegram || ''
       });
     }
   }

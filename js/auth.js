@@ -197,7 +197,9 @@ if (formLogin) {
                 const userData = {
                     username: result.data.username,
                     nama: result.data.nama,
-                    role: result.data.role
+                    role: result.data.role,
+                    id_mesin: result.data.id_mesin || '',
+                    id_telegram: result.data.id_telegram || ''
                 };
                 localStorage.setItem('smart_absen_user', JSON.stringify(userData));
                 
