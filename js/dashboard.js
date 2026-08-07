@@ -81,11 +81,8 @@ async function loadDashboardData(forceRefresh = false) {
 
     const cacheKey = `${tanggal}_${bulan}_${kelas}`;
 
-    if (forceRefresh) {
-        localStorage.removeItem('smart_absen_recent_logs');
-        invalidateReportCache();
-        rawReportData = [];
-    } else if (reportCache[cacheKey]) {
+    // Gunakan cache jika sudah pernah dimuat dan tidak dipaksa refresh (0ms response)
+    if (!forceRefresh && reportCache[cacheKey]) {
         rawReportData = reportCache[cacheKey];
         renderMatrixTable(rawReportData);
         updateStatsAndChart(rawReportData);

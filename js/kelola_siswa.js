@@ -40,11 +40,6 @@ function initKelolaSiswaEvents() {
     if (btnCancelAdd) btnCancelAdd.addEventListener('click', closeModalSiswa);
     if (formSingle) formSingle.addEventListener('submit', handleSaveStudentSingle);
 
-    const btnSyncLogs = document.getElementById('btnSyncAllLogIdentity');
-    if (btnSyncLogs) {
-        btnSyncLogs.addEventListener('click', handleSyncAllStudentLogIdentities);
-    }
-
     // Modal Import Excel
     const btnOpenImport = document.getElementById('btnOpenModalImportExcel');
     const btnCloseImport = document.getElementById('btnCloseModalImport');
@@ -375,10 +370,10 @@ async function handleSaveStudentSingle(e) {
 // 3. HAPUS SISWA SATUAN
 async function confirmDeleteStudent(nis, nisn, nama) {
     const confirmed = await showCustomConfirm({
-        title: 'Hapus Siswa & Seluruh History?',
-        message: `Apakah Anda yakin ingin menghapus siswa <strong>"${nama}"</strong> (${nis || nisn}) dari database sekolah?<br><br><span style="color:#f87171; font-size:0.85rem;"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Peringatan:</strong> Seluruh riwayat presensi, log pelanggaran, dan rekaman data mesin milik siswa ini akan <strong>di-hapus bersih secara permanen</strong>.</span>`,
+        title: 'Hapus Data Siswa?',
+        message: `Apakah Anda yakin ingin menghapus siswa <strong>"${nama}"</strong> (${nis || nisn}) dari database sekolah?`,
         icon: 'danger',
-        confirmText: 'Ya, Hapus Permanen',
+        confirmText: 'Ya, Hapus Siswa',
         cancelText: 'Batal',
         danger: true
     });
@@ -659,45 +654,4 @@ function escapeHtml(str) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-}
-
-async function handleSyncAllStudentLogIdentities() {
-    const confirmed = await showCustomConfirm({
-        title: 'Sinkronkan Ulang Identitas Log?',
-        message: 'Apakah Anda yakin ingin menyinkronkan seluruh riwayat log presensi dan pelanggaran sesuai data NISN, NIS, Nama, dan Kelas terbaru dari DataSiswa?',
-        icon: 'info',
-        confirmText: 'Ya, Sinkronkan Sekarang',
-        cancelText: 'Batal'
-    });
-
-    if (!confirmed) return;
-
-    const btnSync = document.getElementById('btnSyncAllLogIdentity');
-    let oldHtml = '';
-    if (btnSync) {
-        oldHtml = btnSync.innerHTML;
-        btnSync.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyinkronkan...`;
-        btnSync.disabled = true;
-    }
-
-    try {
-        const url = `${SCRIPT_URL}?action=sync_student_logs_identity`;
-        const res = await fetchWithRetry(url, { method: 'GET' });
-
-        if (res && res.status === 'success') {
-            showToast(res.message || 'Identitas log berhasil disinkronkan!', 'success');
-            if (typeof clearMatrixLocalLogsCache === 'function') clearMatrixLocalLogsCache();
-            if (typeof loadDashboardData === 'function') loadDashboardData(true);
-            if (typeof renderMatrixReport === 'function') renderMatrixReport();
-        } else {
-            showToast(res ? res.message : 'Gagal menyinkronkan log', 'error');
-        }
-    } catch (err) {
-        showToast('Error: ' + err.message, 'error');
-    } finally {
-        if (btnSync) {
-            btnSync.innerHTML = oldHtml;
-            btnSync.disabled = false;
-        }
-    }
 }
