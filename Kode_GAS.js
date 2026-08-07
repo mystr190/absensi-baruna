@@ -114,8 +114,14 @@ function doGet(e) {
     else if (action === 'set_telegram_webhook') {
       return handleSetTelegramWebhook(e.parameter.url_script);
     }
+    else if (action === 'delete_telegram_webhook' || action === 'disable_telegram_webhook') {
+      return handleDeleteTelegramWebhook();
+    }
     else if (action === 'send_telegram_broadcast') {
       return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
+    }
+    else if (action === 'update_self_profile') {
+      return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
     }
     else if (action === 'get_device_users') {
       return handleGetDeviceUsers();
@@ -146,11 +152,46 @@ function doPost(e) {
       try {
         const updateData = JSON.parse(e.postData.contents);
         if (updateData && updateData.message && updateData.message.chat) {
+          // Abaikan pesan dari bot lain untuk mencegah loop
+          if (updateData.message.from && updateData.message.from.is_bot) {
+            return ContentService.createTextOutput("OK");
+          }
+
+          // DEDUP PRESISI TINGGI: Gunakan CacheService dengan update_id & message_id agar TIDAK BISA BALAS BERULANG
+          const cache = CacheService.getScriptCache();
+          const updateId = updateData.update_id;
+          const msgId = updateData.message.message_id;
+          const chatId = updateData.message.chat.id;
+          const dedupeKey = 'tg_dedup_' + (updateId || (chatId + '_' + msgId));
+
+          if (cache.get(dedupeKey)) {
+            // Pesan ini SUDAH DIPROSES/DIBALAS sebelumnya! Abaikan dan langsung kirim HTTP OK!
+            return ContentService.createTextOutput("OK");
+          }
+
+          // Simpan key dedup di cache (valid selama 6 jam)
+          try {
+            cache.put(dedupeKey, '1', 21600);
+          } catch (cErr) {}
+
           const msgText = String(updateData.message.text || '').trim();
+
+          // PERINTAH /stop: Hapus antrean Telegram dan Non-Aktifkan Webhook Balasan Otomatis
+          if (msgText === '/stop') {
+            const stopMsg = `🛑 <b>AUTO-REPLY TELEGRAM DINONAKTIFKAN</b>\n\n` +
+              `Seluruh antrean pesan di server Telegram telah dibersihkan. Bot tidak akan membalas ID otomatis lagi.\n\n` +
+              `<i>Ketik /start atau aktifkan dari Web App jika ingin mengaktifkannya kembali di kemudian hari.</i>`;
+            
+            try {
+              sendTelegramNotification(chatId, stopMsg);
+              handleDeleteTelegramWebhook(); // Hapus Webhook & Drop Pending Updates di Telegram Server
+            } catch (errStop) {}
+
+            return ContentService.createTextOutput("OK");
+          }
           
-          // HANYA RESPONS JIKA PENGGUNA MENGIRIM PERINTAH /start, /id, ATAU /help
-          if (msgText.indexOf('/start') === 0 || msgText.indexOf('/id') === 0 || msgText.indexOf('/help') === 0) {
-            const chatId = updateData.message.chat.id;
+          // HANYA RESPONS JIKA PENGGUNA MENGIRIM TEKS PERSIS /start, /id, ATAU /help
+          if (msgText === '/start' || msgText === '/id' || msgText === '/help') {
             const senderName = updateData.message.from ? (updateData.message.from.first_name || 'Pengguna') : 'Pengguna';
             
             const replyMsg = `<b>SISTEM INFORMASI & PRESENSI DIGITAL</b>\n\n` +
@@ -158,15 +199,20 @@ function doPost(e) {
               `ID Telegram Anda adalah:\n` +
               `<code>${chatId}</code>\n\n` +
               `<blockquote>Salin angka ID di atas dan daftarkan pada data profil Anda di sistem presensi.</blockquote>\n\n` +
-              `<i>— Bot Respon Otomatis</i>`;
+              `<i>— Bot Respon Otomatis (Ketik /stop jika ingin menghentikan)</i>`;
             
-            sendTelegramNotification(chatId, replyMsg);
+            try {
+              sendTelegramNotification(chatId, replyMsg);
+            } catch (sendErr) {
+              Logger.log("Error sending Telegram reply: " + sendErr.toString());
+            }
           }
-          
-          // Selalu kembalikan respon OK ke Telegram Webhook agar Telegram TIDAK mengulang-ulang (retry loop)
-          return ContentService.createTextOutput("OK");
         }
-      } catch(err) {}
+      } catch(err) {
+        Logger.log("Error parsing Telegram Webhook: " + err.toString());
+      }
+      // SELALU KEMBALIKAN HTTP OK KEPADA TELEGRAM AGAR TELEGRAM TIDAK MENGULANGI (RETRY LOOP)
+      return ContentService.createTextOutput("OK");
     }
 
     if (action === 'login') {
@@ -175,8 +221,14 @@ function doPost(e) {
     else if (action === 'set_telegram_webhook') {
       return handleSetTelegramWebhook(e.parameter.url_script);
     }
+    else if (action === 'delete_telegram_webhook' || action === 'disable_telegram_webhook') {
+      return handleDeleteTelegramWebhook();
+    }
     else if (action === 'send_telegram_broadcast') {
       return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
+    }
+    else if (action === 'update_self_profile') {
+      return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
     }
     else if (action === 'get_device_users') {
       return handleGetDeviceUsers();
@@ -906,9 +958,14 @@ function handleGetReport(bulanFilter, kelasFilter, tanggalFilter) {
 
   const targetBulan = String(bulanFilter || 'Semua').trim();
   const rawKelas = String(kelasFilter || 'Semua').trim().toLowerCase();
-  const targetTanggal = String(tanggalFilter || 'Semua').trim();
+  let targetTanggal = String(tanggalFilter || '').trim();
 
-  const startRow = Math.max(2, lastRow - 5000);
+  // JIKA TANGGAL TIDAK DITENTUKAN ATAU KOSONG, DEFAULT KE HARI BERJALAN (TODAY)
+  if (!targetTanggal || targetTanggal === 'today' || targetTanggal === 'Hari Ini') {
+    targetTanggal = getFormattedDate(new Date());
+  }
+
+  const startRow = 2;
   const numRows = lastRow - startRow + 1;
   const data = sheetLog.getRange(startRow, 1, numRows, 7).getValues();
 
@@ -2258,7 +2315,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan, namaMesin) {
     }
 
     // Jika belum ada mapping, tetap catat ke sheet User_Mesin sebagai Unmapped
-    recordUserMesinActivity(ss, cleanPin, cleanNamaMesin, 'Belum Diisi (' + cleanPin + ')', 'Unmapped', '-', '-', fullTimestampStr);
+    recordUserMesinActivity(ss, cleanPin, cleanNamaMesin, '', '-', '-', '-', fullTimestampStr);
 
     return jsonResponse('error', `ID Mesin / PIN [${cleanPin}] dari Solution X902 belum dicocokkan dengan data Siswa atau Guru di database.`);
 
@@ -2372,17 +2429,39 @@ function handleSetTelegramWebhook(webAppUrl) {
     return jsonResponse('error', 'URL Web App tidak valid atau belum diisi.');
   }
 
-  const webhookUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(activeUrl)}`;
+  // Gunakan drop_pending_updates=true untuk MEMBUANG SELURUH ANTREAN PESAN STUCK DI TELEGRAM
+  const webhookUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(activeUrl)}&drop_pending_updates=true`;
   try {
     const res = UrlFetchApp.fetch(webhookUrl, { muteHttpExceptions: true });
     const resObj = JSON.parse(res.getContentText());
     if (resObj && resObj.ok) {
-      return jsonResponse('success', '✅ Auto-Reply Bot Telegram BERHASIL Diaktifkan! Sekarang pengguna cukup chat /start ke Bot Sekolah untuk mendapatkan ID Telegram mereka.', resObj);
+      return jsonResponse('success', '✅ Auto-Reply Bot Telegram BERHASIL Diaktifkan & Antrean Pesan Lama Dihapus! Sekarang pengguna cukup chat /start ke Bot Sekolah untuk mendapatkan ID Telegram mereka.', resObj);
     } else {
       return jsonResponse('error', `Gagal mengaktifkan Webhook: ${resObj.description || res.getContentText()}`, resObj);
     }
   } catch(e) {
     return jsonResponse('error', 'Error Webhook: ' + e.toString());
+  }
+}
+
+// === HANDLER NON-AKTIFKAN AUTO-REPLY TELEGRAM ===
+function handleDeleteTelegramWebhook() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let botToken = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN') || getConfigObject(ss).telegramBotToken;
+  if (!botToken) {
+    return jsonResponse('error', 'Token Bot Telegram belum diisi!');
+  }
+  const deleteUrl = `https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=true`;
+  try {
+    const res = UrlFetchApp.fetch(deleteUrl, { muteHttpExceptions: true });
+    const resObj = JSON.parse(res.getContentText());
+    if (resObj && resObj.ok) {
+      return jsonResponse('success', '🛑 Auto-Reply Bot Telegram BERHASIL Dinonaktifkan & Antrean Pesan Dihapus!', resObj);
+    } else {
+      return jsonResponse('error', `Gagal menghapus Webhook: ${resObj.description || res.getContentText()}`, resObj);
+    }
+  } catch(e) {
+    return jsonResponse('error', 'Error Delete Webhook: ' + e.toString());
   }
 }
 
@@ -2558,16 +2637,20 @@ function recordUserMesinActivity(ss, idMesin, namaMesin, namaDB, tipe, kelasRole
       }
     }
     
-    const finalNamaMesin = namaMesin || existingNamaMesin || namaDB || `User ${cleanId}`;
-    const isMapped = (tipe && tipe !== 'Unmapped' && tipe !== 'Belum Diketahui');
+    // NAMA MESIN BENAR-BENAR HANYA DARI MESIN (TIDAK DIAMBIL DARI DATA GURU/SISWA)
+    const finalNamaMesin = (namaMesin && namaMesin !== '-') 
+      ? namaMesin 
+      : (existingNamaMesin && existingNamaMesin !== '-' ? existingNamaMesin : '-');
+      
+    const isMapped = (tipe && tipe !== 'Unmapped' && tipe !== 'Belum Diketahui' && tipe !== '-');
     const statusMapping = isMapped ? 'Terhubung ✅' : 'Belum Dihubungkan ⚠️';
     const newTotal = existingTotal + 1;
     
     if (foundRow > 1) {
       sheet.getRange(foundRow, 2, 1, 8).setValues([[
         finalNamaMesin,
-        namaDB || 'Belum Diisi',
-        tipe || 'Unmapped',
+        namaDB || '',
+        tipe || '-',
         kelasRole || '-',
         idTelegram || '-',
         scanTimestamp || Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss"),
@@ -2578,8 +2661,8 @@ function recordUserMesinActivity(ss, idMesin, namaMesin, namaDB, tipe, kelasRole
       sheet.appendRow([
         cleanId,
         finalNamaMesin,
-        namaDB || 'Belum Diisi',
-        tipe || 'Unmapped',
+        namaDB || '',
+        tipe || '-',
         kelasRole || '-',
         idTelegram || '-',
         scanTimestamp || Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss"),
@@ -2603,7 +2686,7 @@ function handleGetDeviceUsers() {
       result.push({
         id_mesin: String(data[i][0]).trim(),
         nama_mesin: String(data[i][1] || '-').trim(),
-        nama: String(data[i][2] || '-').trim(),
+        nama: String(data[i][2] || '').trim(),
         tipe: String(data[i][3] || '-').trim(),
         kelas_role: String(data[i][4] || '-').trim(),
         id_telegram: String(data[i][5] || '-').trim(),
@@ -2659,74 +2742,61 @@ function handleSyncDeviceUsers() {
     }
   }
 
-  // 3. AMBIL PURE DATA DARI MESIN (Sheet User_Mesin + Log Scan Mesin)
+  // 3. AMBIL SELURUH BARIS USER MESIN YANG SUDAH TERDAFTAR / TERSIMPAN DARI MESIN (TERMASUK UNMAPPED)
   const rawMesinData = sheetMesin.getDataRange().getValues();
-  let pureDeviceMap = new Map();
+  let deviceMap = new Map();
 
-  // 3a. Ambil PIN & Nama_Mesin yang sudah pernah tercatat di Sheet User_Mesin
   for (let i = 1; i < rawMesinData.length; i++) {
     const pin = String(rawMesinData[i][0] || '').trim();
     if (pin) {
-      pureDeviceMap.set(pin, {
-        nama_mesin: String(rawMesinData[i][1] || '').trim(),
-        scan_terakhir: String(rawMesinData[i][6] || '').trim(),
+      deviceMap.set(pin, {
+        nama_mesin: String(rawMesinData[i][1] || '-').trim(),
+        scan_terakhir: String(rawMesinData[i][6] || '-').trim(),
         total_scan: parseInt(rawMesinData[i][7]) || 0
       });
     }
   }
 
-  // 3b. Ambil PIN yang pernah scan dari Sheet LogAbsen Siswa
-  const sheetLog = ss.getSheetByName(SHEET_LOG);
-  if (sheetLog && sheetLog.getLastRow() > 1) {
-    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
-    for (let i = 0; i < logData.length; i++) {
-      const waktu = String(logData[i][0] || '').trim();
-      const nisn = String(logData[i][1] || '').trim();
-      const nis = String(logData[i][2] || '').trim();
-      const pin = nis || nisn;
-      if (pin) {
-        if (!pureDeviceMap.has(pin)) {
-          pureDeviceMap.set(pin, { nama_mesin: '', scan_terakhir: waktu, total_scan: 1 });
-        } else {
-          const item = pureDeviceMap.get(pin);
-          item.total_scan = (item.total_scan || 0) + 1;
-          if (waktu) item.scan_terakhir = waktu;
-        }
+  // 4. JUGA MASUKKAN PIN SISWA & GURU YANG MEMILIKI ID_MESIN DI DATABASE SISWA / GURU (JIKA ADA)
+  if (sheetSiswa) {
+    const sData = sheetSiswa.getDataRange().getValues();
+    for (let i = 1; i < sData.length; i++) {
+      const idMesin = String(sData[i][5] || '').trim();
+      if (idMesin && !deviceMap.has(idMesin)) {
+        deviceMap.set(idMesin, {
+          nama_mesin: '-',
+          scan_terakhir: 'Terdaftar di DB',
+          total_scan: 0
+        });
       }
     }
   }
 
-  // 3c. Ambil PIN yang pernah scan dari Sheet LogAbsen Guru
-  const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
-  if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
-    const logGuruData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 8).getValues();
-    for (let i = 0; i < logGuruData.length; i++) {
-      const waktu = String(logGuruData[i][1] || '').trim();
-      const username = String(logGuruData[i][3] || '').trim();
-      if (username) {
-        if (!pureDeviceMap.has(username)) {
-          pureDeviceMap.set(username, { nama_mesin: '', scan_terakhir: waktu, total_scan: 1 });
-        } else {
-          const item = pureDeviceMap.get(username);
-          item.total_scan = (item.total_scan || 0) + 1;
-          if (waktu) item.scan_terakhir = waktu;
-        }
+  if (sheetUsers) {
+    const uData = sheetUsers.getDataRange().getValues();
+    for (let i = 1; i < uData.length; i++) {
+      const idMesin = String(uData[i][5] || '').trim();
+      if (idMesin && !deviceMap.has(idMesin)) {
+        deviceMap.set(idMesin, {
+          nama_mesin: '-',
+          scan_terakhir: 'Terdaftar di DB',
+          total_scan: 0
+        });
       }
     }
   }
 
-  // 4. Bersihkan Sheet User_Mesin dan Tulis Ulang HANYA PURE DATA MESIN
+  // 5. BERSIHKAN DAN TULIS ULANG SHEET USER_MESIN
   if (sheetMesin.getLastRow() > 1) {
     sheetMesin.getRange(2, 1, sheetMesin.getLastRow() - 1, 9).clearContent();
   }
 
   let rowsToAppend = [];
-  pureDeviceMap.forEach((meta, pin) => {
+  deviceMap.forEach((meta, pin) => {
     let matched = siswaMap.get(pin) || usersMap.get(pin);
 
-    // Jika COCOK dengan Database: Isikan detailnya
-    // Jika TIDAK COCOK dengan Database: Biarkan kosong untuk nama_db, tipe, dll.
-    const namaMesin = meta.nama_mesin || '-';
+    // NAMA MESIN MURNI DARI MESIN (TIDAK BOLEH MENGAMBIL DARI NAMA SISWA/GURU)
+    const namaMesin = (meta.nama_mesin && meta.nama_mesin !== '') ? meta.nama_mesin : '-';
     const namaDB = matched ? matched.nama : '';
     const tipe = matched ? matched.tipe : '-';
     const kelasRole = matched ? (matched.kelas || matched.role || '-') : '-';
@@ -2753,4 +2823,145 @@ function handleSyncDeviceUsers() {
   }
 
   return handleGetDeviceUsers();
+}
+
+// === HANDLER PERBARUI PROFIL MANDIRI GURU, TU, KEPSEK & ADMIN (CASCADE UPDATE) ===
+function handleUpdateSelfProfile(oldUsername, username, password, nama, id_mesin, id_telegram) {
+  const oldU = String(oldUsername || '').trim().toLowerCase();
+  const newU = String(username || '').trim();
+  const newNama = String(nama || '').trim();
+  const newPass = String(password || '').trim();
+  const newIdMesin = String(id_mesin || '').trim();
+  const newIdTelegram = String(id_telegram || '').trim();
+
+  if (!oldU || !newU || !newNama) {
+    return jsonResponse('error', 'Username lama, Username baru, dan Nama Lengkap wajib diisi.');
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (!sheetUsers) return jsonResponse('error', 'Sheet Users tidak ditemukan.');
+
+  ensureUserColumns();
+
+  const uData = sheetUsers.getDataRange().getValues();
+  let userRowIndex = -1;
+  let oldNama = '';
+  let userRole = '';
+
+  // 1. Cari user lama dan cegah duplikasi username jika username diubah
+  for (let i = 1; i < uData.length; i++) {
+    const curU = String(uData[i][1] || '').trim().toLowerCase();
+    if (curU === oldU) {
+      userRowIndex = i + 1;
+      oldNama = String(uData[i][4] || '').trim();
+      userRole = String(uData[i][3] || '').trim();
+    }
+  }
+
+  if (userRowIndex === -1) {
+    return jsonResponse('error', 'Data pengguna tidak ditemukan di database.');
+  }
+
+  if (oldU !== newU.toLowerCase()) {
+    for (let i = 1; i < uData.length; i++) {
+      const curU = String(uData[i][1] || '').trim().toLowerCase();
+      if (curU === newU.toLowerCase()) {
+        return jsonResponse('error', `Username "${newU}" sudah digunakan oleh pengguna lain.`);
+      }
+    }
+  }
+
+  // 2. Perbarui data di SHEET_USERS
+  sheetUsers.getRange(userRowIndex, 2).setValue(newU); // Username
+  if (newPass) sheetUsers.getRange(userRowIndex, 3).setValue(newPass); // Password (jika diisi)
+  sheetUsers.getRange(userRowIndex, 5).setValue(newNama); // NamaLengkap
+  sheetUsers.getRange(userRowIndex, 6).setValue(newIdMesin); // ID_Mesin
+  sheetUsers.getRange(userRowIndex, 7).setValue(newIdTelegram); // ID_Telegram
+
+  // 3. CASCADE UPDATE KE SELURUH SHEET TERHUBUNG DI DATABASE
+
+  // A. LogAbsen (Petugas)
+  const sheetLog = ss.getSheetByName(SHEET_LOG);
+  if (sheetLog && sheetLog.getLastRow() > 1) {
+    const logData = sheetLog.getRange(2, 7, sheetLog.getLastRow() - 1, 1).getValues();
+    const oldUClean = oldU;
+    const oldNamaClean = oldNama.toLowerCase();
+
+    for (let i = 0; i < logData.length; i++) {
+      const p = String(logData[i][0] || '').trim().toLowerCase();
+      if (p === oldUClean || p === oldNamaClean) {
+        sheetLog.getRange(i + 2, 7).setValue(newNama);
+      }
+    }
+  }
+
+  // B. LogAbsenGuru (Username, Nama, & InputBy)
+  const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
+  if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
+    const guruData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 8).getValues();
+    for (let i = 0; i < guruData.length; i++) {
+      const u = String(guruData[i][3] || '').trim().toLowerCase();
+      const n = String(guruData[i][4] || '').trim().toLowerCase();
+      const inp = String(guruData[i][7] || '').trim().toLowerCase();
+
+      if (u === oldU) {
+        sheetLogGuru.getRange(i + 2, 4).setValue(newU);
+      }
+      if (n === oldNama.toLowerCase() || u === oldU) {
+        sheetLogGuru.getRange(i + 2, 5).setValue(newNama);
+      }
+      if (inp === oldU || inp === oldNama.toLowerCase()) {
+        sheetLogGuru.getRange(i + 2, 8).setValue(newNama);
+      }
+    }
+  }
+
+  // C. LogPelanggaran (GuruPelapor)
+  const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
+  if (sheetPelanggaran && sheetPelanggaran.getLastRow() > 1) {
+    const pData = sheetPelanggaran.getRange(2, 9, sheetPelanggaran.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < pData.length; i++) {
+      const gp = String(pData[i][0] || '').trim().toLowerCase();
+      if (gp === oldU || gp === oldNama.toLowerCase()) {
+        sheetPelanggaran.getRange(i + 2, 9).setValue(newNama);
+      }
+    }
+  }
+
+  // D. PengajuanIzin (Username, Nama, DisetujuiOleh)
+  const sheetIzin = ss.getSheetByName(SHEET_PENGAJUAN_IZIN);
+  if (sheetIzin && sheetIzin.getLastRow() > 1) {
+    const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 10).getValues();
+    for (let i = 0; i < izData.length; i++) {
+      const u = String(izData[i][2] || '').trim().toLowerCase();
+      const appBy = String(izData[i][9] || '').trim().toLowerCase();
+
+      if (u === oldU) {
+        sheetIzin.getRange(i + 2, 3).setValue(newU);
+        sheetIzin.getRange(i + 2, 4).setValue(newNama);
+      }
+      if (appBy === oldU || appBy === oldNama.toLowerCase()) {
+        sheetIzin.getRange(i + 2, 10).setValue(newNama);
+      }
+    }
+  }
+
+  // E. Synchronize User Mesin Sheet
+  try {
+    handleSyncDeviceUsers();
+  } catch (e) {}
+
+  // F. Clear User RAM Cache
+  try {
+    CacheService.getScriptCache().remove('users_cache');
+  } catch (e) {}
+
+  return jsonResponse('success', `Profil "${newNama}" berhasil diperbarui & seluruh data terkait telah disinkronkan di database!`, {
+    username: newU,
+    nama: newNama,
+    role: userRole,
+    id_mesin: newIdMesin,
+    id_telegram: newIdTelegram
+  });
 }

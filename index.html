@@ -119,6 +119,9 @@
                 <button class="nav-item" data-target="panel-user-mesin" id="nav-user-mesin" style="display:none;">
                     <span class="nav-icon"><i class="fa-solid fa-fingerprint"></i></span> Data User Mesin
                 </button>
+                <button class="nav-item" data-target="panel-profile" id="nav-profile">
+                    <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> Profil & Pengaturan Akun
+                </button>
             </nav>
             <div class="sidebar-footer">
                 <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)</button>
@@ -1344,6 +1347,61 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- PANEL PROFIL SAYA / PENGATURAN MANDIRI GURU, TU, KEPSEK & ADMIN -->
+            <section id="panel-profile" class="panel">
+                <div class="panel-header" style="margin-bottom: 20px;">
+                    <h2 style="display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin: 0; color: #f8fafc;">
+                        <i class="fa-solid fa-id-card" style="color: #38bdf8;"></i> Pengaturan Profil Saya
+                    </h2>
+                    <p style="margin-top: 4px; font-size: 0.88rem; color: var(--text-muted);">
+                        Perbarui data diri, username, kata sandi, ID Mesin Solution X902, dan ID Telegram Anda secara mandiri.
+                    </p>
+                </div>
+
+                <div class="glass-card" style="max-width: 650px; padding: 30px; border-radius: 16px;">
+                    <form id="formSelfProfile">
+                        <input type="hidden" id="selfOldUsername" value="">
+                        
+                        <div style="margin-bottom: 18px;">
+                            <label style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 500;">Role / Hak Akses:</label>
+                            <input type="text" id="selfRole" readonly disabled style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: #38bdf8; padding: 10px 14px; border-radius: 10px; font-weight: bold;">
+                        </div>
+
+                        <div style="margin-bottom: 18px;">
+                            <label style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 500;">Nama Lengkap & Gelar * :</label>
+                            <input type="text" id="selfNama" required placeholder="Contoh: Bapak Budi, S.Pd" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 10px;">
+                        </div>
+
+                        <div style="margin-bottom: 18px;">
+                            <label style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 500;">Username Login * :</label>
+                            <input type="text" id="selfUsername" required placeholder="Contoh: guru1" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 10px;">
+                        </div>
+
+                        <div style="margin-bottom: 18px;">
+                            <label style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 500;">Kata Sandi Baru (Kosongkan jika tidak diubah):</label>
+                            <input type="password" id="selfPassword" placeholder="Masukkan kata sandi baru (opsional)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 10px;">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                            <div>
+                                <label style="font-size: 0.88rem; color: var(--text-muted); display: block; margin-bottom: 6px;">ID Mesin (PIN Solution X902):</label>
+                                <input type="text" id="selfIdMesin" placeholder="Contoh: 101" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 10px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.88rem; color: #38bdf8; display: block; margin-bottom: 6px;"><i class="fa-brands fa-telegram"></i> ID Telegram Chat:</label>
+                                <input type="text" id="selfIdTelegram" placeholder="Contoh: 123456789" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 10px;">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button type="submit" id="btnSaveSelfProfile" class="btn-primary" style="padding: 12px 25px; border-radius: 10px; background: linear-gradient(135deg, #059669, #10b981); border: none;">
+                                <i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan Profil
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </section>
 

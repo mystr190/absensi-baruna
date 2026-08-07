@@ -149,6 +149,7 @@ function showApp(user) {
     if (typeof loadUsers === 'function') loadUsers();
     if (typeof renderIzinGuruPanel === 'function') renderIzinGuruPanel();
     if (typeof renderAbsenGuruAdminPanel === 'function') renderAbsenGuruAdminPanel();
+    renderSelfProfilePanel();
 }
 
 // Handle Form Login
@@ -245,6 +246,74 @@ navItems.forEach(nav => {
             if(typeof renderTableSiswa === 'function') renderTableSiswa();
         } else if (nav.dataset.target === 'panel-broadcast-telegram') {
             if(typeof initBroadcastTelegramModule === 'function') initBroadcastTelegramModule();
+        } else if (nav.dataset.target === 'panel-profile') {
+            renderSelfProfilePanel();
         }
     });
 });
+
+// ==========================================
+// PENGATURAN PROFIL MANDIRI (GURU, TU, KEPSEK & ADMIN)
+// ==========================================
+function renderSelfProfilePanel() {
+    const userSession = localStorage.getItem('smart_absen_user');
+    if (!userSession) return;
+    const user = JSON.parse(userSession);
+
+    const oldUsernameInput = document.getElementById('selfOldUsername');
+    const usernameInput = document.getElementById('selfUsername');
+    const namaInput = document.getElementById('selfNama');
+    const roleInput = document.getElementById('selfRole');
+    const idMesinInput = document.getElementById('selfIdMesin');
+    const idTelegramInput = document.getElementById('selfIdTelegram');
+
+    if (oldUsernameInput) oldUsernameInput.value = user.username || '';
+    if (usernameInput) usernameInput.value = user.username || '';
+    if (namaInput) namaInput.value = user.nama || '';
+    if (roleInput) roleInput.value = user.role || '';
+    if (idMesinInput) idMesinInput.value = user.id_mesin || '';
+    if (idTelegramInput) idTelegramInput.value = user.id_telegram || '';
+}
+
+const formSelfProfile = document.getElementById('formSelfProfile');
+if (formSelfProfile) {
+    formSelfProfile.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btnSaveSelfProfile');
+        const oldText = btn ? btn.innerHTML : '';
+
+        const oldUsername = document.getElementById('selfOldUsername').value.trim();
+        const username = document.getElementById('selfUsername').value.trim();
+        const nama = document.getElementById('selfNama').value.trim();
+        const password = document.getElementById('selfPassword').value.trim();
+        const id_mesin = document.getElementById('selfIdMesin').value.trim();
+        const id_telegram = document.getElementById('selfIdTelegram').value.trim();
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan & Menyinkronkan...`;
+        }
+
+        try {
+            const url = `${SCRIPT_URL}?action=update_self_profile&old_username=${encodeURIComponent(oldUsername)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&nama=${encodeURIComponent(nama)}&id_mesin=${encodeURIComponent(id_mesin)}&id_telegram=${encodeURIComponent(id_telegram)}`;
+            const res = await fetchWithRetry(url, { method: 'POST' });
+
+            if (res && res.status === 'success' && res.data) {
+                localStorage.setItem('smart_absen_user', JSON.stringify(res.data));
+                showToast(res.message || "✅ Profil berhasil diperbarui!", 'success');
+                showApp(res.data);
+                document.getElementById('selfPassword').value = '';
+            } else {
+                showToast("❌ " + (res ? res.message : 'Gagal memperbarui profil'), 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("❌ Terjadi kesalahan jaringan saat menyimpan profil.", 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = oldText;
+            }
+        }
+    });
+}
