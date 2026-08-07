@@ -306,16 +306,7 @@ async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {
         const res = await fetchWithRetry(url, { method: 'GET' }, 1, 1000);
         if (res && res.status === 'success' && Array.isArray(res.data)) {
             const serverLogs = res.data;
-            const logMapTemp = new Map();
-            (localRecentLogs || []).forEach(l => {
-                const k = `${l.nis || l.nisn || l.nama}_${l.tanggal}`;
-                logMapTemp.set(k, l);
-            });
-            serverLogs.forEach(item => {
-                const k = `${item.nis || item.nisn || item.nama}_${item.tanggal}`;
-                logMapTemp.set(k, item);
-            });
-            localRecentLogs = Array.from(logMapTemp.values());
+            localRecentLogs = serverLogs;
             localStorage.setItem('smart_absen_recent_logs', JSON.stringify(localRecentLogs));
             return serverLogs;
         }
@@ -323,6 +314,12 @@ async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {
         console.warn("Server matrix log fetch notice:", e);
     }
     return [];
+}
+
+function clearMatrixLocalLogsCache() {
+    localRecentLogs = [];
+    localStorage.removeItem('smart_absen_recent_logs');
+    if (typeof reportCache !== 'undefined') reportCache = {};
 }
 
 // 1. RENDER HARIAN BULANAN (SINGLE MONTH MATRIX)

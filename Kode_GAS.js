@@ -2033,19 +2033,38 @@ function syncAllStudentLogsIdentity() {
   const sData = sheetSiswa.getDataRange().getValues();
   if (sData.length <= 1) return jsonResponse('error', 'Tidak ada data siswa.');
 
-  // Build lookup maps with ultra-resilient normalization
+  // 1. Deteksi Kolom di DataSiswa dari Header (Baris 1)
+  const sHeaders = sData[0].map(h => String(h || '').trim().toLowerCase());
+  
+  let colSiswaNisn = sHeaders.findIndex(h => h.includes('nisn'));
+  let colSiswaNis = sHeaders.findIndex(h => h === 'nis' || (h.includes('nis') && !h.includes('nisn')));
+  let colSiswaNama = sHeaders.findIndex(h => h.includes('nama'));
+  let colSiswaKelas = sHeaders.findIndex(h => h.includes('kelas'));
+  let colSiswaGender = sHeaders.findIndex(h => h.includes('jk') || h.includes('gender') || h.includes('kelamin'));
+  let colSiswaMesin = sHeaders.findIndex(h => h.includes('mesin') || h.includes('pin'));
+  let colSiswaTelegram = sHeaders.findIndex(h => h.includes('telegram'));
+
+  // Fallback posisi standar jika header tidak terdeteksi
+  if (colSiswaNisn === -1) colSiswaNisn = 0;
+  if (colSiswaNis === -1) colSiswaNis = 1;
+  if (colSiswaNama === -1) colSiswaNama = 2;
+  if (colSiswaKelas === -1) colSiswaKelas = 3;
+
+  // Build Map Siswa
   const mapByNis = new Map();
   const mapByNisn = new Map();
   const mapByName = new Map();
 
   for (let i = 1; i < sData.length; i++) {
-    const nisn = String(sData[i][0] || '').trim();
-    const nis = String(sData[i][1] || '').trim();
-    const nama = String(sData[i][2] || '').trim();
-    const kelas = String(sData[i][3] || '').trim();
-    const gender = String(sData[i][4] || 'L').trim();
-    const idMesin = String(sData[i][5] || '').trim();
-    const idTelegram = String(sData[i][6] || '').trim();
+    const nisn = String(sData[i][colSiswaNisn] || '').trim();
+    const nis = String(sData[i][colSiswaNis] || '').trim();
+    const nama = String(sData[i][colSiswaNama] || '').trim();
+    const kelas = String(sData[i][colSiswaKelas] || '').trim();
+    const gender = colSiswaGender !== -1 ? String(sData[i][colSiswaGender] || 'L').trim() : 'L';
+    const idMesin = colSiswaMesin !== -1 ? String(sData[i][colSiswaMesin] || '').trim() : '';
+    const idTelegram = colSiswaTelegram !== -1 ? String(sData[i][colSiswaTelegram] || '').trim() : '';
+
+    if (!nama && !nis && !nisn) continue;
 
     const studentObj = { nisn, nis, nama, kelas, gender, idMesin, idTelegram };
 
@@ -2066,96 +2085,127 @@ function syncAllStudentLogsIdentity() {
     }
   }
 
+  let totalLogScanned = 0;
   let updatedLogCount = 0;
+  let totalPelanggaranScanned = 0;
   let updatedPelanggaranCount = 0;
 
-  // 1. Sinkronkan Sheet LogAbsen
+  // 2. Sinkronkan Sheet LogAbsen
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   if (sheetLog && sheetLog.getLastRow() > 1) {
-    const logRange = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7);
-    const logValues = logRange.getValues();
+    const logData = sheetLog.getDataRange().getValues();
+    const lHeaders = logData[0].map(h => String(h || '').trim().toLowerCase());
 
-    for (let i = 0; i < logValues.length; i++) {
-      const lNisn = String(logValues[i][1] || '').trim().toLowerCase();
-      const lNis = String(logValues[i][2] || '').trim().toLowerCase();
-      const lNama = String(logValues[i][3] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    let colLogNisn = lHeaders.findIndex(h => h.includes('nisn'));
+    let colLogNis = lHeaders.findIndex(h => h === 'nis' || (h.includes('nis') && !h.includes('nisn')));
+    let colLogNama = lHeaders.findIndex(h => h.includes('nama'));
+    let colLogKelas = lHeaders.findIndex(h => h.includes('kelas'));
+
+    if (colLogNisn === -1) colLogNisn = 1;
+    if (colLogNis === -1) colLogNis = 2;
+    if (colLogNama === -1) colLogNama = 3;
+    if (colLogKelas === -1) colLogKelas = 4;
+
+    totalLogScanned = logData.length - 1;
+
+    for (let i = 1; i < logData.length; i++) {
+      const lNisn = String(logData[i][colLogNisn] || '').trim().toLowerCase();
+      const lNis = String(logData[i][colLogNis] || '').trim().toLowerCase();
+      const lNama = String(logData[i][colLogNama] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
       const normLNis = lNis.replace(/^0+/, '');
       const normLNisn = lNisn.replace(/^0+/, '');
 
       const matched = (lNis && mapByNis.get(lNis)) ||
                       (normLNis && mapByNis.get(normLNis)) ||
+                      (lNama && mapByName.get(lNama)) ||
                       (lNisn && mapByNisn.get(lNisn)) ||
-                      (normLNisn && mapByNisn.get(normLNisn)) ||
-                      (lNama && mapByName.get(lNama));
+                      (normLNisn && mapByNisn.get(normLNisn));
 
       if (matched) {
-        const curNisn = String(logValues[i][1] || '').trim();
-        const curNis = String(logValues[i][2] || '').trim();
-        const curNama = String(logValues[i][3] || '').trim();
-        const curKelas = String(logValues[i][4] || '').trim();
+        const curNisn = String(logData[i][colLogNisn] || '').trim();
+        const curNis = String(logData[i][colLogNis] || '').trim();
+        const curNama = String(logData[i][colLogNama] || '').trim();
+        const curKelas = String(logData[i][colLogKelas] || '').trim();
 
         if (curNisn !== matched.nisn || curNis !== matched.nis || curNama !== matched.nama || curKelas !== matched.kelas) {
-          logValues[i][1] = matched.nisn;
-          logValues[i][2] = matched.nis;
-          logValues[i][3] = matched.nama;
-          logValues[i][4] = matched.kelas;
+          logData[i][colLogNisn] = matched.nisn;
+          logData[i][colLogNis] = matched.nis;
+          logData[i][colLogNama] = matched.nama;
+          logData[i][colLogKelas] = matched.kelas;
           updatedLogCount++;
         }
       }
     }
 
     if (updatedLogCount > 0) {
-      logRange.setValues(logValues);
+      sheetLog.getRange(1, 1, logData.length, logData[0].length).setValues(logData);
     }
   }
 
-  // 2. Sinkronkan Sheet LogPelanggaran
+  // 3. Sinkronkan Sheet LogPelanggaran
   const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
   if (sheetPelanggaran && sheetPelanggaran.getLastRow() > 1) {
-    const pRange = sheetPelanggaran.getRange(2, 1, sheetPelanggaran.getLastRow() - 1, 10);
-    const pValues = pRange.getValues();
+    const pData = sheetPelanggaran.getDataRange().getValues();
+    const pHeaders = pData[0].map(h => String(h || '').trim().toLowerCase());
 
-    for (let i = 0; i < pValues.length; i++) {
-      const pNisn = String(pValues[i][3] || '').trim().toLowerCase();
-      const pNis = String(pValues[i][4] || '').trim().toLowerCase();
-      const pNama = String(pValues[i][5] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    let colPNisn = pHeaders.findIndex(h => h.includes('nisn'));
+    let colPNis = pHeaders.findIndex(h => h === 'nis' || (h.includes('nis') && !h.includes('nisn')));
+    let colPNama = pHeaders.findIndex(h => h.includes('nama'));
+    let colPKelas = pHeaders.findIndex(h => h.includes('kelas'));
+
+    if (colPNisn === -1) colPNisn = 3;
+    if (colPNis === -1) colPNis = 4;
+    if (colPNama === -1) colPNama = 5;
+    if (colPKelas === -1) colPKelas = 6;
+
+    totalPelanggaranScanned = pData.length - 1;
+
+    for (let i = 1; i < pData.length; i++) {
+      const pNisn = String(pData[i][colPNisn] || '').trim().toLowerCase();
+      const pNis = String(pData[i][colPNis] || '').trim().toLowerCase();
+      const pNama = String(pData[i][colPNama] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
       const normPNis = pNis.replace(/^0+/, '');
       const normPNisn = pNisn.replace(/^0+/, '');
 
       const matched = (pNis && mapByNis.get(pNis)) ||
                       (normPNis && mapByNis.get(normPNis)) ||
+                      (pNama && mapByName.get(pNama)) ||
                       (pNisn && mapByNisn.get(pNisn)) ||
-                      (normPNisn && mapByNisn.get(normPNisn)) ||
-                      (pNama && mapByName.get(pNama));
+                      (normPNisn && mapByNisn.get(normPNisn));
 
       if (matched) {
-        const curNisn = String(pValues[i][3] || '').trim();
-        const curNis = String(pValues[i][4] || '').trim();
-        const curNama = String(pValues[i][5] || '').trim();
-        const curKelas = String(pValues[i][6] || '').trim();
+        const curNisn = String(pData[i][colPNisn] || '').trim();
+        const curNis = String(pData[i][colPNis] || '').trim();
+        const curNama = String(pData[i][colPNama] || '').trim();
+        const curKelas = String(pData[i][colPKelas] || '').trim();
 
         if (curNisn !== matched.nisn || curNis !== matched.nis || curNama !== matched.nama || curKelas !== matched.kelas) {
-          pValues[i][3] = matched.nisn;
-          pValues[i][4] = matched.nis;
-          pValues[i][5] = matched.nama;
-          pValues[i][6] = matched.kelas;
+          pData[i][colPNisn] = matched.nisn;
+          pData[i][colPNis] = matched.nis;
+          pData[i][colPNama] = matched.nama;
+          pData[i][colPKelas] = matched.kelas;
           updatedPelanggaranCount++;
         }
       }
     }
 
     if (updatedPelanggaranCount > 0) {
-      pRange.setValues(pValues);
+      sheetPelanggaran.getRange(1, 1, pData.length, pData[0].length).setValues(pData);
     }
   }
 
-  // 3. Sinkronkan Sheet User_Mesin
+  // 4. Sinkronkan Sheet User_Mesin
   handleSyncDeviceUsers();
   clearStudentCache();
 
-  return jsonResponse('success', `Berhasil Menyinkronkan Seluruh Identitas Log! (${updatedLogCount} Log Presensi, ${updatedPelanggaranCount} Log Pelanggaran diperbarui sesuai NISN & NIS terbaru di DataSiswa).`);
+  return jsonResponse('success', `Berhasil Menyinkronkan Seluruh Identitas Log! (Dipindai: ${totalLogScanned} Log Presensi, Diperbarui: ${updatedLogCount} Baris; Dipindai: ${totalPelanggaranScanned} Log Pelanggaran, Diperbarui: ${updatedPelanggaranCount} Baris).`, {
+    totalLogScanned,
+    updatedLogCount,
+    totalPelanggaranScanned,
+    updatedPelanggaranCount
+  });
 }
 
 function handleDeleteStudent(nisn, nis) {

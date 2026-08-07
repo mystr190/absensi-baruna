@@ -686,6 +686,7 @@ async function handleSyncAllStudentLogIdentities() {
 
         if (res && res.status === 'success') {
             showToast(res.message || 'Identitas log berhasil disinkronkan!', 'success');
+            if (typeof clearMatrixLocalLogsCache === 'function') clearMatrixLocalLogsCache();
             if (typeof loadDashboardData === 'function') loadDashboardData(true);
             if (typeof renderMatrixReport === 'function') renderMatrixReport();
         } else {
