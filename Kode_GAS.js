@@ -123,6 +123,9 @@ function doGet(e) {
     else if (action === 'update_self_profile') {
       return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
     }
+    else if (action === 'get_self_profile') {
+      return handleGetSelfProfile(e.parameter.username);
+    }
     else if (action === 'get_device_users') {
       return handleGetDeviceUsers();
     }
@@ -230,6 +233,9 @@ function doPost(e) {
     else if (action === 'update_self_profile') {
       return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
     }
+    else if (action === 'get_self_profile') {
+      return handleGetSelfProfile(e.parameter.username);
+    }
     else if (action === 'get_device_users') {
       return handleGetDeviceUsers();
     }
@@ -331,6 +337,8 @@ function getUsersFromCacheOrSheet() {
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return [];
 
+  ensureUserColumns();
+
   const data = sheet.getDataRange().getValues();
   let users = [];
 
@@ -342,7 +350,9 @@ function getUsersFromCacheOrSheet() {
       username: u,
       password: String(data[i][2] || '').trim(),
       role: String(data[i][3] || ''),
-      nama: String(data[i][4] || '')
+      nama: String(data[i][4] || ''),
+      id_mesin: String(data[i][5] || '').trim(),
+      id_telegram: String(data[i][6] || '').trim()
     });
   }
 
@@ -2964,4 +2974,23 @@ function handleUpdateSelfProfile(oldUsername, username, password, nama, id_mesin
     id_mesin: newIdMesin,
     id_telegram: newIdTelegram
   });
+}
+
+function handleGetSelfProfile(username) {
+  const u = String(username || '').trim().toLowerCase();
+  if (!u) return jsonResponse('error', 'Username wajib diisi.');
+
+  const users = getUsersFromCacheOrSheet();
+  for (let i = 0; i < users.length; i++) {
+    if (users[i].username.toLowerCase() === u) {
+      return jsonResponse('success', 'Data profil ditemukan', {
+        username: users[i].username,
+        role: users[i].role,
+        nama: users[i].nama,
+        id_mesin: users[i].id_mesin || '',
+        id_telegram: users[i].id_telegram || ''
+      });
+    }
+  }
+  return jsonResponse('error', 'Pengguna tidak ditemukan.');
 }

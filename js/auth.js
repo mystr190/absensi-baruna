@@ -81,15 +81,21 @@ function showApp(user) {
     document.getElementById('currentUserName').innerText = user.nama;
     document.getElementById('currentUserRole').innerText = user.role;
     
-    // Update Badge Verified Telegram di Sidebar bawah profil
+    // Update Badge Verified / Unverified Telegram di Sidebar bawah profil
     const badgeTgSidebar = document.getElementById('currentUserTelegramBadge');
-    const textTgSidebar = document.getElementById('currentUserTelegramIdText');
-    if (badgeTgSidebar && textTgSidebar) {
+    if (badgeTgSidebar) {
         if (user.id_telegram && String(user.id_telegram).trim() !== '' && String(user.id_telegram).trim() !== '-') {
-            textTgSidebar.innerText = user.id_telegram;
+            badgeTgSidebar.innerHTML = `
+                <span id="currentUserTelegramIdText" style="font-family: monospace; font-size: 0.85rem; font-weight: 600; color: #94a3b8;">${user.id_telegram}</span>
+                <i class="fa-solid fa-circle-check" style="color: #22c55e; font-size: 0.95rem;" title="Terverifikasi Telegram"></i>
+            `;
             badgeTgSidebar.style.display = 'flex';
         } else {
-            badgeTgSidebar.style.display = 'none';
+            badgeTgSidebar.innerHTML = `
+                <span style="color: #f87171; font-weight: 500; font-size: 0.78rem;">Belum Terhubung</span>
+                <i class="fa-solid fa-circle-xmark" style="color: #ef4444; font-size: 0.95rem;" title="Belum Terhubung Telegram"></i>
+            `;
+            badgeTgSidebar.style.display = 'flex';
         }
     }
     
@@ -267,7 +273,7 @@ navItems.forEach(nav => {
 // ==========================================
 // PENGATURAN PROFIL MANDIRI (GURU, TU, KEPSEK & ADMIN)
 // ==========================================
-function renderSelfProfilePanel() {
+async function renderSelfProfilePanel() {
     const userSession = localStorage.getItem('smart_absen_user');
     if (!userSession) return;
     const user = JSON.parse(userSession);
@@ -286,15 +292,44 @@ function renderSelfProfilePanel() {
     if (idMesinInput) idMesinInput.value = user.id_mesin || '';
     if (idTelegramInput) idTelegramInput.value = user.id_telegram || '';
 
-    // Update Status Box Badge Telegram Terhubung
+    updateTelegramBadgeUI(user.id_telegram);
+
+    // Ambil data profil terbaru dari server (Live DB Sync)
+    try {
+        const getProfileUrl = `${SCRIPT_URL}?action=get_self_profile&username=${encodeURIComponent(user.username)}`;
+        const res = await fetchWithRetry(getProfileUrl, { method: 'GET' }, 1, 500);
+
+        if (res && res.status === 'success' && res.data) {
+            const freshUser = res.data;
+            localStorage.setItem('smart_absen_user', JSON.stringify(freshUser));
+            
+            if (idMesinInput) idMesinInput.value = freshUser.id_mesin || '';
+            if (idTelegramInput) idTelegramInput.value = freshUser.id_telegram || '';
+            if (namaInput) namaInput.value = freshUser.nama || '';
+
+            updateTelegramBadgeUI(freshUser.id_telegram);
+            showApp(freshUser);
+        }
+    } catch (e) {
+        console.log("Failed fetching fresh profile data:", e);
+    }
+}
+
+function updateTelegramBadgeUI(idTelegram) {
     const boxTg = document.getElementById('profileTelegramStatusBox');
+    const boxUnverified = document.getElementById('profileTelegramUnverifiedBox');
     const dispTg = document.getElementById('profileTelegramIdDisplay');
-    if (boxTg && dispTg) {
-        if (user.id_telegram && String(user.id_telegram).trim() !== '' && String(user.id_telegram).trim() !== '-') {
-            dispTg.innerText = user.id_telegram;
+
+    const hasTg = idTelegram && String(idTelegram).trim() !== '' && String(idTelegram).trim() !== '-';
+
+    if (boxTg && dispTg && boxUnverified) {
+        if (hasTg) {
+            dispTg.innerText = idTelegram;
             boxTg.style.display = 'flex';
+            boxUnverified.style.display = 'none';
         } else {
             boxTg.style.display = 'none';
+            boxUnverified.style.display = 'flex';
         }
     }
 }
