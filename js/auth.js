@@ -88,6 +88,7 @@ function showApp(user) {
     // Atur Akses Menu Berdasarkan Role
     const navAdmin = document.getElementById('nav-admin');
     const navKelolaSiswa = document.getElementById('nav-kelola-siswa');
+    const navBroadcastTelegram = document.getElementById('nav-broadcast-telegram');
     const navAbsenGuruAdmin = document.getElementById('nav-absen-guru-admin');
     const navApprovalKepsek = document.getElementById('nav-approval-kepsek');
     const navIzinGuru = document.getElementById('nav-izin-guru');
@@ -102,6 +103,7 @@ function showApp(user) {
     // Reset visibilitas default
     if (navAdmin) navAdmin.style.display = 'none';
     if (navKelolaSiswa) navKelolaSiswa.style.display = 'none';
+    if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'none';
     if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'none';
     if (navApprovalKepsek) navApprovalKepsek.style.display = 'none';
     if (navIzinGuru) navIzinGuru.style.display = 'flex';
@@ -115,13 +117,16 @@ function showApp(user) {
     if (user.role === 'Admin') {
         if (navAdmin) navAdmin.style.display = 'flex';
         if (navKelolaSiswa) navKelolaSiswa.style.display = 'flex';
+        if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'flex';
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (btnManageJenis) btnManageJenis.style.display = 'inline-flex';
     } else if (user.role === 'Kepala Sekolah') {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
+        if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
     } else if (user.role === 'Tata Usaha') {
         if (navKelolaSiswa) navKelolaSiswa.style.display = 'flex';
+        if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         // Role Tata Usaha memiliki akses ke Izin Guru dan Kelola Data Siswa
         if (navScan) navScan.style.display = 'none';
         if (navRekap) navRekap.style.display = 'none';
@@ -233,6 +238,8 @@ navItems.forEach(nav => {
             if(typeof renderAbsenGuruAdminPanel === 'function') renderAbsenGuruAdminPanel();
         } else if (nav.dataset.target === 'panel-kelola-siswa') {
             if(typeof renderTableSiswa === 'function') renderTableSiswa();
+        } else if (nav.dataset.target === 'panel-broadcast-telegram') {
+            if(typeof initBroadcastTelegramModule === 'function') initBroadcastTelegramModule();
         }
     });
 });

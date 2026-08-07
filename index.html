@@ -113,6 +113,9 @@
                 <button class="nav-item" data-target="panel-kelola-siswa" id="nav-kelola-siswa" style="display:none;">
                     <span class="nav-icon"><i class="fa-solid fa-users-gear"></i></span> Kelola Data Siswa
                 </button>
+                <button class="nav-item" data-target="panel-broadcast-telegram" id="nav-broadcast-telegram" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span> Broadcast Telegram
+                </button>
             </nav>
             <div class="sidebar-footer">
                 <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)</button>
@@ -653,6 +656,9 @@
                             <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">Dapatkan Token dari <strong>@BotFather</strong> di Telegram. Kosongkan jika tidak memakai bot Telegram.</small>
                         </div>
                         <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+                            <button type="button" id="btnActivateAutoReply" class="btn-secondary" style="padding: 10px 18px; border-color: rgba(168, 85, 247, 0.4); color: #c084fc;" title="Aktifkan agar Bot Sekolah otomatis membalas nomor ID Telegram saat ada user yang chat /start">
+                                <span><i class="fa-solid fa-robot"></i> Aktifkan Auto-Reply ID Bot</span>
+                            </button>
                             <button type="button" id="btnTestTelegram" class="btn-secondary" style="padding: 10px 18px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
                                 <span><i class="fa-brands fa-telegram"></i> Tes Kirim Pesan Telegram</span>
                             </button>
@@ -1181,6 +1187,89 @@
                 </div>
             </section>
 
+            <!-- PANEL 10: BROADCAST & PESAN TELEGRAM -->
+            <section id="panel-broadcast-telegram" class="panel">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
+                    <div>
+                        <h2 style="display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin: 0; color: #f8fafc;">
+                            <i class="fa-solid fa-paper-plane" style="color: #38bdf8;"></i> Pusat Broadcast Telegram Sekolah
+                        </h2>
+                        <p style="margin-top: 4px; font-size: 0.88rem; color: var(--text-muted);">
+                            Kirimkan pengumuman & informasi penting sekolah secara langsung ke Telegram Guru, Orang Tua, atau Siswa terdaftar.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="glass-card panel-body" style="padding: 30px; border-radius: 16px;">
+                    <form id="formBroadcastTelegram">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div>
+                                <label style="font-size: 0.9rem; color: #38bdf8; display: block; margin-bottom: 8px; font-weight: 500;">
+                                    <i class="fa-solid fa-bullseye"></i> Pilih Target Penerima Broadcast:
+                                </label>
+                                <select id="broadcastTargetType" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(56, 189, 248, 0.4); color: white; padding: 12px 14px; border-radius: 10px; font-size: 0.95rem;">
+                                    <option value="all_school">🌐 Blast Seluruh Sekolah (Guru & Semua Siswa)</option>
+                                    <option value="all_teachers">👨‍🏫 Blast Seluruh Guru & Staf</option>
+                                    <option value="all_students">🎓 Blast Seluruh Siswa Sekolah</option>
+                                    <option value="class">🏫 Blast Per Kelas Spesifik</option>
+                                    <option value="single_student">👦 Personal (1 Orang Siswa / Ortu)</option>
+                                    <option value="single_user">👤 Personal (1 Orang Guru / Staf)</option>
+                                </select>
+                            </div>
+
+                            <!-- Target Specific Selector Container -->
+                            <div id="containerBroadcastSpecific" style="display: none;">
+                                <label id="labelBroadcastSpecific" style="font-size: 0.9rem; color: #a7f3d0; display: block; margin-bottom: 8px; font-weight: 500;">
+                                    Pilih Target Spesifik:
+                                </label>
+                                <select id="broadcastTargetValue" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(167, 243, 208, 0.4); color: white; padding: 12px 14px; border-radius: 10px; font-size: 0.95rem;">
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Reach Indicator Badge -->
+                        <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 14px 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <i class="fa-solid fa-users-viewfinder" style="font-size: 1.4rem; color: #38bdf8;"></i>
+                                <div>
+                                    <strong style="color: #f8fafc; font-size: 0.95rem; display: block;">Estimasi Jangkauan Telegram:</strong>
+                                    <span style="font-size: 0.85rem; color: var(--text-muted);">Penerima yang sudah mendaftarkan ID Telegram pada target terpilih.</span>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <span id="badgeReachCounter" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: white; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 0.95rem; display: inline-block;">
+                                    0 Penerima Terjangkau
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Form Input Pesan -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 8px;">
+                                Subjek / Judul Pengumuman (Opsional):
+                            </label>
+                            <input type="text" id="broadcastSubject" placeholder="Contoh: Pengumuman Kegiatan Kerja Bakti Sekolah" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 12px 16px; border-radius: 10px; font-size: 0.95rem;">
+                        </div>
+
+                        <div style="margin-bottom: 25px;">
+                            <label style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 8px;">
+                                Isi Pesan / Pengumuman Sekolah * :
+                            </label>
+                            <textarea id="broadcastMessage" required rows="6" placeholder="Tuliskan isi informasi pengumuman di sini...&#10;Contoh: Diberitahukan kepada seluruh orang tua siswa kelas X-1 bahwa besok akan dilaksanakan kegiatan simulasi..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 14px 16px; border-radius: 10px; font-size: 0.95rem; font-family: inherit; resize: vertical; line-height: 1.5;"></textarea>
+                            <small style="color: var(--text-muted); font-size: 0.78rem; display: block; margin-top: 6px;">
+                                <i class="fa-solid fa-circle-info"></i> Pesan akan otomatis dikirimkan dengan Header Nama Sekolah dan Tanggal Pengiriman resmi.
+                            </small>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button type="submit" id="btnSendBroadcast" class="btn-primary" style="padding: 12px 30px; font-size: 1rem; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #3b82f6);">
+                                <span><i class="fa-solid fa-paper-plane"></i> Kirim Broadcast Telegram Sekarang</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
             <!-- MODAL FORM EDIT / TAMBAH USER -->
             <div id="modalUser" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
                 <div class="glass-card" style="width: 100%; max-width: 480px; padding: 25px; border-radius: 16px; position: relative;">
@@ -1365,6 +1454,7 @@
     <script src="js/pelanggaran.js?v=7.0"></script>
     <script src="js/absen_guru.js?v=1.0"></script>
     <script src="js/kelola_siswa.js?v=1.0"></script>
+    <script src="js/broadcast_telegram.js?v=1.0"></script>
 </body>
 
 </html>

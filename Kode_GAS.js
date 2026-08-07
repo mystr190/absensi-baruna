@@ -110,6 +110,12 @@ function doGet(e) {
     else if (action === 'test_telegram') {
       return handleTestTelegram(e.parameter.chat_id || e.parameter.id_telegram);
     }
+    else if (action === 'set_telegram_webhook') {
+      return handleSetTelegramWebhook(e.parameter.url_script);
+    }
+    else if (action === 'send_telegram_broadcast') {
+      return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
+    }
     else if (action === 'setup_device_columns') {
       ensureDeviceUserIdColumns();
       return jsonResponse('success', 'Header kolom ID_Mesin di Sheet DataSiswa dan Users berhasil dikonfigurasi!');
@@ -124,10 +130,35 @@ function doGet(e) {
 // === DUKUNGAN POST (Login, Absensi, Pelanggaran & Manajemen User) ===
 function doPost(e) {
   try {
+    // JIKA TERIMA WEBHOOK TELEGRAM AUTOMATIC ID BOT
+    if (e && e.postData && e.postData.contents) {
+      try {
+        const updateData = JSON.parse(e.postData.contents);
+        if (updateData && updateData.message && updateData.message.chat) {
+          const chatId = updateData.message.chat.id;
+          const senderName = updateData.message.from ? (updateData.message.from.first_name || 'Pengguna') : 'Pengguna';
+          
+          const replyMsg = `👋 <b>Selamat datang di Bot Presensi Sekolah!</b>\n\n` +
+            `Halo <b>${senderName}</b>,\n` +
+            `🆔 <b>ID Telegram Anda adalah:</b> <code>${chatId}</code>\n\n` +
+            `Silakan salin angka ID Telegram di atas dan berikan kepada Admin / Pihak Sekolah untuk didaftarkan pada sistem absensi. Terima kasih!`;
+          
+          sendTelegramNotification(chatId, replyMsg);
+          return ContentService.createTextOutput("OK");
+        }
+      } catch(err) {}
+    }
+
     let action = e ? e.parameter ? e.parameter.action : null : null;
 
     if (action === 'login') {
       return handleLogin(e.parameter.username, e.parameter.password);
+    }
+    else if (action === 'set_telegram_webhook') {
+      return handleSetTelegramWebhook(e.parameter.url_script);
+    }
+    else if (action === 'send_telegram_broadcast') {
+      return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
     }
     else if (action === 'get_students') {
       return handleGetStudents();
@@ -2253,4 +2284,168 @@ function handleTestTelegram(chatId) {
   } catch(e) {
     return jsonResponse('error', 'Error koneksi ke Telegram API: ' + e.toString());
   }
+}
+
+// === FUNGSI KHUSUS PEMICU OTORISASI GOOGLE (TANPA TRY-CATCH) ===
+function authorizeScriptPermissions() {
+  // Fungsi ini sengaja dibuat TANPA try-catch agar Google Apps Script WAJIB menampilkan Pop-Up Otorisasi Izin Internet
+  const res = UrlFetchApp.fetch("https://api.telegram.org", { muteHttpExceptions: true });
+  Logger.log("✅ OTORISASI BERHASIL! Status HTTP Telegram API: " + res.getResponseCode());
+}
+
+// === FUNGSI TES MANUAL LANGSUNG DI EDITOR APPS SCRIPT ===
+function manualTestTelegram() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const config = getConfigObject(ss);
+  
+  let botToken = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN') || config.telegramBotToken;
+  Logger.log("Bot Token Terdeteksi: " + botToken);
+
+  if (!botToken) {
+    Logger.log("⚠️ Token Bot masih kosong! Isi Token Bot Telegram di sheet Pengaturan atau di Web App.");
+    return;
+  }
+
+  // Uji koneksi ke Telegram API getMe
+  const url = "https://api.telegram.org/bot" + botToken + "/getMe";
+  const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  Logger.log("Balasan Telegram Bot: " + res.getContentText());
+}
+
+// === HANDLER AKTIVASI AUTO-REPLY WEBHOOK TELEGRAM ===
+function handleSetTelegramWebhook(webAppUrl) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let botToken = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN') || getConfigObject(ss).telegramBotToken;
+  if (!botToken) {
+    return jsonResponse('error', 'Token Bot Telegram belum diisi pada Pengaturan Sekolah!');
+  }
+
+  let activeUrl = String(webAppUrl || '').trim();
+  if (!activeUrl) {
+    try {
+      activeUrl = ScriptApp.getService().getUrl();
+    } catch(e) {}
+  }
+
+  if (!activeUrl) {
+    return jsonResponse('error', 'URL Web App tidak valid atau belum diisi.');
+  }
+
+  const webhookUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(activeUrl)}`;
+  try {
+    const res = UrlFetchApp.fetch(webhookUrl, { muteHttpExceptions: true });
+    const resObj = JSON.parse(res.getContentText());
+    if (resObj && resObj.ok) {
+      return jsonResponse('success', '✅ Auto-Reply Bot Telegram BERHASIL Diaktifkan! Sekarang pengguna cukup chat /start ke Bot Sekolah untuk mendapatkan ID Telegram mereka.', resObj);
+    } else {
+      return jsonResponse('error', `Gagal mengaktifkan Webhook: ${resObj.description || res.getContentText()}`, resObj);
+    }
+  } catch(e) {
+    return jsonResponse('error', 'Error Webhook: ' + e.toString());
+  }
+}
+
+// === HANDLER KIRIM BROADCAST & PESAN INFORMASI TELEGRAM ===
+function handleSendTelegramBroadcast(targetType, targetValue, subject, message) {
+  if (!message || String(message).trim() === '') {
+    return jsonResponse('error', 'Isi pesan pengumuman tidak boleh kosong.');
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const config = getConfigObject(ss);
+
+  let botToken = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN') || config.telegramBotToken;
+  if (!botToken) {
+    return jsonResponse('error', 'Token Bot Telegram belum diisi pada Pengaturan Sekolah!');
+  }
+
+  let recipients = []; // Array of { name, id_telegram, type }
+  const cleanTargetType = String(targetType || 'all_school').toLowerCase();
+  const cleanTargetVal = String(targetValue || '').trim().toLowerCase();
+
+  // 1. Ambil data Guru/Users jika diperlukan
+  if (['all_teachers', 'all_school', 'single_user'].indexOf(cleanTargetType) !== -1) {
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers) {
+      const uData = sheetUsers.getDataRange().getValues();
+      for (let i = 1; i < uData.length; i++) {
+        const username = String(uData[i][1] || '').trim();
+        const nama = String(uData[i][4] || username).trim();
+        const idTelegram = String(uData[i][6] || '').trim();
+
+        if (idTelegram) {
+          if (cleanTargetType === 'single_user') {
+            if (username.toLowerCase() === cleanTargetVal || String(uData[i][0]).trim() === cleanTargetVal) {
+              recipients.push({ name: nama, id_telegram: idTelegram, type: 'Guru' });
+            }
+          } else {
+            recipients.push({ name: nama, id_telegram: idTelegram, type: 'Guru' });
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Ambil data Siswa/Ortu jika diperlukan
+  if (['all_students', 'all_school', 'class', 'single_student'].indexOf(cleanTargetType) !== -1) {
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa) {
+      const sData = sheetSiswa.getDataRange().getValues();
+      for (let i = 1; i < sData.length; i++) {
+        const nisn = String(sData[i][0] || '').trim();
+        const nis = String(sData[i][1] || '').trim();
+        const nama = String(sData[i][2] || '').trim();
+        const kelas = String(sData[i][3] || '').trim();
+        const idTelegram = String(sData[i][6] || '').trim();
+
+        if (idTelegram) {
+          if (cleanTargetType === 'single_student') {
+            if (nis.toLowerCase() === cleanTargetVal || nisn.toLowerCase() === cleanTargetVal) {
+              recipients.push({ name: nama, id_telegram: idTelegram, type: `Siswa (${kelas})` });
+            }
+          } else if (cleanTargetType === 'class') {
+            if (kelas.toLowerCase() === cleanTargetVal) {
+              recipients.push({ name: nama, id_telegram: idTelegram, type: `Siswa (${kelas})` });
+            }
+          } else {
+            recipients.push({ name: nama, id_telegram: idTelegram, type: `Siswa (${kelas})` });
+          }
+        }
+      }
+    }
+  }
+
+  if (recipients.length === 0) {
+    return jsonResponse('error', 'Tidak ditemukan penerima dengan ID Telegram terdaftar pada target yang dipilih.');
+  }
+
+  // Format pesan Telegram
+  let formattedMsg = `📢 <b>INFORMASI & PENGUMUMAN SEKOLAH</b>\n` +
+    `🏫 <b>${config.namaSekolah}</b>\n` +
+    `----------------------------------------\n`;
+  if (subject && String(subject).trim() !== '') {
+    formattedMsg += `📌 <b>Subjek:</b> ${String(subject).trim()}\n\n`;
+  }
+  formattedMsg += `${String(message).trim()}\n\n` +
+    `----------------------------------------\n` +
+    `⏰ <i>Dikirim pada: ${Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss")} WIB</i>`;
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (let k = 0; k < recipients.length; k++) {
+    try {
+      sendTelegramNotification(recipients[k].id_telegram, formattedMsg);
+      successCount++;
+      Utilities.sleep(100); // 100ms pause to avoid rate limiting
+    } catch(e) {
+      failCount++;
+    }
+  }
+
+  return jsonResponse('success', `Broadcast Telegram Selesai! Berhasil terkirim ke ${successCount} penerima.`, {
+    target_count: recipients.length,
+    success_count: successCount,
+    failed_count: failCount
+  });
 }

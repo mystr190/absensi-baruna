@@ -385,6 +385,41 @@ if (btnTestTelegram) {
     });
 }
 
+// Handle Tombol Aktifkan Auto-Reply ID Telegram Bot
+const btnActivateAutoReply = document.getElementById('btnActivateAutoReply');
+if (btnActivateAutoReply) {
+    btnActivateAutoReply.addEventListener('click', async () => {
+        const inputUrlScript = document.getElementById('inputUrlScript');
+        const activeUrl = inputUrlScript ? inputUrlScript.value.trim() : SCRIPT_URL;
+
+        btnActivateAutoReply.disabled = true;
+        showToast("⏳ Mengaktifkan Auto-Reply Telegram Webhook...", "info");
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'set_telegram_webhook');
+            formData.append('url_script', activeUrl);
+
+            const result = await fetchWithRetry(activeUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(formData).toString()
+            }, 0);
+
+            if (result && result.status === 'success') {
+                showToast(`✅ ${result.message}`, "success");
+            } else {
+                showToast(`❌ ${result ? result.message : 'Gagal mengaktifkan Webhook.'}`, "error");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("❌ Error koneksi saat mengaktifkan Webhook.", "error");
+        } finally {
+            btnActivateAutoReply.disabled = false;
+        }
+    });
+}
+
 // Handle Tombol Setup Database Otomatis
 const btnInitialSetup = document.getElementById('btnInitialSetup');
 
