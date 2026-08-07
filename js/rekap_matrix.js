@@ -268,7 +268,7 @@ async function renderMatrixReport() {
     }
 }
 
-// Helper untuk mencocokkan log siswa secara presisi
+// Helper untuk mencocokkan log siswa secara presisi dengan DUAL INDIKATOR (NIS & NISN)
 function getStudentLogs(student, logMap) {
     if (!student || !logMap) return {};
     const nisn = String(student.nisn || '').trim();
@@ -277,12 +277,22 @@ function getStudentLogs(student, logMap) {
     const normNisn = nisn.replace(/^0+/, '');
     const normNis = nis.replace(/^0+/, '');
 
-    const foundMap = (nisn && logMap[nisn]) || 
-                     (nis && logMap[nis]) || 
-                     (normNisn && logMap[normNisn]) || 
-                     (normNis && logMap[normNis]) || 
-                     (nama && logMap[nama]) || {};
-    return foundMap;
+    const mergedMap = {};
+
+    // 1. Cek & gabungkan log berdasarkan NIS
+    if (nis && logMap[nis]) Object.assign(mergedMap, logMap[nis]);
+    if (normNis && logMap[normNis]) Object.assign(mergedMap, logMap[normNis]);
+
+    // 2. Cek & gabungkan log berdasarkan NISN (Verifikasi Ganda)
+    if (nisn && logMap[nisn]) Object.assign(mergedMap, logMap[nisn]);
+    if (normNisn && logMap[normNisn]) Object.assign(mergedMap, logMap[normNisn]);
+
+    // 3. Fallback pencocokan nama jika NIS/NISN kosong
+    if (Object.keys(mergedMap).length === 0 && nama && logMap[nama]) {
+        Object.assign(mergedMap, logMap[nama]);
+    }
+
+    return mergedMap;
 }
 
 async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {
@@ -298,11 +308,11 @@ async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {
             const serverLogs = res.data;
             const logMapTemp = new Map();
             (localRecentLogs || []).forEach(l => {
-                const k = `${l.nisn || l.nis || l.nama}_${l.tanggal}`;
+                const k = `${l.nis || l.nisn || l.nama}_${l.tanggal}`;
                 logMapTemp.set(k, l);
             });
             serverLogs.forEach(item => {
-                const k = `${item.nisn || item.nis || item.nama}_${item.tanggal}`;
+                const k = `${item.nis || item.nisn || item.nama}_${item.tanggal}`;
                 logMapTemp.set(k, item);
             });
             localRecentLogs = Array.from(logMapTemp.values());
@@ -755,11 +765,18 @@ function exportMatrixToCSV() {
         const prefixYearMonth = `${year}-${month < 10 ? '0' + month : month}`;
         const logMap = {};
         (localRecentLogs || []).forEach(log => {
-            if (log.tanggal && log.tanggal.startsWith(prefixYearMonth)) {
-                const key = log.nisn || log.nis;
-                if (!logMap[key]) logMap[key] = {};
-                logMap[key][log.tanggal] = log.status;
-            }
+            if (!log.tanggal || !log.tanggal.startsWith(prefixYearMonth)) return;
+            const nisn = String(log.nisn || '').trim();
+            const nis = String(log.nis || '').trim();
+            const nama = String(log.nama || '').trim().toLowerCase().replace(/\s+/g, '');
+            const normNisn = nisn.replace(/^0+/, '');
+            const normNis = nis.replace(/^0+/, '');
+
+            const keys = [nis, nisn, normNis, normNisn, nama].filter(Boolean);
+            keys.forEach(k => {
+                if (!logMap[k]) logMap[k] = {};
+                logMap[k][log.tanggal] = log.status;
+            });
         });
 
         let headers = ["No", "NIS", "NISN", "Nama Siswa", "L/P", "Kelas"];
@@ -769,8 +786,7 @@ function exportMatrixToCSV() {
         csvContent += headers.map(h => `"${h}"`).join(",") + "\n";
 
         filteredStudents.forEach((student, index) => {
-            const studentKey = student.nisn || student.nis;
-            const studentLogs = logMap[studentKey] || {};
+            const studentLogs = getStudentLogs(student, logMap);
             let countH = 0, countS = 0, countI = 0, countA = 0, countT = 0;
             let daySymbols = [];
 
@@ -810,16 +826,23 @@ function exportMatrixToCSV() {
 
         const logMap = {};
         (localRecentLogs || []).forEach(log => {
-            if (log.tanggal) {
-                const parts = log.tanggal.split('-');
-                if (parts.length >= 2) {
-                    const logY = parseInt(parts[0]);
-                    const logM = parseInt(parts[1]);
-                    if (logY === year && logM >= matrixMonthStart && logM <= matrixMonthEnd) {
-                        const key = log.nisn || log.nis;
-                        if (!logMap[key]) logMap[key] = {};
-                        logMap[key][log.tanggal] = log.status;
-                    }
+            if (!log.tanggal) return;
+            const parts = log.tanggal.split('-');
+            if (parts.length >= 2) {
+                const logY = parseInt(parts[0]);
+                const logM = parseInt(parts[1]);
+                if (logY === year && logM >= matrixMonthStart && logM <= matrixMonthEnd) {
+                    const nisn = String(log.nisn || '').trim();
+                    const nis = String(log.nis || '').trim();
+                    const nama = String(log.nama || '').trim().toLowerCase().replace(/\s+/g, '');
+                    const normNisn = nisn.replace(/^0+/, '');
+                    const normNis = nis.replace(/^0+/, '');
+
+                    const keys = [nis, nisn, normNis, normNisn, nama].filter(Boolean);
+                    keys.forEach(k => {
+                        if (!logMap[k]) logMap[k] = {};
+                        logMap[k][log.tanggal] = log.status;
+                    });
                 }
             }
         });
@@ -833,8 +856,7 @@ function exportMatrixToCSV() {
         csvContent += headers.map(h => `"${h}"`).join(",") + "\n";
 
         filteredStudents.forEach((student, index) => {
-            const studentKey = student.nisn || student.nis;
-            const studentLogs = logMap[studentKey] || {};
+            const studentLogs = getStudentLogs(student, logMap);
             let grandH = 0, grandS = 0, grandI = 0, grandA = 0, grandT = 0;
             let monthValues = [];
 

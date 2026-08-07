@@ -964,8 +964,8 @@ function handleGetReport(bulanFilter, kelasFilter, tanggalFilter) {
     const nis = String(data[i][2] || '').trim();
     const nama = String(data[i][3] || '').trim();
 
-    // Key unik per siswa per tanggal (terbaca baik via NISN, NIS, atau Nama)
-    const sKey = `${nisn || nis || nama.toLowerCase().replace(/[\s\-]/g, '')}_${dateFormatted}`;
+    // Key unik per siswa per tanggal (terbaca baik via NIS, NISN, atau Nama)
+    const sKey = `${nis || nisn || nama.toLowerCase().replace(/[\s\-]/g, '')}_${dateFormatted}`;
 
     const parts = dateFormatted.split('-');
     const b = parts.length >= 2 ? parts[1] : '';
