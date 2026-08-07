@@ -346,6 +346,45 @@ if (formConfigSekolah) {
     });
 }
 
+// Handle Tombol Tes Kirim Pesan Telegram
+const btnTestTelegram = document.getElementById('btnTestTelegram');
+if (btnTestTelegram) {
+    btnTestTelegram.addEventListener('click', async () => {
+        const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
+        const token = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
+
+        const targetId = prompt("Masukkan ID Telegram Chat Anda (Angka ID) untuk menerima pesan uji coba:\n(Contoh: 123456789 - bisa cek via @userinfobot di Telegram)");
+        if (!targetId || !targetId.trim()) return;
+
+        btnTestTelegram.disabled = true;
+        showToast("⏳ Mengirim pesan tes ke Telegram...", "info");
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'test_telegram');
+            formData.append('chat_id', targetId.trim());
+            if (token) formData.append('telegram_bot_token', token);
+
+            const result = await fetchWithRetry(SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(formData).toString()
+            }, 0);
+
+            if (result && result.status === 'success') {
+                showToast(`✅ ${result.message}`, "success");
+            } else {
+                showToast(`❌ ${result ? result.message : 'Gagal mengirim pesan tes.'}`, "error");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("❌ Error koneksi ke server saat tes Telegram.", "error");
+        } finally {
+            btnTestTelegram.disabled = false;
+        }
+    });
+}
+
 // Handle Tombol Setup Database Otomatis
 const btnInitialSetup = document.getElementById('btnInitialSetup');
 

@@ -107,6 +107,9 @@ function doGet(e) {
     else if (action === 'device_scan' || action === 'solution_scan') {
       return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status);
     }
+    else if (action === 'test_telegram') {
+      return handleTestTelegram(e.parameter.chat_id || e.parameter.id_telegram);
+    }
     else if (action === 'setup_device_columns') {
       ensureDeviceUserIdColumns();
       return jsonResponse('success', 'Header kolom ID_Mesin di Sheet DataSiswa dan Users berhasil dikonfigurasi!');
@@ -200,6 +203,9 @@ function doPost(e) {
     }
     else if (action === 'device_scan' || action === 'solution_scan') {
       return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status);
+    }
+    else if (action === 'test_telegram') {
+      return handleTestTelegram(e.parameter.chat_id || e.parameter.id_telegram);
     }
     else if (action === 'setup_device_columns') {
       ensureDeviceUserIdColumns();
@@ -1995,7 +2001,15 @@ function sendTelegramNotification(chatId, message) {
   } catch(e) {}
 
   if (!botToken) {
-    Logger.log("Telegram Bot Token belum diset di Script Properties (TELEGRAM_BOT_TOKEN)");
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const cfg = getConfigObject(ss);
+      botToken = cfg.telegramBotToken || '';
+    } catch(e) {}
+  }
+
+  if (!botToken) {
+    Logger.log("Telegram Bot Token belum diset di Script Properties atau Sheet Pengaturan.");
     return;
   }
 
@@ -2178,5 +2192,65 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
 
   } catch (err) {
     return jsonResponse('error', 'Gagal memproses scan mesin wajah: ' + err.toString());
+  }
+}
+
+// === HANDLER DIAGNOSTIK TES NOTIFIKASI TELEGRAM ===
+function handleTestTelegram(chatId) {
+  if (!chatId || String(chatId).trim() === '') {
+    return jsonResponse('error', 'Masukkan ID Telegram Chat target untuk uji coba.');
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let botToken = '';
+  try {
+    botToken = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN') || '';
+  } catch(e) {}
+
+  if (!botToken) {
+    botToken = getConfigObject(ss).telegramBotToken || '';
+  }
+
+  if (!botToken) {
+    return jsonResponse('error', 'Token Bot Telegram belum diset di Script Properties atau Sheet Pengaturan.');
+  }
+
+  const cleanChatId = String(chatId).trim();
+  const testMessage = `🧪 <b>TES NOTIFIKASI TELEGRAM ABSENSI SEKOLAH</b>\n\n` +
+    `Halo! Jika Anda menerima pesan ini, artinya <b>Bot Telegram Sekolah</b> dan <b>ID Telegram (${cleanChatId})</b> sudah terkonfigurasi dengan BERHASIL! 🎉\n\n` +
+    `⏰ <i>Waktu Tes: ${Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss")} WIB</i>`;
+
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const payload = {
+    chat_id: cleanChatId,
+    text: testMessage,
+    parse_mode: 'HTML'
+  };
+
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    
+    const resText = res.getContentText();
+    let resObj = {};
+    try { resObj = JSON.parse(resText); } catch(err) {}
+
+    if (resObj && resObj.ok) {
+      return jsonResponse('success', 'Pesan tes Telegram BERHASIL terkirim! Silakan cek aplikasi Telegram Anda.', resObj);
+    } else {
+      let errMsg = resObj.description || resText;
+      if (errMsg.includes('chat not found')) {
+        errMsg = 'Chat ID tidak ditemukan. Pastikan Anda sudah membuka Bot di Telegram dan mengklik tombol /start !';
+      } else if (errMsg.includes('Unauthorized')) {
+        errMsg = 'Token Bot Telegram tidak valid. Periksa kembali Token Bot dari @BotFather.';
+      }
+      return jsonResponse('error', `Gagal dari API Telegram: ${errMsg}`, resObj);
+    }
+  } catch(e) {
+    return jsonResponse('error', 'Error koneksi ke Telegram API: ' + e.toString());
   }
 }
