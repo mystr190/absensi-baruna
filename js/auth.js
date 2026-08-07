@@ -343,8 +343,8 @@ if (formSelfProfile) {
         const btn = document.getElementById('btnSaveSelfProfile');
         const oldText = btn ? btn.innerHTML : '';
 
-        const oldUsername = document.getElementById('selfOldUsername').value.trim();
         const username = document.getElementById('selfUsername').value.trim();
+        const oldUsername = document.getElementById('selfOldUsername').value.trim() || username;
         const nama = document.getElementById('selfNama').value.trim();
         const password = document.getElementById('selfPassword').value.trim();
         const id_mesin = document.getElementById('selfIdMesin').value.trim();
@@ -356,8 +356,20 @@ if (formSelfProfile) {
         }
 
         try {
-            const url = `${SCRIPT_URL}?action=update_self_profile&old_username=${encodeURIComponent(oldUsername)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&nama=${encodeURIComponent(nama)}&id_mesin=${encodeURIComponent(id_mesin)}&id_telegram=${encodeURIComponent(id_telegram)}`;
-            const res = await fetchWithRetry(url, { method: 'POST' });
+            const formData = new URLSearchParams();
+            formData.append('action', 'update_self_profile');
+            formData.append('old_username', oldUsername);
+            formData.append('username', username);
+            formData.append('password', password);
+            formData.append('nama', nama);
+            formData.append('id_mesin', id_mesin);
+            formData.append('id_telegram', id_telegram);
+
+            const res = await fetchWithRetry(SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
 
             if (res && res.status === 'success' && res.data) {
                 localStorage.setItem('smart_absen_user', JSON.stringify(res.data));

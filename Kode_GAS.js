@@ -1000,8 +1000,7 @@ function handleGetReport(bulanFilter, kelasFilter, tanggalFilter) {
   const rawKelas = String(kelasFilter || 'Semua').trim().toLowerCase();
   let targetTanggal = String(tanggalFilter || '').trim();
 
-  // JIKA TANGGAL TIDAK DITENTUKAN ATAU KOSONG, DEFAULT KE HARI BERJALAN (TODAY)
-  if (!targetTanggal || targetTanggal === 'today' || targetTanggal === 'Hari Ini') {
+  if (targetTanggal === 'today' || targetTanggal === 'Hari Ini') {
     targetTanggal = getFormattedDate(new Date());
   }
 
@@ -2889,13 +2888,16 @@ function handleUpdateSelfProfile(oldUsername, username, password, nama, id_mesin
   let oldNama = '';
   let userRole = '';
 
-  // 1. Cari user lama dan cegah duplikasi username jika username diubah
+  // 1. Cari user lama (berdasarkan Username atau Nama Lengkap)
   for (let i = 1; i < uData.length; i++) {
-    const curU = String(uData[i][1] || '').trim().toLowerCase();
-    if (curU === oldU) {
+    const curU = String(uData[i][1] || uData[i][0] || '').trim().toLowerCase();
+    const curNama = String(uData[i][4] || '').trim().toLowerCase();
+
+    if (curU === oldU || curNama === oldU) {
       userRowIndex = i + 1;
       oldNama = String(uData[i][4] || '').trim();
       userRole = String(uData[i][3] || '').trim();
+      break;
     }
   }
 

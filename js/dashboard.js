@@ -75,15 +75,6 @@ if (filterTanggal) {
 }
 
 async function loadDashboardData(forceRefresh = false) {
-    // Set default filterTanggal ke hari berjalan (Today) jika belum diisi
-    if (filterTanggal && !filterTanggal.value && (!filterBulan || filterBulan.value === 'Semua')) {
-        const nowObj = new Date();
-        const yyyy = nowObj.getFullYear();
-        const mm = String(nowObj.getMonth() + 1).padStart(2, '0');
-        const dd = String(nowObj.getDate()).padStart(2, '0');
-        filterTanggal.value = `${yyyy}-${mm}-${dd}`;
-    }
-
     const tanggal = filterTanggal ? filterTanggal.value : '';
     const bulan = filterBulan ? filterBulan.value : 'Semua';
     const kelas = filterKelas ? filterKelas.value : 'Semua';

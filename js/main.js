@@ -356,8 +356,6 @@ async function autoLoadStudents() {
                 btnTextElem.innerText = isEditAttendanceMode ? `Update / Simpan Perubahan Absensi (${tanggal})` : `Simpan Absensi Kelas (${tanggal})`;
             }
         }
-
-        showToast(`⚡ ${filteredStudents.length} siswa kelas ${kelas} siap.`, 'info');
     }
 
     if (studentListContainer) studentListContainer.style.display = 'block';
@@ -655,14 +653,20 @@ function showToast(message, type = 'info') {
     `;
 
     toast.className = `toast ${type}`;
+    toast.style.cursor = 'pointer';
+    toast.onclick = () => {
+        toast.classList.remove('show');
+    };
 
     void toast.offsetWidth;
     toast.classList.add('show');
 
+    const duration = (type === 'info') ? 2500 : 3500;
+
     if (window.toastTimeout) clearTimeout(window.toastTimeout);
     window.toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
-    }, 4200);
+    }, duration);
 }
 
 // ----------------------------------------------------
