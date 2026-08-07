@@ -81,6 +81,18 @@ function showApp(user) {
     document.getElementById('currentUserName').innerText = user.nama;
     document.getElementById('currentUserRole').innerText = user.role;
     
+    // Update Badge Verified Telegram di Sidebar bawah profil
+    const badgeTgSidebar = document.getElementById('currentUserTelegramBadge');
+    const textTgSidebar = document.getElementById('currentUserTelegramIdText');
+    if (badgeTgSidebar && textTgSidebar) {
+        if (user.id_telegram && String(user.id_telegram).trim() !== '' && String(user.id_telegram).trim() !== '-') {
+            textTgSidebar.innerText = user.id_telegram;
+            badgeTgSidebar.style.display = 'flex';
+        } else {
+            badgeTgSidebar.style.display = 'none';
+        }
+    }
+    
     // Inject nama petugas ke panel
     const petugasElem = document.getElementById('petugasName');
     if (petugasElem) petugasElem.innerText = user.nama;
@@ -273,6 +285,18 @@ function renderSelfProfilePanel() {
     if (roleInput) roleInput.value = user.role || '';
     if (idMesinInput) idMesinInput.value = user.id_mesin || '';
     if (idTelegramInput) idTelegramInput.value = user.id_telegram || '';
+
+    // Update Status Box Badge Telegram Terhubung
+    const boxTg = document.getElementById('profileTelegramStatusBox');
+    const dispTg = document.getElementById('profileTelegramIdDisplay');
+    if (boxTg && dispTg) {
+        if (user.id_telegram && String(user.id_telegram).trim() !== '' && String(user.id_telegram).trim() !== '-') {
+            dispTg.innerText = user.id_telegram;
+            boxTg.style.display = 'flex';
+        } else {
+            boxTg.style.display = 'none';
+        }
+    }
 }
 
 const formSelfProfile = document.getElementById('formSelfProfile');
