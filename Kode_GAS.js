@@ -2619,9 +2619,10 @@ function handleGetDeviceUsers() {
 
 function handleSyncDeviceUsers() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ensureUserMesinSheet(ss);
+  const sheetMesin = ensureUserMesinSheet(ss);
   
-  // 1. Pindai Data Siswa
+  // 1. Map Master Data Siswa
+  let siswaMap = new Map();
   const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
   if (sheetSiswa) {
     const sData = sheetSiswa.getDataRange().getValues();
@@ -2632,15 +2633,16 @@ function handleSyncDeviceUsers() {
       const kelas = String(sData[i][3] || '').trim();
       const idMesin = String(sData[i][5] || '').trim();
       const idTelegram = String(sData[i][6] || '').trim();
-      
-      const pinToUse = idMesin || nis || nisn;
-      if (pinToUse && nama) {
-        recordUserMesinActivity(ss, pinToUse, '', nama, 'Siswa', kelas, idTelegram, 'Terdaftar di Sistem');
-      }
+
+      const studentObj = { nama: nama, kelas: kelas, idTelegram: idTelegram, tipe: 'Siswa' };
+      if (idMesin) siswaMap.set(idMesin, studentObj);
+      if (nis) siswaMap.set(nis, studentObj);
+      if (nisn) siswaMap.set(nisn, studentObj);
     }
   }
-  
-  // 2. Pindai Data Guru/Users
+
+  // 2. Map Master Data Users / Guru
+  let usersMap = new Map();
   const sheetUsers = ss.getSheetByName(SHEET_USERS);
   if (sheetUsers) {
     const uData = sheetUsers.getDataRange().getValues();
@@ -2650,13 +2652,105 @@ function handleSyncDeviceUsers() {
       const nama = String(uData[i][4] || username).trim();
       const idMesin = String(uData[i][5] || '').trim();
       const idTelegram = String(uData[i][6] || '').trim();
-      
-      const pinToUse = idMesin || username;
-      if (pinToUse && nama) {
-        recordUserMesinActivity(ss, pinToUse, '', nama, 'Guru/Staf', role, idTelegram, 'Terdaftar di Sistem');
+
+      const userObj = { nama: nama, role: role, idTelegram: idTelegram, tipe: 'Guru/Staf' };
+      if (idMesin) usersMap.set(idMesin, userObj);
+      if (username) usersMap.set(username, userObj);
+    }
+  }
+
+  // 3. AMBIL PURE DATA DARI MESIN (Sheet User_Mesin + Log Scan Mesin)
+  const rawMesinData = sheetMesin.getDataRange().getValues();
+  let pureDeviceMap = new Map();
+
+  // 3a. Ambil PIN & Nama_Mesin yang sudah pernah tercatat di Sheet User_Mesin
+  for (let i = 1; i < rawMesinData.length; i++) {
+    const pin = String(rawMesinData[i][0] || '').trim();
+    if (pin) {
+      pureDeviceMap.set(pin, {
+        nama_mesin: String(rawMesinData[i][1] || '').trim(),
+        scan_terakhir: String(rawMesinData[i][6] || '').trim(),
+        total_scan: parseInt(rawMesinData[i][7]) || 0
+      });
+    }
+  }
+
+  // 3b. Ambil PIN yang pernah scan dari Sheet LogAbsen Siswa
+  const sheetLog = ss.getSheetByName(SHEET_LOG);
+  if (sheetLog && sheetLog.getLastRow() > 1) {
+    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
+    for (let i = 0; i < logData.length; i++) {
+      const waktu = String(logData[i][0] || '').trim();
+      const nisn = String(logData[i][1] || '').trim();
+      const nis = String(logData[i][2] || '').trim();
+      const pin = nis || nisn;
+      if (pin) {
+        if (!pureDeviceMap.has(pin)) {
+          pureDeviceMap.set(pin, { nama_mesin: '', scan_terakhir: waktu, total_scan: 1 });
+        } else {
+          const item = pureDeviceMap.get(pin);
+          item.total_scan = (item.total_scan || 0) + 1;
+          if (waktu) item.scan_terakhir = waktu;
+        }
       }
     }
   }
-  
+
+  // 3c. Ambil PIN yang pernah scan dari Sheet LogAbsen Guru
+  const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
+  if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
+    const logGuruData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 8).getValues();
+    for (let i = 0; i < logGuruData.length; i++) {
+      const waktu = String(logGuruData[i][1] || '').trim();
+      const username = String(logGuruData[i][3] || '').trim();
+      if (username) {
+        if (!pureDeviceMap.has(username)) {
+          pureDeviceMap.set(username, { nama_mesin: '', scan_terakhir: waktu, total_scan: 1 });
+        } else {
+          const item = pureDeviceMap.get(username);
+          item.total_scan = (item.total_scan || 0) + 1;
+          if (waktu) item.scan_terakhir = waktu;
+        }
+      }
+    }
+  }
+
+  // 4. Bersihkan Sheet User_Mesin dan Tulis Ulang HANYA PURE DATA MESIN
+  if (sheetMesin.getLastRow() > 1) {
+    sheetMesin.getRange(2, 1, sheetMesin.getLastRow() - 1, 9).clearContent();
+  }
+
+  let rowsToAppend = [];
+  pureDeviceMap.forEach((meta, pin) => {
+    let matched = siswaMap.get(pin) || usersMap.get(pin);
+
+    // Jika COCOK dengan Database: Isikan detailnya
+    // Jika TIDAK COCOK dengan Database: Biarkan kosong untuk nama_db, tipe, dll.
+    const namaMesin = meta.nama_mesin || '-';
+    const namaDB = matched ? matched.nama : '';
+    const tipe = matched ? matched.tipe : '-';
+    const kelasRole = matched ? (matched.kelas || matched.role || '-') : '-';
+    const idTg = matched ? (matched.idTelegram || '-') : '-';
+    const scanTerakhir = meta.scan_terakhir || '-';
+    const totalScan = meta.total_scan || 0;
+    const statusMapping = matched ? 'Terhubung ✅' : 'Belum Dihubungkan ⚠️';
+
+    rowsToAppend.push([
+      pin,
+      namaMesin,
+      namaDB,
+      tipe,
+      kelasRole,
+      idTg,
+      scanTerakhir,
+      totalScan,
+      statusMapping
+    ]);
+  });
+
+  if (rowsToAppend.length > 0) {
+    sheetMesin.getRange(2, 1, rowsToAppend.length, 9).setValues(rowsToAppend);
+  }
+
   return handleGetDeviceUsers();
 }

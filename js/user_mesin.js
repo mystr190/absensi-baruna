@@ -129,17 +129,21 @@ function renderUserMesinTable() {
             ? `<span style="color: #38bdf8; font-size: 0.85rem;"><i class="fa-brands fa-telegram"></i> ${item.id_telegram}</span>`
             : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
 
+        const namaDBDisplay = (item.nama && item.nama !== '-')
+            ? `<span style="font-weight: 500; color: #f8fafc;">${item.nama}</span>`
+            : `<span style="color: var(--text-muted); font-style: italic;">(Belum Terhubung)</span>`;
+
         html += `
             <tr>
                 <td style="text-align: center; font-weight: 500;">${index + 1}</td>
                 <td><strong style="color: #38bdf8; font-family: monospace; font-size: 0.95rem;">${item.id_mesin}</strong></td>
                 <td><span style="color: #38bdf8; font-weight: 500;">${item.nama_mesin || '-'}</span></td>
-                <td style="font-weight: 500; color: #f8fafc;">${item.nama}</td>
-                <td><span style="background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 5px; font-size: 0.82rem;">${item.tipe}</span></td>
-                <td style="color: var(--text-muted); font-size: 0.88rem;">${item.kelas_role}</td>
+                <td>${namaDBDisplay}</td>
+                <td><span style="background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 5px; font-size: 0.82rem;">${item.tipe || '-'}</span></td>
+                <td style="color: var(--text-muted); font-size: 0.88rem;">${item.kelas_role || '-'}</td>
                 <td>${badgeTg}</td>
-                <td style="font-size: 0.83rem; color: var(--text-muted);">${item.scan_terakhir}</td>
-                <td style="text-align: center; font-weight: 600; color: #e2e8f0;">${item.total_scan}</td>
+                <td style="font-size: 0.83rem; color: var(--text-muted);">${item.scan_terakhir || '-'}</td>
+                <td style="text-align: center; font-weight: 600; color: #e2e8f0;">${item.total_scan || 0}</td>
                 <td>${badgeStatus}</td>
             </tr>
         `;
