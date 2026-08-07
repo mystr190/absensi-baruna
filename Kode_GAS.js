@@ -13,6 +13,7 @@ const SHEET_JENIS_PELANGGARAN = 'DataPelanggaran';
 const SHEET_LOG_GURU = 'LogAbsenGuru';
 const SHEET_PENGAJUAN_IZIN = 'PengajuanIzin';
 const SHEET_HOLIDAYS = 'HariLibur';
+const SHEET_USER_MESIN = 'User_Mesin';
 const TIMEZONE = 'Asia/Jakarta'; // Menggunakan Timezone WIB Indonesia
 
 // === DUKUNGAN GET (Tarik Data Cepat & Real-Time) ===
@@ -116,9 +117,17 @@ function doGet(e) {
     else if (action === 'send_telegram_broadcast') {
       return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
     }
-    else if (action === 'setup_device_columns') {
+    else if (action === 'get_device_users') {
+      return handleGetDeviceUsers();
+    }
+    else if (action === 'sync_device_users') {
+      return handleSyncDeviceUsers();
+    }
+    else if (action === 'setup_user_mesin' || action === 'setup_device_columns') {
       ensureDeviceUserIdColumns();
-      return jsonResponse('success', 'Header kolom ID_Mesin di Sheet DataSiswa dan Users berhasil dikonfigurasi!');
+      ensureUserMesinSheet(SpreadsheetApp.getActiveSpreadsheet());
+      handleSyncDeviceUsers();
+      return jsonResponse('success', 'Setup & Sinkronisasi Sheet User_Mesin berhasil dikonfigurasi!');
     }
 
     return jsonResponse('success', 'API Active');
@@ -161,6 +170,12 @@ function doPost(e) {
     }
     else if (action === 'send_telegram_broadcast') {
       return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
+    }
+    else if (action === 'get_device_users') {
+      return handleGetDeviceUsers();
+    }
+    else if (action === 'sync_device_users') {
+      return handleSyncDeviceUsers();
     }
     else if (action === 'get_students') {
       return handleGetStudents();
@@ -1254,17 +1269,22 @@ function initialSetup() {
     });
   }
 
-  // 10. Hapus Sheet bawaan "Sheet1" / "Sheet 1" jika ada
+  // 10. Setup Sheet User_Mesin (Master Detail User Mesin Solution X902)
+  ensureDeviceUserIdColumns();
+  ensureUserMesinSheet(ss);
+  handleSyncDeviceUsers();
+
+  // 11. Hapus Sheet bawaan "Sheet1" / "Sheet 1" jika ada
   let defaultSheet = ss.getSheetByName('Sheet1') || ss.getSheetByName('Sheet 1');
   if (defaultSheet && ss.getSheets().length > 1) {
     try { ss.deleteSheet(defaultSheet); } catch (e) { }
   }
 
   try {
-    SpreadsheetApp.getUi().alert('✅ Setup Database Berhasil!\nSemua sheet (Users, DataSiswa, LogAbsen, Pengaturan, LogPelanggaran, DataPelanggaran, LogAbsenGuru, PengajuanIzin, HariLibur) telah siap digunakan.');
+    SpreadsheetApp.getUi().alert('✅ Setup Database Berhasil!\nSemua sheet (Users, DataSiswa, LogAbsen, Pengaturan, LogPelanggaran, DataPelanggaran, LogAbsenGuru, PengajuanIzin, HariLibur, User_Mesin) telah siap digunakan.');
   } catch (e) { }
 
-  return jsonResponse('success', 'Setup Database Google Sheets Berhasil! Semua sheet (termasuk HariLibur & Presensi Guru) telah dibuat.');
+  return jsonResponse('success', 'Setup Database Google Sheets Berhasil! Semua sheet (termasuk User_Mesin, HariLibur & Presensi Guru) telah dibuat.');
 }
 
 function handleInitialSetupWeb() {
@@ -2114,6 +2134,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
     }
 
     if (matchedStudent) {
+      recordUserMesinActivity(ss, cleanPin, matchedStudent.nama, 'Siswa', matchedStudent.kelas, matchedStudent.id_telegram, fullTimestampStr);
       const sheetLog = ss.getSheetByName(SHEET_LOG);
       if (sheetLog) {
         const lastRow = sheetLog.getLastRow();
@@ -2188,6 +2209,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
     }
 
     if (matchedUser) {
+      recordUserMesinActivity(ss, cleanPin, matchedUser.nama, 'Guru/Staf', matchedUser.role, matchedUser.id_telegram, fullTimestampStr);
       const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
       if (sheetLogGuru) {
         const newRowGuru = [
@@ -2226,6 +2248,9 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
         telegram_sent: Boolean(matchedUser.id_telegram)
       });
     }
+
+    // Jika belum ada mapping, tetap catat ke sheet User_Mesin sebagai Unmapped
+    recordUserMesinActivity(ss, cleanPin, 'Belum Diisi (' + cleanPin + ')', 'Unmapped', '-', '-', fullTimestampStr);
 
     return jsonResponse('error', `ID Mesin / PIN [${cleanPin}] dari Solution X902 belum dicocokkan dengan data Siswa atau Guru di database.`);
 
@@ -2471,4 +2496,145 @@ function handleSendTelegramBroadcast(targetType, targetValue, subject, message) 
     success_count: successCount,
     failed_count: failCount
   });
+}
+
+// === HELPER & HANDLER SINKRONISASI SHEET USER MESIN SOLUTION ===
+function ensureUserMesinSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_USER_MESIN);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_USER_MESIN);
+    const headers = [
+      'ID_Mesin',
+      'Nama Terhubung',
+      'Tipe Pengguna',
+      'Kelas / Role',
+      'ID Telegram',
+      'Scan Terakhir',
+      'Total Scan',
+      'Status Mapping'
+    ];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold')
+      .setBackground('#1e293b')
+      .setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function recordUserMesinActivity(ss, idMesin, nama, tipe, kelasRole, idTelegram, scanTimestamp) {
+  try {
+    const sheet = ensureUserMesinSheet(ss);
+    const data = sheet.getDataRange().getValues();
+    const cleanId = String(idMesin).trim();
+    
+    let foundRow = -1;
+    let existingTotal = 0;
+    
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === cleanId) {
+        foundRow = i + 1;
+        existingTotal = parseInt(data[i][6]) || 0;
+        break;
+      }
+    }
+    
+    const isMapped = (tipe && tipe !== 'Unmapped' && tipe !== 'Belum Diketahui');
+    const statusMapping = isMapped ? 'Terhubung ✅' : 'Belum Dihubungkan ⚠️';
+    const newTotal = existingTotal + 1;
+    
+    if (foundRow > 1) {
+      sheet.getRange(foundRow, 2, 1, 7).setValues([[
+        nama || 'Belum Diisi',
+        tipe || 'Unmapped',
+        kelasRole || '-',
+        idTelegram || '-',
+        scanTimestamp || Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss"),
+        newTotal,
+        statusMapping
+      ]]);
+    } else {
+      sheet.appendRow([
+        cleanId,
+        nama || 'Belum Diisi',
+        tipe || 'Unmapped',
+        kelasRole || '-',
+        idTelegram || '-',
+        scanTimestamp || Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss"),
+        1,
+        statusMapping
+      ]);
+    }
+  } catch(e) {
+    Logger.log("Error recordUserMesinActivity: " + e.toString());
+  }
+}
+
+function handleGetDeviceUsers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureUserMesinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  
+  let result = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0]) {
+      result.push({
+        id_mesin: String(data[i][0]).trim(),
+        nama: String(data[i][1] || '-').trim(),
+        tipe: String(data[i][2] || '-').trim(),
+        kelas_role: String(data[i][3] || '-').trim(),
+        id_telegram: String(data[i][4] || '-').trim(),
+        scan_terakhir: String(data[i][5] || '-').trim(),
+        total_scan: parseInt(data[i][6]) || 0,
+        status_mapping: String(data[i][7] || 'Belum Dihubungkan ⚠️').trim()
+      });
+    }
+  }
+  
+  return jsonResponse('success', 'Berhasil memuat data User Mesin Solution', result);
+}
+
+function handleSyncDeviceUsers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureUserMesinSheet(ss);
+  
+  // 1. Pindai Data Siswa
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa) {
+    const sData = sheetSiswa.getDataRange().getValues();
+    for (let i = 1; i < sData.length; i++) {
+      const nisn = String(sData[i][0] || '').trim();
+      const nis = String(sData[i][1] || '').trim();
+      const nama = String(sData[i][2] || '').trim();
+      const kelas = String(sData[i][3] || '').trim();
+      const idMesin = String(sData[i][5] || '').trim();
+      const idTelegram = String(sData[i][6] || '').trim();
+      
+      const pinToUse = idMesin || nis || nisn;
+      if (pinToUse && nama) {
+        recordUserMesinActivity(ss, pinToUse, nama, 'Siswa', kelas, idTelegram, 'Terdaftar di Sistem');
+      }
+    }
+  }
+  
+  // 2. Pindai Data Guru/Users
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers) {
+    const uData = sheetUsers.getDataRange().getValues();
+    for (let i = 1; i < uData.length; i++) {
+      const username = String(uData[i][1] || uData[i][0] || '').trim();
+      const role = String(uData[i][3] || 'Guru').trim();
+      const nama = String(uData[i][4] || username).trim();
+      const idMesin = String(uData[i][5] || '').trim();
+      const idTelegram = String(uData[i][6] || '').trim();
+      
+      const pinToUse = idMesin || username;
+      if (pinToUse && nama) {
+        recordUserMesinActivity(ss, pinToUse, nama, 'Guru/Staf', role, idTelegram, 'Terdaftar di Sistem');
+      }
+    }
+  }
+  
+  return handleGetDeviceUsers();
 }

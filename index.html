@@ -116,6 +116,9 @@
                 <button class="nav-item" data-target="panel-broadcast-telegram" id="nav-broadcast-telegram" style="display:none;">
                     <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span> Broadcast Telegram
                 </button>
+                <button class="nav-item" data-target="panel-user-mesin" id="nav-user-mesin" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-fingerprint"></i></span> Data User Mesin
+                </button>
             </nav>
             <div class="sidebar-footer">
                 <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)</button>
@@ -1270,6 +1273,79 @@
                 </div>
             </section>
 
+            <!-- PANEL 11: DATA USER MESIN SOLUTION -->
+            <section id="panel-user-mesin" class="panel">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <h2 style="display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin: 0; color: #f8fafc;">
+                            <i class="fa-solid fa-fingerprint" style="color: #38bdf8;"></i> Data Detail User Mesin Solution X902
+                        </h2>
+                        <p style="margin-top: 4px; font-size: 0.88rem; color: var(--text-muted);">
+                            Rekap otomatis seluruh User ID (PIN Mesin Wajah) yang terdaftar dan terekam di mesin absensi.
+                        </p>
+                    </div>
+                    <button id="btnSyncUserMesin" class="btn-primary" style="padding: 10px 20px; font-size: 0.9rem; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #2563eb);">
+                        <i class="fa-solid fa-rotate"></i> Sinkronkan Data Mesin
+                    </button>
+                </div>
+
+                <!-- CARDS STATISTIK USER MESIN -->
+                <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div class="stat-card glass-card" style="padding: 16px 20px;">
+                        <div class="stat-info">
+                            <h3 style="color:#38bdf8; font-size:0.8rem; text-transform:uppercase;">TOTAL PIN TERDAFTAR</h3>
+                            <p id="statTotalUserMesin" class="stat-value" style="font-size:1.7rem; margin-top:2px;">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card" style="padding: 16px 20px;">
+                        <div class="stat-info">
+                            <h3 style="color:#4ade80; font-size:0.8rem; text-transform:uppercase;">TERHUBUNG (MAPPED)</h3>
+                            <p id="statMappedUserMesin" class="stat-value" style="font-size:1.7rem; margin-top:2px;">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card" style="padding: 16px 20px;">
+                        <div class="stat-info">
+                            <h3 style="color:#f87171; font-size:0.8rem; text-transform:uppercase;">BELUM TERHUBUNG (UNMAPPED)</h3>
+                            <p id="statUnmappedUserMesin" class="stat-value" style="font-size:1.7rem; margin-top:2px;">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILTER SEARCH -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+                    <div style="position: relative; flex: 1; min-width: 260px;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                        <input type="text" id="inputSearchUserMesin" placeholder="Cari ID Mesin / PIN, Nama, atau Status..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 12px 10px 38px; border-radius: 10px; font-size: 0.9rem;">
+                    </div>
+                </div>
+
+                <!-- TABEL USER MESIN -->
+                <div class="modern-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th>ID Mesin (PIN)</th>
+                                <th>Nama Terhubung</th>
+                                <th>Kategori</th>
+                                <th>Kelas / Role</th>
+                                <th>ID Telegram</th>
+                                <th>Scan Terakhir</th>
+                                <th style="text-align: center;">Total Scan</th>
+                                <th>Status Mapping</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBodyUserMesin">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding: 25px; color: var(--text-muted);">
+                                    <span class="loader" style="display:inline-block; margin-right:8px;"></span>Memuat data user mesin...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <!-- MODAL CUSTOM GLASSMORPHISM ALERT & DIALOG BROADCAST TELEGRAM -->
             <div id="modalBroadcastDialog" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
                 <div class="glass-card" style="width: 100%; max-width: 480px; padding: 28px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; position: relative;">
@@ -1479,6 +1555,7 @@
     <script src="js/absen_guru.js?v=1.0"></script>
     <script src="js/kelola_siswa.js?v=1.0"></script>
     <script src="js/broadcast_telegram.js?v=1.0"></script>
+    <script src="js/user_mesin.js?v=1.0"></script>
 </body>
 
 </html>
