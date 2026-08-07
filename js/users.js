@@ -74,8 +74,9 @@ async function loadUsers() {
         const result = await fetchWithRetry(`${SCRIPT_URL}?action=get_users`, { method: 'GET' }, 2, 800);
         if (result && result.status === 'success') {
             userListState = result.data || [];
+            window.allUsers = userListState;
             window.allTeachers = userListState.map(u => ({ username: u.username, namaLengkap: u.nama, role: u.role, id_mesin: u.id_mesin, id_telegram: u.id_telegram }));
-            localStorage.setItem('smart_absen_users_cache', JSON.stringify(window.allTeachers));
+            localStorage.setItem('smart_absen_users_cache', JSON.stringify(window.allUsers));
             if (tableBody) renderUserTable(userListState);
             if (typeof renderAbsenGuruBatchTable === 'function') {
                 renderAbsenGuruBatchTable();

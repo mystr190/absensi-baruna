@@ -5,7 +5,35 @@ document.addEventListener('DOMContentLoaded', () => {
     initBroadcastTelegramModule();
 });
 
-function initBroadcastTelegramModule() {
+function getTeachersList() {
+    let teachers = [];
+    if (typeof userListState !== 'undefined' && Array.isArray(userListState) && userListState.length > 0) {
+        teachers = userListState;
+    } else if (window.allTeachers && Array.isArray(window.allTeachers) && window.allTeachers.length > 0) {
+        teachers = window.allTeachers;
+    } else if (window.allUsers && Array.isArray(window.allUsers) && window.allUsers.length > 0) {
+        teachers = window.allUsers;
+    } else {
+        try {
+            const cached = localStorage.getItem('smart_absen_users_cache');
+            if (cached) teachers = JSON.parse(cached);
+        } catch(e) {}
+    }
+    return teachers || [];
+}
+
+async function ensureTeachersLoaded() {
+    const teachers = getTeachersList();
+    if (teachers.length === 0 && typeof loadUsers === 'function') {
+        try {
+            await loadUsers();
+        } catch(e) {
+            console.error("Error loading users for broadcast:", e);
+        }
+    }
+}
+
+async function initBroadcastTelegramModule() {
     const targetTypeSelect = document.getElementById('broadcastTargetType');
     const specificContainer = document.getElementById('containerBroadcastSpecific');
     const labelSpecific = document.getElementById('labelBroadcastSpecific');
@@ -15,9 +43,12 @@ function initBroadcastTelegramModule() {
 
     if (!targetTypeSelect || !formBroadcast) return;
 
+    // Pastikan data guru dimuat jika belum ada
+    await ensureTeachersLoaded();
+
     // Listener Perubahan Tipe Target
-    targetTypeSelect.addEventListener('change', () => {
-        updateBroadcastTargetOptions();
+    targetTypeSelect.addEventListener('change', async () => {
+        await updateBroadcastTargetOptions();
     });
 
     if (targetValueSelect) {
@@ -29,24 +60,24 @@ function initBroadcastTelegramModule() {
     // Inisialisasi awal saat menu dibuka
     const navBtnBroadcast = document.getElementById('nav-broadcast-telegram');
     if (navBtnBroadcast) {
-        navBtnBroadcast.addEventListener('click', () => {
-            updateBroadcastTargetOptions();
+        navBtnBroadcast.addEventListener('click', async () => {
+            await ensureTeachersLoaded();
+            await updateBroadcastTargetOptions();
         });
     }
 
     // Update opsi target spesifik
-    function updateBroadcastTargetOptions() {
+    async function updateBroadcastTargetOptions() {
         const targetType = targetTypeSelect.value;
         targetValueSelect.innerHTML = '';
 
         const students = window.allStudents || [];
-        const users = window.allUsers || [];
+        const users = getTeachersList();
 
         if (targetType === 'class') {
             specificContainer.style.display = 'block';
             labelSpecific.innerHTML = '<i class="fa-solid fa-school"></i> Pilih Kelas Spesifik:';
 
-            // Ambil daftar kelas unik
             const uniqueClasses = [...new Set(students.map(s => String(s.kelas || '').trim()).filter(Boolean))].sort();
             if (uniqueClasses.length === 0) {
                 targetValueSelect.innerHTML = '<option value="">(Tidak ada kelas tersedia)</option>';
@@ -65,7 +96,6 @@ function initBroadcastTelegramModule() {
             if (students.length === 0) {
                 targetValueSelect.innerHTML = '<option value="">(Tidak ada data siswa)</option>';
             } else {
-                // Urutkan siswa berdasarkan nama
                 const sortedStudents = [...students].sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
                 sortedStudents.forEach(s => {
                     const opt = document.createElement('option');
@@ -80,14 +110,19 @@ function initBroadcastTelegramModule() {
             labelSpecific.innerHTML = '<i class="fa-solid fa-chalkboard-user"></i> Pilih Guru / Staf:';
 
             if (users.length === 0) {
-                targetValueSelect.innerHTML = '<option value="">(Tidak ada data guru)</option>';
+                targetValueSelect.innerHTML = '<option value="">(Memuat / tidak ada data guru)</option>';
             } else {
-                const sortedUsers = [...users].sort((a, b) => (a.nama || a.username || '').localeCompare(b.nama || b.username || ''));
+                const sortedUsers = [...users].sort((a, b) => {
+                    const nameA = a.nama || a.namaLengkap || a.username || '';
+                    const nameB = b.nama || b.namaLengkap || b.username || '';
+                    return nameA.localeCompare(nameB);
+                });
                 sortedUsers.forEach(u => {
                     const opt = document.createElement('option');
                     opt.value = u.username || u.id;
+                    const name = u.nama || u.namaLengkap || u.username;
                     const hasTg = Boolean(u.id_telegram && String(u.id_telegram).trim());
-                    opt.textContent = `${u.nama || u.username} [${u.role || 'User'}] ${hasTg ? '✅ [Telegram]' : '❌ [Belum Ada ID]'}`;
+                    opt.textContent = `${name} [${u.role || 'User'}] ${hasTg ? '✅ [Telegram]' : '❌ [Belum Ada ID]'}`;
                     targetValueSelect.appendChild(opt);
                 });
             }
@@ -103,7 +138,7 @@ function initBroadcastTelegramModule() {
         const targetType = targetTypeSelect.value;
         const targetVal = targetValueSelect.value;
         const students = window.allStudents || [];
-        const users = window.allUsers || [];
+        const users = getTeachersList();
 
         let totalTarget = 0;
         let telegramCount = 0;
@@ -191,7 +226,6 @@ function initBroadcastTelegramModule() {
                       `- Berhasil Terkirim: ${data.success_count || 0}\n` +
                       `- Gagal: ${data.failed_count || 0}`);
                 
-                // Reset form isi pesan
                 document.getElementById('broadcastSubject').value = '';
                 document.getElementById('broadcastMessage').value = '';
             } else {
@@ -208,6 +242,5 @@ function initBroadcastTelegramModule() {
         }
     });
 
-    // Panggil inisialisasi awal saat script dimuat
     updateBroadcastTargetOptions();
 }
