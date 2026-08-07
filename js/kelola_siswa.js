@@ -145,7 +145,10 @@ function renderTableSiswa() {
             ? `<span style="background: rgba(244, 114, 182, 0.2); color: #f472b6; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem;">P</span>`
             : `<span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem;">L</span>`;
         const idMesinDisplay = s.id_mesin 
-            ? `<span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 8px; border-radius: 6px; font-family: monospace; font-size: 0.8rem;">${s.id_mesin}</span>`
+            ? `<span style="font-family: monospace; background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 2px 6px; border-radius: 4px; font-size: 0.82rem;">${s.id_mesin}</span>` 
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
+        const idTelegramDisplay = s.id_telegram 
+            ? `<span style="font-family: monospace; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.82rem;"><i class="fa-brands fa-telegram"></i> ${s.id_telegram}</span>` 
             : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
 
         html += `
@@ -154,6 +157,7 @@ function renderTableSiswa() {
                 <td style="font-family: monospace; font-weight: 600;">${s.nis || '-'}</td>
                 <td style="font-family: monospace; color: var(--text-muted);">${s.nisn || '-'}</td>
                 <td style="text-align: center;">${idMesinDisplay}</td>
+                <td style="text-align: center;">${idTelegramDisplay}</td>
                 <td style="font-weight: 600; color: #f8fafc;">${s.nama || '-'}</td>
                 <td style="text-align: center;">${genderBadge}</td>
                 <td style="text-align: center;"><span style="background: rgba(255,255,255,0.07); padding: 2px 8px; border-radius: 6px;">${s.kelas || '-'}</span></td>
@@ -246,6 +250,8 @@ function openModalAddStudent() {
     document.getElementById('modalSiswaOldNisn').value = '';
     const idMesinInp = document.getElementById('modalSiswaIdMesin');
     if (idMesinInp) idMesinInp.value = '';
+    const idTelegramInp = document.getElementById('modalSiswaIdTelegram');
+    if (idTelegramInp) idTelegramInp.value = '';
     modal.style.display = 'flex';
 }
 
@@ -272,6 +278,8 @@ function openModalEditStudent(nis, nisn) {
     document.getElementById('modalSiswaGender').value = (student.gender || student.jk || 'L').toUpperCase() === 'P' ? 'P' : 'L';
     const idMesinInp = document.getElementById('modalSiswaIdMesin');
     if (idMesinInp) idMesinInp.value = student.id_mesin || '';
+    const idTelegramInp = document.getElementById('modalSiswaIdTelegram');
+    if (idTelegramInp) idTelegramInp.value = student.id_telegram || '';
 
     modal.style.display = 'flex';
 }
@@ -290,6 +298,7 @@ async function handleSaveStudentSingle(e) {
     const nis = document.getElementById('modalSiswaNis').value.trim();
     const nisn = document.getElementById('modalSiswaNisn').value.trim();
     const id_mesin = (document.getElementById('modalSiswaIdMesin')?.value || '').trim();
+    const id_telegram = (document.getElementById('modalSiswaIdTelegram')?.value || '').trim();
     const kelas = document.getElementById('modalSiswaKelas').value.trim();
     const gender = document.getElementById('modalSiswaGender').value;
 
@@ -316,7 +325,8 @@ async function handleSaveStudentSingle(e) {
             nama: nama,
             kelas: kelas,
             gender: gender,
-            id_mesin: id_mesin
+            id_mesin: id_mesin,
+            id_telegram: id_telegram
         });
 
         const res = await fetchWithRetry(SCRIPT_URL, {
@@ -332,10 +342,10 @@ async function handleSaveStudentSingle(e) {
             if (isEdit) {
                 const idx = students.findIndex(s => String(s.nis || '').trim() === String(oldNis).trim() || String(s.nisn || '').trim() === String(oldNisn).trim());
                 if (idx !== -1) {
-                    students[idx] = { nisn, nis, nama, kelas, gender, id_mesin };
+                    students[idx] = { nisn, nis, nama, kelas, gender, id_mesin, id_telegram };
                 }
             } else {
-                students.push({ nisn, nis, nama, kelas, gender, id_mesin });
+                students.push({ nisn, nis, nama, kelas, gender, id_mesin, id_telegram });
             }
 
             window.allStudents = students;
@@ -459,6 +469,7 @@ function handleProcessExcelFile(file) {
             const colKelas = headers.findIndex(h => h.includes('kelas'));
             const colGender = headers.findIndex(h => h.includes('jk') || h.includes('jenis kelamin') || h.includes('l/p') || h.includes('gender'));
             const colIdMesin = headers.findIndex(h => h.includes('id_mesin') || h.includes('id mesin') || h.includes('pin'));
+            const colIdTelegram = headers.findIndex(h => h.includes('id_telegram') || h.includes('id telegram') || h.includes('telegram'));
 
             const items = [];
             for (let i = headerRowIndex + 1; i < rawJson.length; i++) {
@@ -471,6 +482,7 @@ function handleProcessExcelFile(file) {
                 const nis = colNis !== -1 ? String(row[colNis] || '').trim() : '';
                 const nisn = colNisn !== -1 ? String(row[colNisn] || '').trim() : '';
                 const id_mesin = colIdMesin !== -1 ? String(row[colIdMesin] || '').trim() : '';
+                const id_telegram = colIdTelegram !== -1 ? String(row[colIdTelegram] || '').trim() : '';
                 const kelas = colKelas !== -1 ? String(row[colKelas] || '').trim() : '';
                 let genderRaw = colGender !== -1 ? String(row[colGender] || '').trim().toUpperCase() : '';
                 let gender = 'L';
@@ -488,7 +500,7 @@ function handleProcessExcelFile(file) {
                     }
                 }
 
-                items.push({ nisn, nis, nama, kelas, gender, id_mesin });
+                items.push({ nisn, nis, nama, kelas, gender, id_mesin, id_telegram });
             }
 
             if (items.length === 0) {
@@ -610,9 +622,9 @@ function downloadExcelTemplate() {
     }
 
     const templateData = [
-        { "NISN": "0011223344", "NIS": "1001", "Nama Siswa": "Abdurahman Smith", "Kelas": "X-1", "Jenis Kelamin (L/P)": "L", "ID_Mesin": "1001" },
-        { "NISN": "0011223345", "NIS": "1002", "Nama Siswa": "Adelia Rezky Al Nasya", "Kelas": "X-1", "Jenis Kelamin (L/P)": "P", "ID_Mesin": "1002" },
-        { "NISN": "0011223346", "NIS": "1003", "Nama Siswa": "Budi Santoso", "Kelas": "X-2", "Jenis Kelamin (L/P)": "L", "ID_Mesin": "1003" }
+        { "NISN": "0011223344", "NIS": "1001", "Nama Siswa": "Abdurahman Smith", "Kelas": "X-1", "Jenis Kelamin (L/P)": "L", "ID_Mesin": "1001", "ID_Telegram": "123456789" },
+        { "NISN": "0011223345", "NIS": "1002", "Nama Siswa": "Adelia Rezky Al Nasya", "Kelas": "X-1", "Jenis Kelamin (L/P)": "P", "ID_Mesin": "1002", "ID_Telegram": "987654321" },
+        { "NISN": "0011223346", "NIS": "1003", "Nama Siswa": "Budi Santoso", "Kelas": "X-2", "Jenis Kelamin (L/P)": "L", "ID_Mesin": "1003", "ID_Telegram": "" }
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
@@ -626,7 +638,8 @@ function downloadExcelTemplate() {
         { wch: 30 },
         { wch: 12 },
         { wch: 20 },
-        { wch: 15 }
+        { wch: 15 },
+        { wch: 18 }
     ];
 
     XLSX.writeFile(workbook, "Template_Import_Data_Siswa.xlsx");

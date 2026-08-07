@@ -645,6 +645,13 @@
                             </label>
                             <input type="url" id="inputUrlScript" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
                         </div>
+                        <div style="grid-column: 1 / -1;">
+                            <label style="font-size: 0.85rem; color: #38bdf8; display: block; margin-bottom: 6px;">
+                                <i class="fa-brands fa-telegram"></i> Token Bot Telegram Sekolah (Notifikasi Real-time Presensi Mesin Wajah):
+                            </label>
+                            <input type="text" id="inputTelegramBotToken" placeholder="Contoh: 7123456789:AAFx-xxxxxxxxxxxxxxxxxx" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+                            <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">Dapatkan Token dari <strong>@BotFather</strong> di Telegram. Kosongkan jika tidak memakai bot Telegram.</small>
+                        </div>
                         <div style="grid-column: 1 / -1; justify-self: end;">
                             <button type="submit" id="btnSaveConfig" class="btn-primary" style="padding: 10px 24px;">
                                 <span><i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan & Server URL</span>
@@ -732,14 +739,15 @@
                                 <th style="width: 50px; text-align: center;">No</th>
                                 <th>Username</th>
                                 <th>Nama Lengkap</th>
-                                <th style="text-align: center;">ID Mesin (Wajah)</th>
+                                <th style="text-align: center;">ID Mesin</th>
+                                <th style="text-align: center;">ID Telegram</th>
                                 <th style="text-align: center;">Role</th>
                                 <th style="text-align: center; width: 140px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="tableBodyUsers">
                             <tr>
-                                <td colspan="5" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td>
+                                <td colspan="7" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1146,7 +1154,8 @@
                                     <th style="width: 50px; text-align: center;">No</th>
                                     <th style="width: 100px;">NIS</th>
                                     <th style="width: 120px;">NISN</th>
-                                    <th style="width: 110px; text-align: center;">ID Mesin</th>
+                                    <th style="width: 100px; text-align: center;">ID Mesin</th>
+                                    <th style="width: 110px; text-align: center;">ID Telegram</th>
                                     <th>Nama Siswa</th>
                                     <th style="width: 70px; text-align: center;">L/P</th>
                                     <th style="width: 100px; text-align: center;">Kelas</th>
@@ -1155,7 +1164,7 @@
                             </thead>
                             <tbody id="tbodyKelolaSiswa">
                                 <tr>
-                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data siswa...</td>
+                                    <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data siswa...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1186,9 +1195,15 @@
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Username:</label>
                             <input type="text" id="modalUsername" required placeholder="Contoh: guru1" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                         </div>
-                        <div class="modal-form-group" style="margin-bottom: 15px;">
-                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">ID Mesin / PIN Solution (Opsional):</label>
-                            <input type="text" id="modalIdMesin" placeholder="Contoh: 101 atau PIN Mesin" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                            <div>
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">ID Mesin (Solution):</label>
+                                <input type="text" id="modalIdMesin" placeholder="Contoh: 101" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; color: #38bdf8; display: block; margin-bottom: 5px;"><i class="fa-brands fa-telegram"></i> ID Telegram Chat:</label>
+                                <input type="text" id="modalIdTelegram" placeholder="Contoh: 123456789" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 8px;">
+                            </div>
                         </div>
                         <div class="modal-form-group" style="margin-bottom: 15px;">
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Password:</label>
@@ -1238,9 +1253,15 @@
                             </div>
                         </div>
 
-                        <div class="modal-form-group" style="margin-bottom: 15px;">
-                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">ID Mesin / PIN Solution (Opsional)</label>
-                            <input type="text" id="modalSiswaIdMesin" placeholder="Contoh: 101 (PIN Wajah di Mesin)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                            <div>
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">ID Mesin (PIN Solution):</label>
+                                <input type="text" id="modalSiswaIdMesin" placeholder="Contoh: 101" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; color: #38bdf8; display: block; margin-bottom: 5px;"><i class="fa-brands fa-telegram"></i> ID Telegram Ortu/Siswa:</label>
+                                <input type="text" id="modalSiswaIdTelegram" placeholder="Contoh: 987654321" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 8px;">
+                            </div>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">

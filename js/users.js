@@ -17,6 +17,7 @@ const btnCancelModalUser = document.getElementById('btnCancelModalUser');
 const modalOldUsername = document.getElementById('modalOldUsername');
 const modalUsername = document.getElementById('modalUsername');
 const modalIdMesin = document.getElementById('modalIdMesin');
+const modalIdTelegram = document.getElementById('modalIdTelegram');
 const modalPassword = document.getElementById('modalPassword');
 const modalNama = document.getElementById('modalNama');
 const modalRole = document.getElementById('modalRole');
@@ -40,6 +41,7 @@ function openUserModal(user = null) {
         if (modalOldUsername) modalOldUsername.value = user.username;
         if (modalUsername) modalUsername.value = user.username;
         if (modalIdMesin) modalIdMesin.value = user.id_mesin || '';
+        if (modalIdTelegram) modalIdTelegram.value = user.id_telegram || '';
         if (modalPassword) modalPassword.value = ''; // Kosongkan password saat edit
         if (modalNama) modalNama.value = user.nama;
         if (modalRole) modalRole.value = user.role || 'Guru';
@@ -48,6 +50,7 @@ function openUserModal(user = null) {
         if (modalOldUsername) modalOldUsername.value = '';
         if (modalUsername) modalUsername.value = '';
         if (modalIdMesin) modalIdMesin.value = '';
+        if (modalIdTelegram) modalIdTelegram.value = '';
         if (modalPassword) modalPassword.value = '';
         if (modalNama) modalNama.value = '';
         if (modalRole) modalRole.value = 'Guru';
@@ -64,25 +67,25 @@ function closeUserModal() {
 async function loadUsers() {
     const tableBody = document.getElementById('tableBodyUsers');
     if (tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
     }
 
     try {
         const result = await fetchWithRetry(`${SCRIPT_URL}?action=get_users`, { method: 'GET' }, 2, 800);
         if (result && result.status === 'success') {
             userListState = result.data || [];
-            window.allTeachers = userListState.map(u => ({ username: u.username, namaLengkap: u.nama, role: u.role, id_mesin: u.id_mesin }));
+            window.allTeachers = userListState.map(u => ({ username: u.username, namaLengkap: u.nama, role: u.role, id_mesin: u.id_mesin, id_telegram: u.id_telegram }));
             localStorage.setItem('smart_absen_users_cache', JSON.stringify(window.allTeachers));
             if (tableBody) renderUserTable(userListState);
             if (typeof renderAbsenGuruBatchTable === 'function') {
                 renderAbsenGuruBatchTable();
             }
         } else {
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
         }
     } catch (err) {
         console.error("Load users error:", err);
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
     }
 }
 
@@ -91,7 +94,7 @@ function renderUserTable(users) {
     if (!tableBody) return;
 
     if (!users || users.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--text-muted);">Belum ada data pengguna.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--text-muted);">Belum ada data pengguna.</td></tr>`;
         return;
     }
 
@@ -102,6 +105,9 @@ function renderUserTable(users) {
         const idMesinDisplay = u.id_mesin 
             ? `<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); font-family: monospace; font-size: 0.85rem;">${u.id_mesin}</span>`
             : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
+        const idTelegramDisplay = u.id_telegram 
+            ? `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-family: monospace; font-size: 0.85rem;"><i class="fa-brands fa-telegram"></i> ${u.id_telegram}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
 
         html += `
             <tr>
@@ -109,6 +115,7 @@ function renderUserTable(users) {
                 <td><strong>${u.username}</strong></td>
                 <td>${u.nama}</td>
                 <td style="text-align:center;">${idMesinDisplay}</td>
+                <td style="text-align:center;">${idTelegramDisplay}</td>
                 <td style="text-align:center;"><span class="badge" style="${roleBadge}">${u.role}</span></td>
                 <td style="text-align:center;">
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem; margin-right:4px;" onclick="editUserByUsername('${u.username}')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
@@ -170,6 +177,7 @@ if (formUserModal) {
         const oldUsername = modalOldUsername ? modalOldUsername.value.trim() : '';
         const username = modalUsername ? modalUsername.value.trim() : '';
         const id_mesin = modalIdMesin ? modalIdMesin.value.trim() : '';
+        const id_telegram = modalIdTelegram ? modalIdTelegram.value.trim() : '';
         const password = modalPassword ? modalPassword.value.trim() : '';
         const nama = modalNama ? modalNama.value.trim() : '';
         const role = modalRole ? modalRole.value : 'Guru';
@@ -194,6 +202,7 @@ if (formUserModal) {
             if (isEdit) formData.append('old_username', oldUsername);
             formData.append('username', username);
             formData.append('id_mesin', id_mesin);
+            formData.append('id_telegram', id_telegram);
             if (password) formData.append('password', password);
             formData.append('nama', nama);
             formData.append('role', role);
@@ -259,10 +268,12 @@ function updateAppSchoolConfigUI(config) {
     const inputNamaSekolah = document.getElementById('inputNamaSekolah');
     const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
     const inputUrlScript = document.getElementById('inputUrlScript');
+    const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
 
     if (inputNamaSekolah && !inputNamaSekolah.value) inputNamaSekolah.value = config.namaSekolah || '';
     if (inputTahunPelajaran && !inputTahunPelajaran.value) inputTahunPelajaran.value = config.tahunPelajaran || '';
     if (inputUrlScript) inputUrlScript.value = config.urlScript || config.url_script || window.SCRIPT_URL || '';
+    if (inputTelegramBotToken && !inputTelegramBotToken.value) inputTelegramBotToken.value = config.telegramBotToken || config.telegram_bot_token || '';
 
     // Update semua elemen tahun pelajaran di seluruh aplikasi
     const tpElements = document.querySelectorAll('.app-tp-text');
@@ -290,10 +301,12 @@ if (formConfigSekolah) {
         const inputNamaSekolah = document.getElementById('inputNamaSekolah');
         const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
         const inputUrlScript = document.getElementById('inputUrlScript');
+        const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
 
         const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : '';
         const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '';
         const urlScript = inputUrlScript ? inputUrlScript.value.trim() : '';
+        const telegramBotToken = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
 
         if (!namaSekolah || !tahunPelajaran) {
             showToast("Nama Sekolah dan Tahun Pelajaran wajib diisi.", "warning");
@@ -312,6 +325,7 @@ if (formConfigSekolah) {
             formData.append('action', 'save_config');
             formData.append('nama_sekolah', namaSekolah);
             formData.append('tahun_pelajaran', tahunPelajaran);
+            formData.append('telegram_bot_token', telegramBotToken);
 
             const activeUrl = urlScript || SCRIPT_URL;
             const result = await fetchWithRetry(activeUrl, {
@@ -320,9 +334,9 @@ if (formConfigSekolah) {
                 body: new URLSearchParams(formData).toString()
             }, 0);
 
-            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl };
+            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken };
             updateAppSchoolConfigUI(newConfig);
-            showToast("✅ Identitas sekolah & Web App Server URL berhasil diperbarui!", "success");
+            showToast("✅ Identitas sekolah, Token Telegram Bot & Web Server URL berhasil diperbarui!", "success");
         } catch (err) {
             console.error(err);
             showToast("❌ Gagal menyimpan pengaturan.", "error");

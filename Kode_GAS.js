@@ -130,10 +130,10 @@ function doPost(e) {
       return handleGetStudents();
     }
     else if (action === 'add_student') {
-      return handleAddStudent(e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender);
+      return handleAddStudent(e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender, e.parameter.id_mesin, e.parameter.id_telegram);
     }
     else if (action === 'update_student') {
-      return handleUpdateStudent(e.parameter.old_nis, e.parameter.old_nisn, e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender);
+      return handleUpdateStudent(e.parameter.old_nis, e.parameter.old_nisn, e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender, e.parameter.id_mesin, e.parameter.id_telegram);
     }
     else if (action === 'delete_student') {
       return handleDeleteStudent(e.parameter.nisn, e.parameter.nis);
@@ -157,16 +157,16 @@ function doPost(e) {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
     }
     else if (action === 'add_user') {
-      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin);
+      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
     }
     else if (action === 'update_user') {
-      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin);
+      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
     }
     else if (action === 'delete_user') {
       return handleDeleteUser(e.parameter.username);
     }
     else if (action === 'save_config') {
-      return handleSaveConfig(e.parameter.nama_sekolah, e.parameter.tahun_pelajaran);
+      return handleSaveConfig(e.parameter.nama_sekolah, e.parameter.tahun_pelajaran, e.parameter.telegram_bot_token);
     }
     else if (action === 'initial_setup') {
       return handleInitialSetupWeb();
@@ -273,9 +273,10 @@ function fetchUsersList(ss) {
     const role = String(data[i][3] || '').trim();
     const nama = String(data[i][4] || '').trim();
     const id_mesin = String(data[i][5] || '').trim();
+    const id_telegram = String(data[i][6] || '').trim();
 
     if (username) {
-      users.push({ id, username, password, role, nama, id_mesin });
+      users.push({ id, username, password, role, nama, id_mesin, id_telegram });
     }
   }
 
@@ -287,7 +288,7 @@ function handleGetUsers() {
   return jsonResponse('success', 'Daftar Pengguna', fetchUsersList(ss));
 }
 
-function handleAddUser(username, password, role, nama, id_mesin) {
+function handleAddUser(username, password, role, nama, id_mesin, id_telegram) {
   if (!username || !password || !nama) {
     return jsonResponse('error', 'Username, Password, dan Nama Lengkap wajib diisi.');
   }
@@ -307,12 +308,12 @@ function handleAddUser(username, password, role, nama, id_mesin) {
   }
 
   const newId = String(data.length);
-  sheet.appendRow([newId, username.trim(), password.trim(), role || 'Guru', nama.trim(), String(id_mesin || '').trim()]);
+  sheet.appendRow([newId, username.trim(), password.trim(), role || 'Guru', nama.trim(), String(id_mesin || '').trim(), String(id_telegram || '').trim()]);
 
   return jsonResponse('success', `Pengguna "${nama}" berhasil ditambahkan.`);
 }
 
-function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin) {
+function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram) {
   if (!oldUsername || !username || !nama) {
     return jsonResponse('error', 'Data pengguna tidak lengkap.');
   }
@@ -333,6 +334,7 @@ function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin)
       sheet.getRange(rowIndex, 4).setValue(role || 'Guru'); // Role
       sheet.getRange(rowIndex, 5).setValue(nama.trim()); // NamaLengkap
       sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
+      sheet.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram
 
       return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
     }
@@ -598,14 +600,20 @@ function getConfigObject(ss) {
   let sheetConfig = ss.getSheetByName(SHEET_CONFIG);
   let config = {
     namaSekolah: 'SMA 1 BARUNAWATI',
-    tahunPelajaran: '2026-2027'
+    tahunPelajaran: '2026-2027',
+    telegramBotToken: ''
   };
+
+  try {
+    config.telegramBotToken = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN') || '';
+  } catch(e) {}
 
   if (!sheetConfig) {
     sheetConfig = ss.insertSheet(SHEET_CONFIG);
     sheetConfig.appendRow(['Key', 'Value']);
     sheetConfig.appendRow(['NamaSekolah', config.namaSekolah]);
     sheetConfig.appendRow(['TahunPelajaran', config.tahunPelajaran]);
+    sheetConfig.appendRow(['TelegramBotToken', config.telegramBotToken]);
     sheetConfig.getRange("A1:B1").setFontWeight("bold").setBackground("#d9ead3");
   } else {
     const data = sheetConfig.getDataRange().getValues();
@@ -620,6 +628,9 @@ function getConfigObject(ss) {
       if (normKey.includes('tahun') || normKey.includes('ajaran') || normKey.includes('pelajaran') || normKey === 'tp' || normKey === 'ta') {
         if (val) config.tahunPelajaran = val;
       }
+      if (normKey.includes('telegram') || normKey.includes('bot') || normKey.includes('token')) {
+        if (val) config.telegramBotToken = val;
+      }
     }
   }
   return config;
@@ -630,22 +641,33 @@ function handleGetConfig() {
   return jsonResponse('success', 'Config Loaded', getConfigObject(ss));
 }
 
-function handleSaveConfig(namaSekolah, tahunPelajaran) {
+function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
   if (!namaSekolah || !tahunPelajaran) {
     return jsonResponse('error', 'Nama Sekolah dan Tahun Pelajaran wajib diisi.');
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheetConfig = ss.getSheetByName(SHEET_CONFIG);
+  const cleanToken = String(telegramBotToken || '').trim();
+
+  // Simpan ke Script Properties
+  try {
+    if (cleanToken) {
+      PropertiesService.getScriptProperties().setProperty('TELEGRAM_BOT_TOKEN', cleanToken);
+    }
+  } catch(e) {}
+
   if (!sheetConfig) {
     sheetConfig = ss.insertSheet(SHEET_CONFIG);
     sheetConfig.appendRow(['Key', 'Value']);
     sheetConfig.appendRow(['NamaSekolah', namaSekolah.trim()]);
     sheetConfig.appendRow(['TahunPelajaran', tahunPelajaran.trim()]);
+    sheetConfig.appendRow(['TelegramBotToken', cleanToken]);
   } else {
     const data = sheetConfig.getDataRange().getValues();
     let foundNama = false;
     let foundTahun = false;
+    let foundToken = false;
 
     for (let i = 1; i < data.length; i++) {
       const rawKey = String(data[i][0] || '').trim();
@@ -659,13 +681,18 @@ function handleSaveConfig(namaSekolah, tahunPelajaran) {
         sheetConfig.getRange(i + 1, 2).setValue(tahunPelajaran.trim());
         foundTahun = true;
       }
+      if (normKey.includes('telegram') || normKey.includes('bot') || normKey.includes('token')) {
+        sheetConfig.getRange(i + 1, 2).setValue(cleanToken);
+        foundToken = true;
+      }
     }
 
     if (!foundNama) sheetConfig.appendRow(['NamaSekolah', namaSekolah.trim()]);
     if (!foundTahun) sheetConfig.appendRow(['TahunPelajaran', tahunPelajaran.trim()]);
+    if (!foundToken) sheetConfig.appendRow(['TelegramBotToken', cleanToken]);
   }
 
-  return jsonResponse('success', 'Pengaturan sekolah & tahun pelajaran berhasil diperbarui.');
+  return jsonResponse('success', 'Pengaturan sekolah, tahun pelajaran & Bot Telegram berhasil diperbarui.');
 }
 
 // === HANDLER ABSEN BULK (FAST, DEDUPLICATED & EDIT SUPPORT) ===
@@ -1767,14 +1794,16 @@ function handleGetStudents() {
         nis: String(dataSiswa[i][1] || '').trim(),
         nama: nama,
         kelas: String(dataSiswa[i][3] || '').trim(),
-        gender: gender
+        gender: gender,
+        id_mesin: String(dataSiswa[i][5] || '').trim(),
+        id_telegram: String(dataSiswa[i][6] || '').trim()
       });
     }
   }
   return jsonResponse('success', 'Daftar Siswa', students);
 }
 
-function handleAddStudent(nisn, nis, nama, kelas, gender, id_mesin) {
+function handleAddStudent(nisn, nis, nama, kelas, gender, id_mesin, id_telegram) {
   if (!nama || !kelas) {
     return jsonResponse('error', 'Nama Siswa dan Kelas wajib diisi.');
   }
@@ -1792,14 +1821,15 @@ function handleAddStudent(nisn, nis, nama, kelas, gender, id_mesin) {
   const cleanKelas = String(kelas).trim();
   const cleanGender = String(gender || 'L').trim().toUpperCase();
   const cleanIdMesin = String(id_mesin || '').trim();
+  const cleanIdTelegram = String(id_telegram || '').trim();
 
-  sheet.appendRow([cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin]);
+  sheet.appendRow([cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin, cleanIdTelegram]);
   clearStudentCache();
 
   return jsonResponse('success', `Siswa "${cleanNama}" kelas ${cleanKelas} berhasil ditambahkan.`);
 }
 
-function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id_mesin) {
+function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id_mesin, id_telegram) {
   if (!nama || !kelas) {
     return jsonResponse('error', 'Nama dan Kelas tidak boleh kosong.');
   }
@@ -1833,8 +1863,9 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id
   const cleanKelas = String(kelas).trim();
   const cleanGender = String(gender || 'L').trim().toUpperCase();
   const cleanIdMesin = String(id_mesin || '').trim();
+  const cleanIdTelegram = String(id_telegram || '').trim();
 
-  sheet.getRange(targetRow, 1, 1, 6).setValues([[cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin]]);
+  sheet.getRange(targetRow, 1, 1, 7).setValues([[cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin, cleanIdTelegram]]);
   clearStudentCache();
 
   return jsonResponse('success', `Data siswa "${cleanNama}" berhasil diperbarui.`);
@@ -1880,8 +1911,8 @@ function handleSaveAllStudents(dataJson, mode) {
 
     if (isReplaceMode) {
       sheet.clearContents();
-      sheet.getRange(1, 1, 1, 6).setValues([['NISN', 'NIS', 'Nama', 'Kelas', 'JenisKelamin', 'ID_Mesin']]);
-      sheet.getRange("A1:F1").setFontWeight("bold").setBackground("#c9daf8");
+      sheet.getRange(1, 1, 1, 7).setValues([['NISN', 'NIS', 'Nama', 'Kelas', 'JenisKelamin', 'ID_Mesin', 'ID_Telegram']]);
+      sheet.getRange("A1:G1").setFontWeight("bold").setBackground("#c9daf8");
     }
 
     const rowsToAppend = [];
@@ -1893,13 +1924,14 @@ function handleSaveAllStudents(dataJson, mode) {
         String(it.nama || '').trim(),
         String(it.kelas || '').trim(),
         String(it.gender || it.jk || 'L').trim().toUpperCase(),
-        String(it.id_mesin || it.idMesin || '').trim()
+        String(it.id_mesin || it.idMesin || '').trim(),
+        String(it.id_telegram || it.idTelegram || '').trim()
       ]);
     });
 
     if (rowsToAppend.length > 0) {
       const startRow = sheet.getLastRow() + 1;
-      sheet.getRange(startRow, 1, rowsToAppend.length, 6).setValues(rowsToAppend);
+      sheet.getRange(startRow, 1, rowsToAppend.length, 7).setValues(rowsToAppend);
     }
 
     clearStudentCache();
@@ -1920,7 +1952,7 @@ function ensureDeviceUserIdColumns() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // 1. Sheet DataSiswa (Kolom F: ID_Mesin)
+    // 1. Sheet DataSiswa (Kolom F: ID_Mesin, Kolom G: ID_Telegram)
     const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
     if (sheetSiswa) {
       ensureStudentGenderColumn(sheetSiswa);
@@ -1929,9 +1961,13 @@ function ensureDeviceUserIdColumns() {
         sheetSiswa.getRange(1, 6).setValue('ID_Mesin');
         sheetSiswa.getRange(1, 6).setFontWeight('bold').setBackground('#c9daf8');
       }
+      if (lastColSiswa < 7 || !String(sheetSiswa.getRange(1, 7).getValue() || '').trim()) {
+        sheetSiswa.getRange(1, 7).setValue('ID_Telegram');
+        sheetSiswa.getRange(1, 7).setFontWeight('bold').setBackground('#d9ead3');
+      }
     }
 
-    // 2. Sheet Users (Kolom F: ID_Mesin)
+    // 2. Sheet Users (Kolom F: ID_Mesin, Kolom G: ID_Telegram)
     const sheetUsers = ss.getSheetByName(SHEET_USERS);
     if (sheetUsers) {
       const lastColUsers = sheetUsers.getLastColumn();
@@ -1939,9 +1975,46 @@ function ensureDeviceUserIdColumns() {
         sheetUsers.getRange(1, 6).setValue('ID_Mesin');
         sheetUsers.getRange(1, 6).setFontWeight('bold').setBackground('#c9daf8');
       }
+      if (lastColUsers < 7 || !String(sheetUsers.getRange(1, 7).getValue() || '').trim()) {
+        sheetUsers.getRange(1, 7).setValue('ID_Telegram');
+        sheetUsers.getRange(1, 7).setFontWeight('bold').setBackground('#d9ead3');
+      }
     }
   } catch (e) {
     Logger.log('ensureDeviceUserIdColumns error: ' + e.toString());
+  }
+}
+
+// === HELPER UTILITY KIRIM NOTIFIKASI TELEGRAM ===
+function sendTelegramNotification(chatId, message) {
+  if (!chatId || String(chatId).trim() === '') return;
+
+  let botToken = '';
+  try {
+    botToken = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN') || '';
+  } catch(e) {}
+
+  if (!botToken) {
+    Logger.log("Telegram Bot Token belum diset di Script Properties (TELEGRAM_BOT_TOKEN)");
+    return;
+  }
+
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const payload = {
+    chat_id: String(chatId).trim(),
+    text: message,
+    parse_mode: 'HTML'
+  };
+
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    Logger.log("Gagal kirim Telegram: " + e.toString());
   }
 }
 
@@ -1978,13 +2051,15 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
         const nisn = String(siswaData[i][0] || '').trim();
         const nis = String(siswaData[i][1] || '').trim();
         const idMesin = String(siswaData[i][5] || '').trim();
+        const idTelegram = String(siswaData[i][6] || '').trim();
 
         if ((idMesin && cleanPin === idMesin) || cleanPin === nis || cleanPin === nisn) {
           matchedStudent = {
             nisn: nisn,
             nis: nis,
             nama: String(siswaData[i][2] || '').trim(),
-            kelas: String(siswaData[i][3] || '').trim()
+            kelas: String(siswaData[i][3] || '').trim(),
+            id_telegram: idTelegram
           };
           break;
         }
@@ -2017,12 +2092,25 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
         }
       }
 
+      // KIRIM NOTIFIKASI TELEGRAM SISWA / ORTU
+      if (matchedStudent.id_telegram) {
+        const msgSiswa = `🔔 <b>NOTIFIKASI PRESENSI SISWA</b>\n\n` +
+          `👤 <b>Nama Siswa:</b> ${matchedStudent.nama}\n` +
+          `🏫 <b>Kelas:</b> ${matchedStudent.kelas}\n` +
+          `⏰ <b>Waktu Scan:</b> ${scanTimeStr} WIB\n` +
+          `📅 <b>Tanggal:</b> ${scanDateStr}\n` +
+          `📍 <b>Metode:</b> Mesin Wajah Solution X902\n` +
+          `✅ <b>Status:</b> ${statusVal}`;
+        sendTelegramNotification(matchedStudent.id_telegram, msgSiswa);
+      }
+
       return jsonResponse('success', `Absensi Wajah Siswa [${matchedStudent.nama} - Kelas ${matchedStudent.kelas}] Berhasil Dicatat (${scanTimeStr})`, {
         tipe: 'siswa',
         nama: matchedStudent.nama,
         kelas: matchedStudent.kelas,
         waktu: scanTimeStr,
-        status: statusVal
+        status: statusVal,
+        telegram_sent: Boolean(matchedStudent.id_telegram)
       });
     }
 
@@ -2035,12 +2123,14 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
       for (let i = 1; i < uData.length; i++) {
         const uname = String(uData[i][1] || uData[i][0] || '').trim();
         const idMesin = String(uData[i][5] || '').trim();
+        const idTelegram = String(uData[i][6] || '').trim();
 
         if ((idMesin && cleanPin === idMesin) || cleanPin === uname) {
           matchedUser = {
             username: uname,
             nama: String(uData[i][4] || uData[i][1] || '').trim(),
-            role: String(uData[i][3] || 'Guru').trim()
+            role: String(uData[i][3] || 'Guru').trim(),
+            id_telegram: idTelegram
           };
           break;
         }
@@ -2063,11 +2153,24 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
         sheetLogGuru.appendRow(newRowGuru);
       }
 
+      // KIRIM NOTIFIKASI TELEGRAM GURU / STAF
+      if (matchedUser.id_telegram) {
+        const msgGuru = `🔔 <b>NOTIFIKASI PRESENSI GURU / STAF</b>\n\n` +
+          `👨‍🏫 <b>Nama Guru:</b> ${matchedUser.nama}\n` +
+          `💼 <b>Role / Hak Akses:</b> ${matchedUser.role}\n` +
+          `⏰ <b>Waktu Scan:</b> ${scanTimeStr} WIB\n` +
+          `📅 <b>Tanggal:</b> ${scanDateStr}\n` +
+          `📍 <b>Metode:</b> Mesin Wajah Solution X902\n` +
+          `✅ <b>Status:</b> ${statusVal}`;
+        sendTelegramNotification(matchedUser.id_telegram, msgGuru);
+      }
+
       return jsonResponse('success', `Absensi Wajah Guru [${matchedUser.nama}] Berhasil Dicatat (${scanTimeStr})`, {
         tipe: 'guru',
         nama: matchedUser.nama,
         waktu: scanTimeStr,
-        status: statusVal
+        status: statusVal,
+        telegram_sent: Boolean(matchedUser.id_telegram)
       });
     }
 
