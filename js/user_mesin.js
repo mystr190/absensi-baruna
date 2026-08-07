@@ -34,7 +34,7 @@ function initUserMesinModule() {
 async function loadUserMesinData() {
     const tableBody = document.getElementById('tableBodyUserMesin');
     if (tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 25px; color: var(--text-muted);"><span class="loader" style="display:inline-block; margin-right:8px;"></span>Memuat data user mesin...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 25px; color: var(--text-muted);"><span class="loader" style="display:inline-block; margin-right:8px;"></span>Memuat data user mesin...</td></tr>`;
     }
 
     try {
@@ -43,11 +43,11 @@ async function loadUserMesinData() {
             userMesinData = result.data || [];
             renderUserMesinTable();
         } else {
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#f87171; padding:20px;">Gagal memuat data: ${result ? result.message : 'Error'}</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#f87171; padding:20px;">Gagal memuat data: ${result ? result.message : 'Error'}</td></tr>`;
         }
     } catch(err) {
         console.error("Error loadUserMesinData:", err);
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#f87171; padding:20px;">Terjadi kesalahan jaringan saat memuat data user mesin.</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#f87171; padding:20px;">Terjadi kesalahan jaringan saat memuat data user mesin.</td></tr>`;
     }
 }
 
@@ -95,6 +95,7 @@ function renderUserMesinTable() {
         if (!searchKeyword) return true;
         return (
             (item.id_mesin && item.id_mesin.toLowerCase().includes(searchKeyword)) ||
+            (item.nama_mesin && item.nama_mesin.toLowerCase().includes(searchKeyword)) ||
             (item.nama && item.nama.toLowerCase().includes(searchKeyword)) ||
             (item.tipe && item.tipe.toLowerCase().includes(searchKeyword)) ||
             (item.status_mapping && item.status_mapping.toLowerCase().includes(searchKeyword)) ||
@@ -112,7 +113,7 @@ function renderUserMesinTable() {
     if (statUnmapped) statUnmapped.textContent = unmappedCount;
 
     if (filtered.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 25px; color: var(--text-muted);">(Tidak ditemukan data user mesin)</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 25px; color: var(--text-muted);">(Tidak ditemukan data user mesin)</td></tr>`;
         return;
     }
 
@@ -132,6 +133,7 @@ function renderUserMesinTable() {
             <tr>
                 <td style="text-align: center; font-weight: 500;">${index + 1}</td>
                 <td><strong style="color: #38bdf8; font-family: monospace; font-size: 0.95rem;">${item.id_mesin}</strong></td>
+                <td><span style="color: #38bdf8; font-weight: 500;">${item.nama_mesin || '-'}</span></td>
                 <td style="font-weight: 500; color: #f8fafc;">${item.nama}</td>
                 <td><span style="background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 5px; font-size: 0.82rem;">${item.tipe}</span></td>
                 <td style="color: var(--text-muted); font-size: 0.88rem;">${item.kelas_role}</td>

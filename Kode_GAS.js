@@ -106,7 +106,7 @@ function doGet(e) {
       return handleDeleteAttendanceByDateAndClass(e.parameter.tanggal, e.parameter.kelas);
     }
     else if (action === 'device_scan' || action === 'solution_scan') {
-      return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status);
+      return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status, e.parameter.nama_mesin || e.parameter.name);
     }
     else if (action === 'test_telegram') {
       return handleTestTelegram(e.parameter.chat_id || e.parameter.id_telegram);
@@ -139,28 +139,35 @@ function doGet(e) {
 // === DUKUNGAN POST (Login, Absensi, Pelanggaran & Manajemen User) ===
 function doPost(e) {
   try {
-    // JIKA TERIMA WEBHOOK TELEGRAM AUTOMATIC ID BOT
-    if (e && e.postData && e.postData.contents) {
+    let action = e ? (e.parameter ? e.parameter.action : null) : null;
+
+    // JIKA TERIMA WEBHOOK TELEGRAM AUTOMATIC ID BOT (Hanya jika bukan request dari Web App API)
+    if (!action && e && e.postData && e.postData.contents) {
       try {
         const updateData = JSON.parse(e.postData.contents);
         if (updateData && updateData.message && updateData.message.chat) {
-          const chatId = updateData.message.chat.id;
-          const senderName = updateData.message.from ? (updateData.message.from.first_name || 'Pengguna') : 'Pengguna';
+          const msgText = String(updateData.message.text || '').trim();
           
-          const replyMsg = `<b>SISTEM INFORMASI & PRESENSI DIGITAL</b>\n\n` +
-            `Halo <b>${senderName}</b>,\n` +
-            `ID Telegram Anda adalah:\n` +
-            `<code>${chatId}</code>\n\n` +
-            `<blockquote>Salin angka ID di atas dan mendaftarkannya pada data profil Anda di sistem presensi.</blockquote>\n\n` +
-            `<i>— Bot Respon Otomatis</i>`;
+          // HANYA RESPONS JIKA PENGGUNA MENGIRIM PERINTAH /start, /id, ATAU /help
+          if (msgText.indexOf('/start') === 0 || msgText.indexOf('/id') === 0 || msgText.indexOf('/help') === 0) {
+            const chatId = updateData.message.chat.id;
+            const senderName = updateData.message.from ? (updateData.message.from.first_name || 'Pengguna') : 'Pengguna';
+            
+            const replyMsg = `<b>SISTEM INFORMASI & PRESENSI DIGITAL</b>\n\n` +
+              `Halo <b>${senderName}</b>,\n` +
+              `ID Telegram Anda adalah:\n` +
+              `<code>${chatId}</code>\n\n` +
+              `<blockquote>Salin angka ID di atas dan daftarkan pada data profil Anda di sistem presensi.</blockquote>\n\n` +
+              `<i>— Bot Respon Otomatis</i>`;
+            
+            sendTelegramNotification(chatId, replyMsg);
+          }
           
-          sendTelegramNotification(chatId, replyMsg);
+          // Selalu kembalikan respon OK ke Telegram Webhook agar Telegram TIDAK mengulang-ulang (retry loop)
           return ContentService.createTextOutput("OK");
         }
       } catch(err) {}
     }
-
-    let action = e ? e.parameter ? e.parameter.action : null : null;
 
     if (action === 'login') {
       return handleLogin(e.parameter.username, e.parameter.password);
@@ -2086,7 +2093,7 @@ function sendTelegramNotification(chatId, message) {
 }
 
 // === HANDLER INTEGRASI MESIN ABSENSI WAJAH & SIDIK JARI (SOLUTION X902 / ZKTECO) ===
-function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
+function handleDeviceAttendanceScan(pin, waktuScan, statusScan, namaMesin) {
   try {
     if (!pin) {
       return jsonResponse('error', 'PIN / NIS siswa atau ID guru tidak boleh kosong.');
@@ -2094,6 +2101,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const cleanPin = String(pin).trim();
+    const cleanNamaMesin = namaMesin ? String(namaMesin).trim() : '';
     const now = new Date();
 
     let scanDateStr = Utilities.formatDate(now, TIMEZONE, "yyyy-MM-dd");
@@ -2134,7 +2142,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
     }
 
     if (matchedStudent) {
-      recordUserMesinActivity(ss, cleanPin, matchedStudent.nama, 'Siswa', matchedStudent.kelas, matchedStudent.id_telegram, fullTimestampStr);
+      recordUserMesinActivity(ss, cleanPin, cleanNamaMesin, matchedStudent.nama, 'Siswa', matchedStudent.kelas, matchedStudent.id_telegram, fullTimestampStr);
       const sheetLog = ss.getSheetByName(SHEET_LOG);
       if (sheetLog) {
         const lastRow = sheetLog.getLastRow();
@@ -2209,7 +2217,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
     }
 
     if (matchedUser) {
-      recordUserMesinActivity(ss, cleanPin, matchedUser.nama, 'Guru/Staf', matchedUser.role, matchedUser.id_telegram, fullTimestampStr);
+      recordUserMesinActivity(ss, cleanPin, cleanNamaMesin, matchedUser.nama, 'Guru/Staf', matchedUser.role, matchedUser.id_telegram, fullTimestampStr);
       const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
       if (sheetLogGuru) {
         const newRowGuru = [
@@ -2250,7 +2258,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
     }
 
     // Jika belum ada mapping, tetap catat ke sheet User_Mesin sebagai Unmapped
-    recordUserMesinActivity(ss, cleanPin, 'Belum Diisi (' + cleanPin + ')', 'Unmapped', '-', '-', fullTimestampStr);
+    recordUserMesinActivity(ss, cleanPin, cleanNamaMesin, 'Belum Diisi (' + cleanPin + ')', 'Unmapped', '-', '-', fullTimestampStr);
 
     return jsonResponse('error', `ID Mesin / PIN [${cleanPin}] dari Solution X902 belum dicocokkan dengan data Siswa atau Guru di database.`);
 
@@ -2505,7 +2513,8 @@ function ensureUserMesinSheet(ss) {
     sheet = ss.insertSheet(SHEET_USER_MESIN);
     const headers = [
       'ID_Mesin',
-      'Nama Terhubung',
+      'Nama_Mesin',
+      'Nama Terhubung (DB)',
       'Tipe Pengguna',
       'Kelas / Role',
       'ID Telegram',
@@ -2519,11 +2528,18 @@ function ensureUserMesinSheet(ss) {
       .setBackground('#1e293b')
       .setFontColor('#ffffff');
     sheet.setFrozenRows(1);
+  } else {
+    // Pastikan header kolom ke-2 adalah Nama_Mesin untuk kompatibilitas sheet lama
+    const hVal = String(sheet.getRange(1, 2).getValue() || '').trim();
+    if (hVal !== 'Nama_Mesin') {
+      sheet.insertColumnAfter(1);
+      sheet.getRange(1, 2).setValue('Nama_Mesin').setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
+    }
   }
   return sheet;
 }
 
-function recordUserMesinActivity(ss, idMesin, nama, tipe, kelasRole, idTelegram, scanTimestamp) {
+function recordUserMesinActivity(ss, idMesin, namaMesin, namaDB, tipe, kelasRole, idTelegram, scanTimestamp) {
   try {
     const sheet = ensureUserMesinSheet(ss);
     const data = sheet.getDataRange().getValues();
@@ -2531,22 +2547,26 @@ function recordUserMesinActivity(ss, idMesin, nama, tipe, kelasRole, idTelegram,
     
     let foundRow = -1;
     let existingTotal = 0;
+    let existingNamaMesin = '';
     
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === cleanId) {
         foundRow = i + 1;
-        existingTotal = parseInt(data[i][6]) || 0;
+        existingNamaMesin = String(data[i][1] || '').trim();
+        existingTotal = parseInt(data[i][7]) || 0;
         break;
       }
     }
     
+    const finalNamaMesin = namaMesin || existingNamaMesin || namaDB || `User ${cleanId}`;
     const isMapped = (tipe && tipe !== 'Unmapped' && tipe !== 'Belum Diketahui');
     const statusMapping = isMapped ? 'Terhubung ✅' : 'Belum Dihubungkan ⚠️';
     const newTotal = existingTotal + 1;
     
     if (foundRow > 1) {
-      sheet.getRange(foundRow, 2, 1, 7).setValues([[
-        nama || 'Belum Diisi',
+      sheet.getRange(foundRow, 2, 1, 8).setValues([[
+        finalNamaMesin,
+        namaDB || 'Belum Diisi',
         tipe || 'Unmapped',
         kelasRole || '-',
         idTelegram || '-',
@@ -2557,7 +2577,8 @@ function recordUserMesinActivity(ss, idMesin, nama, tipe, kelasRole, idTelegram,
     } else {
       sheet.appendRow([
         cleanId,
-        nama || 'Belum Diisi',
+        finalNamaMesin,
+        namaDB || 'Belum Diisi',
         tipe || 'Unmapped',
         kelasRole || '-',
         idTelegram || '-',
@@ -2581,13 +2602,14 @@ function handleGetDeviceUsers() {
     if (data[i][0]) {
       result.push({
         id_mesin: String(data[i][0]).trim(),
-        nama: String(data[i][1] || '-').trim(),
-        tipe: String(data[i][2] || '-').trim(),
-        kelas_role: String(data[i][3] || '-').trim(),
-        id_telegram: String(data[i][4] || '-').trim(),
-        scan_terakhir: String(data[i][5] || '-').trim(),
-        total_scan: parseInt(data[i][6]) || 0,
-        status_mapping: String(data[i][7] || 'Belum Dihubungkan ⚠️').trim()
+        nama_mesin: String(data[i][1] || '-').trim(),
+        nama: String(data[i][2] || '-').trim(),
+        tipe: String(data[i][3] || '-').trim(),
+        kelas_role: String(data[i][4] || '-').trim(),
+        id_telegram: String(data[i][5] || '-').trim(),
+        scan_terakhir: String(data[i][6] || '-').trim(),
+        total_scan: parseInt(data[i][7]) || 0,
+        status_mapping: String(data[i][8] || 'Belum Dihubungkan ⚠️').trim()
       });
     }
   }
@@ -2613,7 +2635,7 @@ function handleSyncDeviceUsers() {
       
       const pinToUse = idMesin || nis || nisn;
       if (pinToUse && nama) {
-        recordUserMesinActivity(ss, pinToUse, nama, 'Siswa', kelas, idTelegram, 'Terdaftar di Sistem');
+        recordUserMesinActivity(ss, pinToUse, '', nama, 'Siswa', kelas, idTelegram, 'Terdaftar di Sistem');
       }
     }
   }
@@ -2631,7 +2653,7 @@ function handleSyncDeviceUsers() {
       
       const pinToUse = idMesin || username;
       if (pinToUse && nama) {
-        recordUserMesinActivity(ss, pinToUse, nama, 'Guru/Staf', role, idTelegram, 'Terdaftar di Sistem');
+        recordUserMesinActivity(ss, pinToUse, '', nama, 'Guru/Staf', role, idTelegram, 'Terdaftar di Sistem');
       }
     }
   }
