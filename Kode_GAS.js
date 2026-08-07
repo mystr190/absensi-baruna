@@ -123,6 +123,9 @@ function doGet(e) {
     else if (action === 'sync_device_users') {
       return handleSyncDeviceUsers();
     }
+    else if (action === 'sync_student_logs_identity') {
+      return syncAllStudentLogsIdentity();
+    }
     else if (action === 'setup_user_mesin' || action === 'setup_device_columns') {
       ensureDeviceUserIdColumns();
       ensureUserMesinSheet(SpreadsheetApp.getActiveSpreadsheet());
@@ -1968,10 +1971,152 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id
   const cleanIdMesin = String(id_mesin || '').trim();
   const cleanIdTelegram = String(id_telegram || '').trim();
 
+  // 1. Update Sheet DataSiswa
   sheet.getRange(targetRow, 1, 1, 7).setValues([[cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin, cleanIdTelegram]]);
+
+  // 2. Cascade Update LogAbsen
+  const sheetLog = ss.getSheetByName(SHEET_LOG);
+  if (sheetLog && sheetLog.getLastRow() > 1) {
+    const logRange = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7);
+    const logValues = logRange.getValues();
+    let updated = false;
+
+    for (let i = 0; i < logValues.length; i++) {
+      const lNisn = String(logValues[i][1] || '').trim().toLowerCase();
+      const lNis = String(logValues[i][2] || '').trim().toLowerCase();
+
+      if ((targetOldNis && lNis === targetOldNis) || (targetOldNisn && lNisn === targetOldNisn) || (cleanNis && lNis === cleanNis.toLowerCase())) {
+        logValues[i][1] = cleanNisn;
+        logValues[i][2] = cleanNis;
+        logValues[i][3] = cleanNama;
+        logValues[i][4] = cleanKelas;
+        updated = true;
+      }
+    }
+    if (updated) logRange.setValues(logValues);
+  }
+
+  // 3. Cascade Update LogPelanggaran
+  const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
+  if (sheetPelanggaran && sheetPelanggaran.getLastRow() > 1) {
+    const pRange = sheetPelanggaran.getRange(2, 1, sheetPelanggaran.getLastRow() - 1, 10);
+    const pValues = pRange.getValues();
+    let updated = false;
+
+    for (let i = 0; i < pValues.length; i++) {
+      const pNisn = String(pValues[i][3] || '').trim().toLowerCase();
+      const pNis = String(pValues[i][4] || '').trim().toLowerCase();
+
+      if ((targetOldNis && pNis === targetOldNis) || (targetOldNisn && pNisn === targetOldNisn) || (cleanNis && pNis === cleanNis.toLowerCase())) {
+        pValues[i][3] = cleanNisn;
+        pValues[i][4] = cleanNis;
+        pValues[i][5] = cleanNama;
+        pValues[i][6] = cleanKelas;
+        updated = true;
+      }
+    }
+    if (updated) pRange.setValues(pValues);
+  }
+
+  clearStudentCache();
+  return jsonResponse('success', `Data siswa "${cleanNama}" dan riwayat log presensinya berhasil diperbarui.`);
+}
+
+function syncAllStudentLogsIdentity() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (!sheetSiswa) return jsonResponse('error', 'Sheet DataSiswa tidak ditemukan.');
+
+  const sData = sheetSiswa.getDataRange().getValues();
+  if (sData.length <= 1) return jsonResponse('error', 'Tidak ada data siswa.');
+
+  // Build lookup maps
+  const mapByNis = new Map();
+  const mapByNisn = new Map();
+  const mapByName = new Map();
+
+  for (let i = 1; i < sData.length; i++) {
+    const nisn = String(sData[i][0] || '').trim();
+    const nis = String(sData[i][1] || '').trim();
+    const nama = String(sData[i][2] || '').trim();
+    const kelas = String(sData[i][3] || '').trim();
+    const gender = String(sData[i][4] || 'L').trim();
+    const idMesin = String(sData[i][5] || '').trim();
+    const idTelegram = String(sData[i][6] || '').trim();
+
+    const studentObj = { nisn, nis, nama, kelas, gender, idMesin, idTelegram };
+
+    if (nis) mapByNis.set(nis.toLowerCase(), studentObj);
+    if (nisn) mapByNisn.set(nisn.toLowerCase(), studentObj);
+    if (nama) mapByName.set(nama.toLowerCase().replace(/[\s\-]/g, ''), studentObj);
+  }
+
+  let updatedLogCount = 0;
+  let updatedPelanggaranCount = 0;
+
+  // 1. Sinkronkan Sheet LogAbsen
+  const sheetLog = ss.getSheetByName(SHEET_LOG);
+  if (sheetLog && sheetLog.getLastRow() > 1) {
+    const logRange = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7);
+    const logValues = logRange.getValues();
+
+    for (let i = 0; i < logValues.length; i++) {
+      const lNisn = String(logValues[i][1] || '').trim().toLowerCase();
+      const lNis = String(logValues[i][2] || '').trim().toLowerCase();
+      const lNama = String(logValues[i][3] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+
+      const matched = mapByNis.get(lNis) || mapByNisn.get(lNisn) || mapByName.get(lNama);
+
+      if (matched) {
+        if (logValues[i][1] !== matched.nisn || logValues[i][2] !== matched.nis || logValues[i][3] !== matched.nama || logValues[i][4] !== matched.kelas) {
+          logValues[i][1] = matched.nisn;
+          logValues[i][2] = matched.nis;
+          logValues[i][3] = matched.nama;
+          logValues[i][4] = matched.kelas;
+          updatedLogCount++;
+        }
+      }
+    }
+
+    if (updatedLogCount > 0) {
+      logRange.setValues(logValues);
+    }
+  }
+
+  // 2. Sinkronkan Sheet LogPelanggaran
+  const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
+  if (sheetPelanggaran && sheetPelanggaran.getLastRow() > 1) {
+    const pRange = sheetPelanggaran.getRange(2, 1, sheetPelanggaran.getLastRow() - 1, 10);
+    const pValues = pRange.getValues();
+
+    for (let i = 0; i < pValues.length; i++) {
+      const pNisn = String(pValues[i][3] || '').trim().toLowerCase();
+      const pNis = String(pValues[i][4] || '').trim().toLowerCase();
+      const pNama = String(pValues[i][5] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+
+      const matched = mapByNis.get(pNis) || mapByNisn.get(pNisn) || mapByName.get(pNama);
+
+      if (matched) {
+        if (pValues[i][3] !== matched.nisn || pValues[i][4] !== matched.nis || pValues[i][5] !== matched.nama || pValues[i][6] !== matched.kelas) {
+          pValues[i][3] = matched.nisn;
+          pValues[i][4] = matched.nis;
+          pValues[i][5] = matched.nama;
+          pValues[i][6] = matched.kelas;
+          updatedPelanggaranCount++;
+        }
+      }
+    }
+
+    if (updatedPelanggaranCount > 0) {
+      pRange.setValues(pValues);
+    }
+  }
+
+  // 3. Sinkronkan Sheet User_Mesin
+  handleSyncDeviceUsers();
   clearStudentCache();
 
-  return jsonResponse('success', `Data siswa "${cleanNama}" berhasil diperbarui.`);
+  return jsonResponse('success', `Berhasil Menyinkronkan Seluruh Identity Log! (${updatedLogCount} Log Presensi, ${updatedPelanggaranCount} Log Pelanggaran diperbarui sesuai NISN & NIS terbaru di DataSiswa).`);
 }
 
 function handleDeleteStudent(nisn, nis) {
