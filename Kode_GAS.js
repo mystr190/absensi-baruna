@@ -180,6 +180,9 @@ function doPost(e) {
     else if (action === 'sync_device_users') {
       return handleSyncDeviceUsers();
     }
+    else if (action === 'sync_student_logs_identity') {
+      return syncAllStudentLogsIdentity();
+    }
     else if (action === 'get_students') {
       return handleGetStudents();
     }
@@ -2030,7 +2033,7 @@ function syncAllStudentLogsIdentity() {
   const sData = sheetSiswa.getDataRange().getValues();
   if (sData.length <= 1) return jsonResponse('error', 'Tidak ada data siswa.');
 
-  // Build lookup maps
+  // Build lookup maps with ultra-resilient normalization
   const mapByNis = new Map();
   const mapByNisn = new Map();
   const mapByName = new Map();
@@ -2046,9 +2049,21 @@ function syncAllStudentLogsIdentity() {
 
     const studentObj = { nisn, nis, nama, kelas, gender, idMesin, idTelegram };
 
-    if (nis) mapByNis.set(nis.toLowerCase(), studentObj);
-    if (nisn) mapByNisn.set(nisn.toLowerCase(), studentObj);
-    if (nama) mapByName.set(nama.toLowerCase().replace(/[\s\-]/g, ''), studentObj);
+    const normNis = nis.toLowerCase().replace(/^0+/, '');
+    const normNisn = nisn.toLowerCase().replace(/^0+/, '');
+    const normNama = nama.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (nis) {
+      mapByNis.set(nis.toLowerCase(), studentObj);
+      if (normNis) mapByNis.set(normNis, studentObj);
+    }
+    if (nisn) {
+      mapByNisn.set(nisn.toLowerCase(), studentObj);
+      if (normNisn) mapByNisn.set(normNisn, studentObj);
+    }
+    if (normNama) {
+      mapByName.set(normNama, studentObj);
+    }
   }
 
   let updatedLogCount = 0;
@@ -2063,12 +2078,24 @@ function syncAllStudentLogsIdentity() {
     for (let i = 0; i < logValues.length; i++) {
       const lNisn = String(logValues[i][1] || '').trim().toLowerCase();
       const lNis = String(logValues[i][2] || '').trim().toLowerCase();
-      const lNama = String(logValues[i][3] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+      const lNama = String(logValues[i][3] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      const matched = mapByNis.get(lNis) || mapByNisn.get(lNisn) || mapByName.get(lNama);
+      const normLNis = lNis.replace(/^0+/, '');
+      const normLNisn = lNisn.replace(/^0+/, '');
+
+      const matched = (lNis && mapByNis.get(lNis)) ||
+                      (normLNis && mapByNis.get(normLNis)) ||
+                      (lNisn && mapByNisn.get(lNisn)) ||
+                      (normLNisn && mapByNisn.get(normLNisn)) ||
+                      (lNama && mapByName.get(lNama));
 
       if (matched) {
-        if (logValues[i][1] !== matched.nisn || logValues[i][2] !== matched.nis || logValues[i][3] !== matched.nama || logValues[i][4] !== matched.kelas) {
+        const curNisn = String(logValues[i][1] || '').trim();
+        const curNis = String(logValues[i][2] || '').trim();
+        const curNama = String(logValues[i][3] || '').trim();
+        const curKelas = String(logValues[i][4] || '').trim();
+
+        if (curNisn !== matched.nisn || curNis !== matched.nis || curNama !== matched.nama || curKelas !== matched.kelas) {
           logValues[i][1] = matched.nisn;
           logValues[i][2] = matched.nis;
           logValues[i][3] = matched.nama;
@@ -2092,12 +2119,24 @@ function syncAllStudentLogsIdentity() {
     for (let i = 0; i < pValues.length; i++) {
       const pNisn = String(pValues[i][3] || '').trim().toLowerCase();
       const pNis = String(pValues[i][4] || '').trim().toLowerCase();
-      const pNama = String(pValues[i][5] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+      const pNama = String(pValues[i][5] || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      const matched = mapByNis.get(pNis) || mapByNisn.get(pNisn) || mapByName.get(pNama);
+      const normPNis = pNis.replace(/^0+/, '');
+      const normPNisn = pNisn.replace(/^0+/, '');
+
+      const matched = (pNis && mapByNis.get(pNis)) ||
+                      (normPNis && mapByNis.get(normPNis)) ||
+                      (pNisn && mapByNisn.get(pNisn)) ||
+                      (normPNisn && mapByNisn.get(normPNisn)) ||
+                      (pNama && mapByName.get(pNama));
 
       if (matched) {
-        if (pValues[i][3] !== matched.nisn || pValues[i][4] !== matched.nis || pValues[i][5] !== matched.nama || pValues[i][6] !== matched.kelas) {
+        const curNisn = String(pValues[i][3] || '').trim();
+        const curNis = String(pValues[i][4] || '').trim();
+        const curNama = String(pValues[i][5] || '').trim();
+        const curKelas = String(pValues[i][6] || '').trim();
+
+        if (curNisn !== matched.nisn || curNis !== matched.nis || curNama !== matched.nama || curKelas !== matched.kelas) {
           pValues[i][3] = matched.nisn;
           pValues[i][4] = matched.nis;
           pValues[i][5] = matched.nama;
@@ -2116,7 +2155,7 @@ function syncAllStudentLogsIdentity() {
   handleSyncDeviceUsers();
   clearStudentCache();
 
-  return jsonResponse('success', `Berhasil Menyinkronkan Seluruh Identity Log! (${updatedLogCount} Log Presensi, ${updatedPelanggaranCount} Log Pelanggaran diperbarui sesuai NISN & NIS terbaru di DataSiswa).`);
+  return jsonResponse('success', `Berhasil Menyinkronkan Seluruh Identitas Log! (${updatedLogCount} Log Presensi, ${updatedPelanggaranCount} Log Pelanggaran diperbarui sesuai NISN & NIS terbaru di DataSiswa).`);
 }
 
 function handleDeleteStudent(nisn, nis) {
@@ -2238,6 +2277,7 @@ function handleSaveAllStudents(dataJson, mode) {
     }
 
     clearStudentCache();
+    syncAllStudentLogsIdentity();
     return jsonResponse('success', `Berhasil ${isReplaceMode ? 'mengganti' : 'menambahkan'} ${rowsToAppend.length} data siswa.`, { count: rowsToAppend.length });
   } catch (e) {
     return jsonResponse('error', 'Gagal simpan data siswa bulk: ' + e.toString());
