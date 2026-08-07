@@ -16,6 +16,7 @@ const btnCancelModalUser = document.getElementById('btnCancelModalUser');
 
 const modalOldUsername = document.getElementById('modalOldUsername');
 const modalUsername = document.getElementById('modalUsername');
+const modalIdMesin = document.getElementById('modalIdMesin');
 const modalPassword = document.getElementById('modalPassword');
 const modalNama = document.getElementById('modalNama');
 const modalRole = document.getElementById('modalRole');
@@ -38,6 +39,7 @@ function openUserModal(user = null) {
         if (modalUserTitle) modalUserTitle.innerText = "Edit Data Pengguna / Guru";
         if (modalOldUsername) modalOldUsername.value = user.username;
         if (modalUsername) modalUsername.value = user.username;
+        if (modalIdMesin) modalIdMesin.value = user.id_mesin || '';
         if (modalPassword) modalPassword.value = ''; // Kosongkan password saat edit
         if (modalNama) modalNama.value = user.nama;
         if (modalRole) modalRole.value = user.role || 'Guru';
@@ -45,6 +47,7 @@ function openUserModal(user = null) {
         if (modalUserTitle) modalUserTitle.innerText = "Tambah Pengguna Baru";
         if (modalOldUsername) modalOldUsername.value = '';
         if (modalUsername) modalUsername.value = '';
+        if (modalIdMesin) modalIdMesin.value = '';
         if (modalPassword) modalPassword.value = '';
         if (modalNama) modalNama.value = '';
         if (modalRole) modalRole.value = 'Guru';
@@ -61,25 +64,25 @@ function closeUserModal() {
 async function loadUsers() {
     const tableBody = document.getElementById('tableBodyUsers');
     if (tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
     }
 
     try {
         const result = await fetchWithRetry(`${SCRIPT_URL}?action=get_users`, { method: 'GET' }, 2, 800);
         if (result && result.status === 'success') {
             userListState = result.data || [];
-            window.allTeachers = userListState.map(u => ({ username: u.username, namaLengkap: u.nama, role: u.role }));
+            window.allTeachers = userListState.map(u => ({ username: u.username, namaLengkap: u.nama, role: u.role, id_mesin: u.id_mesin }));
             localStorage.setItem('smart_absen_users_cache', JSON.stringify(window.allTeachers));
             if (tableBody) renderUserTable(userListState);
             if (typeof renderAbsenGuruBatchTable === 'function') {
                 renderAbsenGuruBatchTable();
             }
         } else {
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
         }
     } catch (err) {
         console.error("Load users error:", err);
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
     }
 }
 
@@ -88,7 +91,7 @@ function renderUserTable(users) {
     if (!tableBody) return;
 
     if (!users || users.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-muted);">Belum ada data pengguna.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--text-muted);">Belum ada data pengguna.</td></tr>`;
         return;
     }
 
@@ -96,12 +99,16 @@ function renderUserTable(users) {
     users.forEach((u, index) => {
         const isSelf = (JSON.parse(localStorage.getItem('smart_absen_user') || '{}').username === u.username);
         const roleBadge = u.role === 'Admin' ? 'background: #ef4444; color: white;' : 'background: #3b82f6; color: white;';
+        const idMesinDisplay = u.id_mesin 
+            ? `<span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); font-family: monospace; font-size: 0.85rem;">${u.id_mesin}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
 
         html += `
             <tr>
                 <td style="text-align:center; font-weight:bold;">${index + 1}</td>
                 <td><strong>${u.username}</strong></td>
                 <td>${u.nama}</td>
+                <td style="text-align:center;">${idMesinDisplay}</td>
                 <td style="text-align:center;"><span class="badge" style="${roleBadge}">${u.role}</span></td>
                 <td style="text-align:center;">
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem; margin-right:4px;" onclick="editUserByUsername('${u.username}')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
@@ -162,6 +169,7 @@ if (formUserModal) {
 
         const oldUsername = modalOldUsername ? modalOldUsername.value.trim() : '';
         const username = modalUsername ? modalUsername.value.trim() : '';
+        const id_mesin = modalIdMesin ? modalIdMesin.value.trim() : '';
         const password = modalPassword ? modalPassword.value.trim() : '';
         const nama = modalNama ? modalNama.value.trim() : '';
         const role = modalRole ? modalRole.value : 'Guru';
@@ -185,6 +193,7 @@ if (formUserModal) {
             formData.append('action', isEdit ? 'update_user' : 'add_user');
             if (isEdit) formData.append('old_username', oldUsername);
             formData.append('username', username);
+            formData.append('id_mesin', id_mesin);
             if (password) formData.append('password', password);
             formData.append('nama', nama);
             formData.append('role', role);

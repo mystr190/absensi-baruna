@@ -90,10 +90,10 @@ function doGet(e) {
       return handleGetStudents();
     }
     else if (action === 'add_student') {
-      return handleAddStudent(e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender);
+      return handleAddStudent(e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender, e.parameter.id_mesin);
     }
     else if (action === 'update_student') {
-      return handleUpdateStudent(e.parameter.old_nis, e.parameter.old_nisn, e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender);
+      return handleUpdateStudent(e.parameter.old_nis, e.parameter.old_nisn, e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender, e.parameter.id_mesin);
     }
     else if (action === 'delete_student') {
       return handleDeleteStudent(e.parameter.nisn, e.parameter.nis);
@@ -103,6 +103,13 @@ function doGet(e) {
     }
     else if (action === 'delete_attendance_class') {
       return handleDeleteAttendanceByDateAndClass(e.parameter.tanggal, e.parameter.kelas);
+    }
+    else if (action === 'device_scan' || action === 'solution_scan') {
+      return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status);
+    }
+    else if (action === 'setup_device_columns') {
+      ensureDeviceUserIdColumns();
+      return jsonResponse('success', 'Header kolom ID_Mesin di Sheet DataSiswa dan Users berhasil dikonfigurasi!');
     }
 
     return jsonResponse('success', 'API Active');
@@ -150,10 +157,10 @@ function doPost(e) {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
     }
     else if (action === 'add_user') {
-      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama);
+      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin);
     }
     else if (action === 'update_user') {
-      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama);
+      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin);
     }
     else if (action === 'delete_user') {
       return handleDeleteUser(e.parameter.username);
@@ -190,6 +197,13 @@ function doPost(e) {
     }
     else if (action === 'delete_attendance_class') {
       return handleDeleteAttendanceByDateAndClass(e.parameter.tanggal, e.parameter.kelas);
+    }
+    else if (action === 'device_scan' || action === 'solution_scan') {
+      return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status);
+    }
+    else if (action === 'setup_device_columns') {
+      ensureDeviceUserIdColumns();
+      return jsonResponse('success', 'Header kolom ID_Mesin di Sheet DataSiswa dan Users berhasil dikonfigurasi!');
     }
 
     return jsonResponse('error', 'Action tidak ditemukan.');
@@ -258,9 +272,10 @@ function fetchUsersList(ss) {
     const password = String(data[i][2] || '').trim();
     const role = String(data[i][3] || '').trim();
     const nama = String(data[i][4] || '').trim();
+    const id_mesin = String(data[i][5] || '').trim();
 
     if (username) {
-      users.push({ id, username, password, role, nama });
+      users.push({ id, username, password, role, nama, id_mesin });
     }
   }
 
@@ -272,7 +287,7 @@ function handleGetUsers() {
   return jsonResponse('success', 'Daftar Pengguna', fetchUsersList(ss));
 }
 
-function handleAddUser(username, password, role, nama) {
+function handleAddUser(username, password, role, nama, id_mesin) {
   if (!username || !password || !nama) {
     return jsonResponse('error', 'Username, Password, dan Nama Lengkap wajib diisi.');
   }
@@ -292,12 +307,12 @@ function handleAddUser(username, password, role, nama) {
   }
 
   const newId = String(data.length);
-  sheet.appendRow([newId, username.trim(), password.trim(), role || 'Guru', nama.trim()]);
+  sheet.appendRow([newId, username.trim(), password.trim(), role || 'Guru', nama.trim(), String(id_mesin || '').trim()]);
 
   return jsonResponse('success', `Pengguna "${nama}" berhasil ditambahkan.`);
 }
 
-function handleUpdateUser(oldUsername, username, password, role, nama) {
+function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin) {
   if (!oldUsername || !username || !nama) {
     return jsonResponse('error', 'Data pengguna tidak lengkap.');
   }
@@ -317,6 +332,7 @@ function handleUpdateUser(oldUsername, username, password, role, nama) {
       if (password) sheet.getRange(rowIndex, 3).setValue(password.trim()); // Password
       sheet.getRange(rowIndex, 4).setValue(role || 'Guru'); // Role
       sheet.getRange(rowIndex, 5).setValue(nama.trim()); // NamaLengkap
+      sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
 
       return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
     }
@@ -464,6 +480,7 @@ function handleGetStudents(kelas, tanggal) {
 // === HANDLER TARIK SEMUA MASTER DATA (SANGAT CEPAT UNTUK CLIENT CACHING) ===
 function handleGetAllMasterData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDeviceUserIdColumns();
 
   // 1. Ambil Semua Data Siswa
   const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
@@ -481,7 +498,8 @@ function handleGetAllMasterData() {
         nis: String(dataSiswa[i][1] || ''),
         nama: nama,
         kelas: String(dataSiswa[i][3] || ''),
-        gender: gender
+        gender: gender,
+        id_mesin: String(dataSiswa[i][5] || '')
       });
     }
   }
@@ -670,24 +688,13 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
   const isEditMode = String(isEditParam || '').toLowerCase() === 'true';
 
   const now = new Date();
-  let waktu = new Date();
+  const timeFormatted = Utilities.formatDate(now, TIMEZONE, "HH:mm:ss");
   let targetTanggalStr = getFormattedDate(now);
+  let waktuStr = Utilities.formatDate(now, TIMEZONE, "yyyy-MM-dd HH:mm:ss");
 
   if (customTanggal && customTanggal.trim() !== '') {
-    try {
-      const parts = customTanggal.trim().split('-');
-      if (parts.length === 3) {
-        waktu = new Date(
-          parseInt(parts[0]),
-          parseInt(parts[1]) - 1,
-          parseInt(parts[2]),
-          now.getHours(),
-          now.getMinutes(),
-          now.getSeconds()
-        );
-        targetTanggalStr = customTanggal.trim();
-      }
-    } catch (e) { }
+    targetTanggalStr = customTanggal.trim();
+    waktuStr = targetTanggalStr + " " + timeFormatted;
   }
 
   const firstStudent = dataObj[0];
@@ -740,7 +747,7 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
   // Tulis data absensi baru / hasil edit terbaru
   const rowsToAppend = [];
   dataObj.forEach(s => {
-    rowsToAppend.push([waktu, s.nisn, s.nis, s.nama, s.kelas, s.status, s.petugas]);
+    rowsToAppend.push([waktuStr, s.nisn, s.nis, s.nama, s.kelas, s.status, s.petugas]);
   });
 
   if (rowsToAppend.length > 0) {
@@ -1767,7 +1774,7 @@ function handleGetStudents() {
   return jsonResponse('success', 'Daftar Siswa', students);
 }
 
-function handleAddStudent(nisn, nis, nama, kelas, gender) {
+function handleAddStudent(nisn, nis, nama, kelas, gender, id_mesin) {
   if (!nama || !kelas) {
     return jsonResponse('error', 'Nama Siswa dan Kelas wajib diisi.');
   }
@@ -1784,14 +1791,15 @@ function handleAddStudent(nisn, nis, nama, kelas, gender) {
   const cleanNama = String(nama).trim();
   const cleanKelas = String(kelas).trim();
   const cleanGender = String(gender || 'L').trim().toUpperCase();
+  const cleanIdMesin = String(id_mesin || '').trim();
 
-  sheet.appendRow([cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender]);
+  sheet.appendRow([cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin]);
   clearStudentCache();
 
   return jsonResponse('success', `Siswa "${cleanNama}" kelas ${cleanKelas} berhasil ditambahkan.`);
 }
 
-function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender) {
+function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id_mesin) {
   if (!nama || !kelas) {
     return jsonResponse('error', 'Nama dan Kelas tidak boleh kosong.');
   }
@@ -1824,8 +1832,9 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender) {
   const cleanNama = String(nama).trim();
   const cleanKelas = String(kelas).trim();
   const cleanGender = String(gender || 'L').trim().toUpperCase();
+  const cleanIdMesin = String(id_mesin || '').trim();
 
-  sheet.getRange(targetRow, 1, 1, 5).setValues([[cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender]]);
+  sheet.getRange(targetRow, 1, 1, 6).setValues([[cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin]]);
   clearStudentCache();
 
   return jsonResponse('success', `Data siswa "${cleanNama}" berhasil diperbarui.`);
@@ -1871,8 +1880,8 @@ function handleSaveAllStudents(dataJson, mode) {
 
     if (isReplaceMode) {
       sheet.clearContents();
-      sheet.getRange(1, 1, 1, 5).setValues([['NISN', 'NIS', 'Nama', 'Kelas', 'JenisKelamin']]);
-      sheet.getRange("A1:E1").setFontWeight("bold").setBackground("#c9daf8");
+      sheet.getRange(1, 1, 1, 6).setValues([['NISN', 'NIS', 'Nama', 'Kelas', 'JenisKelamin', 'ID_Mesin']]);
+      sheet.getRange("A1:F1").setFontWeight("bold").setBackground("#c9daf8");
     }
 
     const rowsToAppend = [];
@@ -1883,13 +1892,14 @@ function handleSaveAllStudents(dataJson, mode) {
         String(it.nis || '').trim(),
         String(it.nama || '').trim(),
         String(it.kelas || '').trim(),
-        String(it.gender || it.jk || 'L').trim().toUpperCase()
+        String(it.gender || it.jk || 'L').trim().toUpperCase(),
+        String(it.id_mesin || it.idMesin || '').trim()
       ]);
     });
 
     if (rowsToAppend.length > 0) {
       const startRow = sheet.getLastRow() + 1;
-      sheet.getRange(startRow, 1, rowsToAppend.length, 5).setValues(rowsToAppend);
+      sheet.getRange(startRow, 1, rowsToAppend.length, 6).setValues(rowsToAppend);
     }
 
     clearStudentCache();
@@ -1904,4 +1914,166 @@ function clearStudentCache() {
     const cache = CacheService.getScriptCache();
     // Invalidate script cache if any
   } catch(e) {}
+}
+
+function ensureDeviceUserIdColumns() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 1. Sheet DataSiswa (Kolom F: ID_Mesin)
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa) {
+      ensureStudentGenderColumn(sheetSiswa);
+      const lastColSiswa = sheetSiswa.getLastColumn();
+      if (lastColSiswa < 6 || !String(sheetSiswa.getRange(1, 6).getValue() || '').trim()) {
+        sheetSiswa.getRange(1, 6).setValue('ID_Mesin');
+        sheetSiswa.getRange(1, 6).setFontWeight('bold').setBackground('#c9daf8');
+      }
+    }
+
+    // 2. Sheet Users (Kolom F: ID_Mesin)
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers) {
+      const lastColUsers = sheetUsers.getLastColumn();
+      if (lastColUsers < 6 || !String(sheetUsers.getRange(1, 6).getValue() || '').trim()) {
+        sheetUsers.getRange(1, 6).setValue('ID_Mesin');
+        sheetUsers.getRange(1, 6).setFontWeight('bold').setBackground('#c9daf8');
+      }
+    }
+  } catch (e) {
+    Logger.log('ensureDeviceUserIdColumns error: ' + e.toString());
+  }
+}
+
+// === HANDLER INTEGRASI MESIN ABSENSI WAJAH & SIDIK JARI (SOLUTION X902 / ZKTECO) ===
+function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
+  try {
+    if (!pin) {
+      return jsonResponse('error', 'PIN / NIS siswa atau ID guru tidak boleh kosong.');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const cleanPin = String(pin).trim();
+    const now = new Date();
+
+    let scanDateStr = Utilities.formatDate(now, TIMEZONE, "yyyy-MM-dd");
+    let scanTimeStr = Utilities.formatDate(now, TIMEZONE, "HH:mm:ss");
+
+    if (waktuScan && String(waktuScan).trim() !== '') {
+      const parts = String(waktuScan).trim().split(' ');
+      if (parts.length >= 1) scanDateStr = parts[0];
+      if (parts.length >= 2) scanTimeStr = parts[1];
+    }
+
+    const fullTimestampStr = `${scanDateStr} ${scanTimeStr}`;
+    const statusVal = String(statusScan || 'HADIR').toUpperCase();
+
+    // 1. CARI DI SHEET DATA SISWA (Prioritas: 1. ID_Mesin, 2. NIS, 3. NISN)
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    let matchedStudent = null;
+
+    if (sheetSiswa) {
+      const siswaData = sheetSiswa.getDataRange().getValues();
+      for (let i = 1; i < siswaData.length; i++) {
+        const nisn = String(siswaData[i][0] || '').trim();
+        const nis = String(siswaData[i][1] || '').trim();
+        const idMesin = String(siswaData[i][5] || '').trim();
+
+        if ((idMesin && cleanPin === idMesin) || cleanPin === nis || cleanPin === nisn) {
+          matchedStudent = {
+            nisn: nisn,
+            nis: nis,
+            nama: String(siswaData[i][2] || '').trim(),
+            kelas: String(siswaData[i][3] || '').trim()
+          };
+          break;
+        }
+      }
+    }
+
+    if (matchedStudent) {
+      const sheetLog = ss.getSheetByName(SHEET_LOG);
+      if (sheetLog) {
+        const lastRow = sheetLog.getLastRow();
+        let alreadyExistRow = -1;
+        if (lastRow > 1) {
+          const logs = sheetLog.getRange(2, 1, lastRow - 1, 7).getValues();
+          for (let i = logs.length - 1; i >= 0; i--) {
+            const lDate = getFormattedDate(logs[i][0]);
+            const lNis = String(logs[i][2] || '').trim();
+            const lNisn = String(logs[i][1] || '').trim();
+            if (lDate === scanDateStr && (lNis === matchedStudent.nis || lNisn === matchedStudent.nisn)) {
+              alreadyExistRow = i + 2;
+              break;
+            }
+          }
+        }
+
+        const newRow = [fullTimestampStr, matchedStudent.nisn, matchedStudent.nis, matchedStudent.nama, matchedStudent.kelas, statusVal, 'Mesin Wajah Solution X902'];
+        if (alreadyExistRow > 1) {
+          sheetLog.getRange(alreadyExistRow, 1, 1, 7).setValues([newRow]);
+        } else {
+          sheetLog.appendRow(newRow);
+        }
+      }
+
+      return jsonResponse('success', `Absensi Wajah Siswa [${matchedStudent.nama} - Kelas ${matchedStudent.kelas}] Berhasil Dicatat (${scanTimeStr})`, {
+        tipe: 'siswa',
+        nama: matchedStudent.nama,
+        kelas: matchedStudent.kelas,
+        waktu: scanTimeStr,
+        status: statusVal
+      });
+    }
+
+    // 2. JIKA BUKAN SISWA, CARI DI SHEET USERS (Prioritas: 1. ID_Mesin, 2. Username)
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    let matchedUser = null;
+
+    if (sheetUsers) {
+      const uData = sheetUsers.getDataRange().getValues();
+      for (let i = 1; i < uData.length; i++) {
+        const uname = String(uData[i][1] || uData[i][0] || '').trim();
+        const idMesin = String(uData[i][5] || '').trim();
+
+        if ((idMesin && cleanPin === idMesin) || cleanPin === uname) {
+          matchedUser = {
+            username: uname,
+            nama: String(uData[i][4] || uData[i][1] || '').trim(),
+            role: String(uData[i][3] || 'Guru').trim()
+          };
+          break;
+        }
+      }
+    }
+
+    if (matchedUser) {
+      const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
+      if (sheetLogGuru) {
+        const newRowGuru = [
+          'AG-DEV-' + Date.now(),
+          fullTimestampStr,
+          scanDateStr,
+          matchedUser.username,
+          matchedUser.nama,
+          statusVal,
+          'Scan Wajah Mesin Solution X902',
+          'Mesin X902'
+        ];
+        sheetLogGuru.appendRow(newRowGuru);
+      }
+
+      return jsonResponse('success', `Absensi Wajah Guru [${matchedUser.nama}] Berhasil Dicatat (${scanTimeStr})`, {
+        tipe: 'guru',
+        nama: matchedUser.nama,
+        waktu: scanTimeStr,
+        status: statusVal
+      });
+    }
+
+    return jsonResponse('error', `ID Mesin / PIN [${cleanPin}] dari Solution X902 belum dicocokkan dengan data Siswa atau Guru di database.`);
+
+  } catch (err) {
+    return jsonResponse('error', 'Gagal memproses scan mesin wajah: ' + err.toString());
+  }
 }

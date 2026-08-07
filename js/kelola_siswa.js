@@ -117,7 +117,7 @@ function renderTableSiswa() {
     if (filtered.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
                     <i class="fa-solid fa-user-slash" style="font-size: 1.8rem; margin-bottom: 8px; display: block; opacity: 0.5;"></i>
                     Tidak ada data siswa yang cocok.
                 </td>
@@ -144,12 +144,16 @@ function renderTableSiswa() {
         const genderBadge = gender === 'P' 
             ? `<span style="background: rgba(244, 114, 182, 0.2); color: #f472b6; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem;">P</span>`
             : `<span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem;">L</span>`;
+        const idMesinDisplay = s.id_mesin 
+            ? `<span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 8px; border-radius: 6px; font-family: monospace; font-size: 0.8rem;">${s.id_mesin}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
 
         html += `
             <tr>
                 <td style="text-align: center; color: var(--text-muted);">${no}</td>
                 <td style="font-family: monospace; font-weight: 600;">${s.nis || '-'}</td>
                 <td style="font-family: monospace; color: var(--text-muted);">${s.nisn || '-'}</td>
+                <td style="text-align: center;">${idMesinDisplay}</td>
                 <td style="font-weight: 600; color: #f8fafc;">${s.nama || '-'}</td>
                 <td style="text-align: center;">${genderBadge}</td>
                 <td style="text-align: center;"><span style="background: rgba(255,255,255,0.07); padding: 2px 8px; border-radius: 6px;">${s.kelas || '-'}</span></td>
@@ -240,6 +244,8 @@ function openModalAddStudent() {
     form.reset();
     document.getElementById('modalSiswaOldNis').value = '';
     document.getElementById('modalSiswaOldNisn').value = '';
+    const idMesinInp = document.getElementById('modalSiswaIdMesin');
+    if (idMesinInp) idMesinInp.value = '';
     modal.style.display = 'flex';
 }
 
@@ -264,6 +270,8 @@ function openModalEditStudent(nis, nisn) {
     document.getElementById('modalSiswaNisn').value = student.nisn || '';
     document.getElementById('modalSiswaKelas').value = student.kelas || '';
     document.getElementById('modalSiswaGender').value = (student.gender || student.jk || 'L').toUpperCase() === 'P' ? 'P' : 'L';
+    const idMesinInp = document.getElementById('modalSiswaIdMesin');
+    if (idMesinInp) idMesinInp.value = student.id_mesin || '';
 
     modal.style.display = 'flex';
 }
@@ -281,6 +289,7 @@ async function handleSaveStudentSingle(e) {
     const nama = document.getElementById('modalSiswaNama').value.trim();
     const nis = document.getElementById('modalSiswaNis').value.trim();
     const nisn = document.getElementById('modalSiswaNisn').value.trim();
+    const id_mesin = (document.getElementById('modalSiswaIdMesin')?.value || '').trim();
     const kelas = document.getElementById('modalSiswaKelas').value.trim();
     const gender = document.getElementById('modalSiswaGender').value;
 
@@ -306,7 +315,8 @@ async function handleSaveStudentSingle(e) {
             nisn: nisn,
             nama: nama,
             kelas: kelas,
-            gender: gender
+            gender: gender,
+            id_mesin: id_mesin
         });
 
         const res = await fetchWithRetry(SCRIPT_URL, {
@@ -322,10 +332,10 @@ async function handleSaveStudentSingle(e) {
             if (isEdit) {
                 const idx = students.findIndex(s => String(s.nis || '').trim() === String(oldNis).trim() || String(s.nisn || '').trim() === String(oldNisn).trim());
                 if (idx !== -1) {
-                    students[idx] = { nisn, nis, nama, kelas, gender };
+                    students[idx] = { nisn, nis, nama, kelas, gender, id_mesin };
                 }
             } else {
-                students.push({ nisn, nis, nama, kelas, gender });
+                students.push({ nisn, nis, nama, kelas, gender, id_mesin });
             }
 
             window.allStudents = students;
@@ -448,6 +458,7 @@ function handleProcessExcelFile(file) {
             const colNama = headers.findIndex(h => h.includes('nama'));
             const colKelas = headers.findIndex(h => h.includes('kelas'));
             const colGender = headers.findIndex(h => h.includes('jk') || h.includes('jenis kelamin') || h.includes('l/p') || h.includes('gender'));
+            const colIdMesin = headers.findIndex(h => h.includes('id_mesin') || h.includes('id mesin') || h.includes('pin'));
 
             const items = [];
             for (let i = headerRowIndex + 1; i < rawJson.length; i++) {
@@ -459,6 +470,7 @@ function handleProcessExcelFile(file) {
 
                 const nis = colNis !== -1 ? String(row[colNis] || '').trim() : '';
                 const nisn = colNisn !== -1 ? String(row[colNisn] || '').trim() : '';
+                const id_mesin = colIdMesin !== -1 ? String(row[colIdMesin] || '').trim() : '';
                 const kelas = colKelas !== -1 ? String(row[colKelas] || '').trim() : '';
                 let genderRaw = colGender !== -1 ? String(row[colGender] || '').trim().toUpperCase() : '';
                 let gender = 'L';
@@ -476,7 +488,7 @@ function handleProcessExcelFile(file) {
                     }
                 }
 
-                items.push({ nisn, nis, nama, kelas, gender });
+                items.push({ nisn, nis, nama, kelas, gender, id_mesin });
             }
 
             if (items.length === 0) {
@@ -598,9 +610,9 @@ function downloadExcelTemplate() {
     }
 
     const templateData = [
-        { "NISN": "0011223344", "NIS": "1001", "Nama Siswa": "Abdurahman Smith", "Kelas": "X-1", "Jenis Kelamin (L/P)": "L" },
-        { "NISN": "0011223345", "NIS": "1002", "Nama Siswa": "Adelia Rezky Al Nasya", "Kelas": "X-1", "Jenis Kelamin (L/P)": "P" },
-        { "NISN": "0011223346", "NIS": "1003", "Nama Siswa": "Budi Santoso", "Kelas": "X-2", "Jenis Kelamin (L/P)": "L" }
+        { "NISN": "0011223344", "NIS": "1001", "Nama Siswa": "Abdurahman Smith", "Kelas": "X-1", "Jenis Kelamin (L/P)": "L", "ID_Mesin": "1001" },
+        { "NISN": "0011223345", "NIS": "1002", "Nama Siswa": "Adelia Rezky Al Nasya", "Kelas": "X-1", "Jenis Kelamin (L/P)": "P", "ID_Mesin": "1002" },
+        { "NISN": "0011223346", "NIS": "1003", "Nama Siswa": "Budi Santoso", "Kelas": "X-2", "Jenis Kelamin (L/P)": "L", "ID_Mesin": "1003" }
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(templateData);
@@ -613,7 +625,8 @@ function downloadExcelTemplate() {
         { wch: 12 },
         { wch: 30 },
         { wch: 12 },
-        { wch: 20 }
+        { wch: 20 },
+        { wch: 15 }
     ];
 
     XLSX.writeFile(workbook, "Template_Import_Data_Siswa.xlsx");

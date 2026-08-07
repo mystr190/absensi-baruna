@@ -732,6 +732,7 @@
                                 <th style="width: 50px; text-align: center;">No</th>
                                 <th>Username</th>
                                 <th>Nama Lengkap</th>
+                                <th style="text-align: center;">ID Mesin (Wajah)</th>
                                 <th style="text-align: center;">Role</th>
                                 <th style="text-align: center; width: 140px;">Aksi</th>
                             </tr>
@@ -1143,8 +1144,9 @@
                             <thead>
                                 <tr>
                                     <th style="width: 50px; text-align: center;">No</th>
-                                    <th style="width: 110px;">NIS</th>
-                                    <th style="width: 130px;">NISN</th>
+                                    <th style="width: 100px;">NIS</th>
+                                    <th style="width: 120px;">NISN</th>
+                                    <th style="width: 110px; text-align: center;">ID Mesin</th>
                                     <th>Nama Siswa</th>
                                     <th style="width: 70px; text-align: center;">L/P</th>
                                     <th style="width: 100px; text-align: center;">Kelas</th>
@@ -1183,6 +1185,10 @@
                         <div class="modal-form-group" style="margin-bottom: 15px;">
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Username:</label>
                             <input type="text" id="modalUsername" required placeholder="Contoh: guru1" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 15px;">
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">ID Mesin / PIN Solution (Opsional):</label>
+                            <input type="text" id="modalIdMesin" placeholder="Contoh: 101 atau PIN Mesin" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                         </div>
                         <div class="modal-form-group" style="margin-bottom: 15px;">
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Password:</label>
@@ -1230,6 +1236,11 @@
                                 <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">NISN</label>
                                 <input type="text" id="modalSiswaNisn" placeholder="0011223344" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                             </div>
+                        </div>
+
+                        <div class="modal-form-group" style="margin-bottom: 15px;">
+                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">ID Mesin / PIN Solution (Opsional)</label>
+                            <input type="text" id="modalSiswaIdMesin" placeholder="Contoh: 101 (PIN Wajah di Mesin)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
