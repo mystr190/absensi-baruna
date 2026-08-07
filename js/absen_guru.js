@@ -599,7 +599,7 @@ function renderAbsenGuruBatchTable() {
         return;
     }
 
-    // Filter out guru yang SUDAH memiliki pengajuan izin / tugas disetujui pada tanggal terpilih
+    // Filter out guru yang SUDAH memiliki presensi (Mesin Solution / Manual / Izin) pada tanggal terpilih
     const visibleStaff = [];
     let hiddenCount = 0;
 
@@ -610,10 +610,10 @@ function renderAbsenGuruBatchTable() {
         // Cek pengajuan izin disetujui untuk tanggal terpilih
         const approvedLeave = localPengajuanIzin.find(p => p.status === 'Disetujui' && p.tanggal === selectedDate && (p.username === uname || p.nama === name));
         
-        // Cek log presensi otomatis pengajuan izin (AG-APP)
-        const appLog = localLogAbsenGuru.find(l => l.tanggal === selectedDate && (l.username === uname || l.nama === name) && (String(l.id || '').startsWith('AG-APP') || String(l.keterangan || '').toLowerCase().includes('izin disetujui')));
+        // Cek apakah guru sudah pernah presensi pada tanggal terpilih (Mesin Solution / Scan Wajah / Manual)
+        const existingLog = localLogAbsenGuru.find(l => l.tanggal === selectedDate && (l.username === uname || l.nama === name));
 
-        if (approvedLeave || appLog) {
+        if (approvedLeave || existingLog) {
             hiddenCount++;
         } else {
             visibleStaff.push(staff);
@@ -625,9 +625,9 @@ function renderAbsenGuruBatchTable() {
             <tr>
                 <td colspan="5" style="text-align: center; padding: 40px 20px; background: rgba(59, 130, 246, 0.04); border-radius: 12px; border: 1px dashed rgba(59, 130, 246, 0.2);">
                     <div style="font-size: 2.2rem; margin-bottom: 8px;"><i class="fa-solid fa-circle-check" style="color: #60a5fa;"></i></div>
-                    <div style="font-size: 1.1rem; font-weight: 700; color: #60a5fa; margin-bottom: 6px;">Seluruh Guru & Staf Sudah Punya Catatan Izin / Tugas</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: #60a5fa; margin-bottom: 6px;">Seluruh Guru & Staf Sudah Memiliki Data Presensi / Izin</div>
                     <div style="color: #cbd5e1; font-size: 0.88rem; max-width: 540px; margin: 0 auto;">
-                        Seluruh <strong>${hiddenCount} Guru / Staf</strong> pada tanggal <strong>${getFormattedDisplayDate(selectedDate)}</strong> telah memiliki data Pengajuan Izin / Tugas Sekolah yang disetujui dan tersimpan otomatis. Tidak ada data yang perlu diabsen manual.
+                        Seluruh <strong>${hiddenCount} Guru / Staf</strong> pada tanggal <strong>${getFormattedDisplayDate(selectedDate)}</strong> telah melakukan presensi (via Mesin Solution / Izin) dan tersimpan otomatis. Tidak ada data guru yang perlu diabsen manual.
                     </div>
                 </td>
             </tr>
@@ -641,7 +641,7 @@ function renderAbsenGuruBatchTable() {
         const name = staff.namaLengkap || staff.nama || uname;
         const role = staff.role || 'Guru';
 
-        // Cek log presensi manual yang sudah tersimpan untuk tanggal terpilih
+        // Log presensi manual untuk tanggal terpilih
         const existingLog = localLogAbsenGuru.find(l => l.tanggal === selectedDate && (l.username === uname || l.nama === name));
 
         let currentStatus = 'HADIR';
@@ -688,7 +688,7 @@ function renderAbsenGuruBatchTable() {
             <tr>
                 <td colspan="5" style="padding: 10px 16px; background: rgba(59, 130, 246, 0.08); border-top: 1px solid rgba(59, 130, 246, 0.2); color: #93c5fd; font-size: 0.82rem; text-align: left;">
                     <i class="fa-solid fa-circle-info" style="color: #60a5fa; margin-right: 6px;"></i>
-                    <strong>Catatan:</strong> <strong>${hiddenCount} Guru/Staf</strong> disembunyikan dari form ini karena telah memiliki Pengajuan Izin / Tugas yang disetujui pada tanggal ini untuk mencegah duplikasi data.
+                    <strong>Catatan:</strong> <strong>${hiddenCount} Guru/Staf</strong> disembunyikan dari form ini karena telah melakukan presensi (Mesin Solution / Izin) pada tanggal ini untuk mencegah duplikasi data.
                 </td>
             </tr>
         `;
