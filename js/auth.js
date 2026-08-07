@@ -280,6 +280,9 @@ async function renderSelfProfilePanel() {
     if (!userSession) return;
     const user = JSON.parse(userSession);
 
+    const formElem = document.getElementById('formSelfProfile');
+    const isUserTyping = formElem && formElem.contains(document.activeElement);
+
     const oldUsernameInput = document.getElementById('selfOldUsername');
     const usernameInput = document.getElementById('selfUsername');
     const namaInput = document.getElementById('selfNama');
@@ -287,16 +290,18 @@ async function renderSelfProfilePanel() {
     const idMesinInput = document.getElementById('selfIdMesin');
     const idTelegramInput = document.getElementById('selfIdTelegram');
 
-    if (oldUsernameInput) oldUsernameInput.value = user.username || '';
-    if (usernameInput) usernameInput.value = user.username || '';
-    if (namaInput) namaInput.value = user.nama || '';
-    if (roleInput) roleInput.value = user.role || '';
-    if (idMesinInput) idMesinInput.value = user.id_mesin || '';
-    if (idTelegramInput) idTelegramInput.value = user.id_telegram || '';
+    if (!isUserTyping) {
+        if (oldUsernameInput) oldUsernameInput.value = user.username || '';
+        if (usernameInput) usernameInput.value = user.username || '';
+        if (namaInput) namaInput.value = user.nama || '';
+        if (roleInput) roleInput.value = user.role || '';
+        if (idMesinInput) idMesinInput.value = user.id_mesin || '';
+        if (idTelegramInput) idTelegramInput.value = user.id_telegram || '';
+    }
 
     updateTelegramBadgeUI(user.id_telegram);
 
-    // Ambil data profil terbaru dari server (Live DB Sync)
+    // Ambil data profil terbaru dari server (Live DB Sync di latar belakang)
     try {
         const getProfileUrl = `${SCRIPT_URL}?action=get_self_profile&username=${encodeURIComponent(user.username)}`;
         const res = await fetchWithRetry(getProfileUrl, { method: 'GET' }, 1, 500);
@@ -305,12 +310,18 @@ async function renderSelfProfilePanel() {
             const freshUser = res.data;
             localStorage.setItem('smart_absen_user', JSON.stringify(freshUser));
             
-            if (idMesinInput) idMesinInput.value = freshUser.id_mesin || '';
-            if (idTelegramInput) idTelegramInput.value = freshUser.id_telegram || '';
-            if (namaInput) namaInput.value = freshUser.nama || '';
+            // JANGAN timpa nilai jika pengguna sedang aktif mengetik di form!
+            const isCurrentlyTyping = formElem && formElem.contains(document.activeElement);
+            if (!isCurrentlyTyping) {
+                if (oldUsernameInput) oldUsernameInput.value = freshUser.username || '';
+                if (usernameInput) usernameInput.value = freshUser.username || '';
+                if (namaInput) namaInput.value = freshUser.nama || '';
+                if (roleInput) roleInput.value = freshUser.role || '';
+                if (idMesinInput) idMesinInput.value = freshUser.id_mesin || '';
+                if (idTelegramInput) idTelegramInput.value = freshUser.id_telegram || '';
+            }
 
             updateTelegramBadgeUI(freshUser.id_telegram);
-            showApp(freshUser);
         }
     } catch (e) {
         console.log("Failed fetching fresh profile data:", e);
