@@ -406,16 +406,60 @@ function handleDeleteUser(username) {
 
   const data = sheet.getDataRange().getValues();
   const targetUser = String(username).trim().toLowerCase();
+  let capturedIdMesin = '';
 
-  for (let i = 1; i < data.length; i++) {
+  let userDeleted = false;
+  for (let i = data.length - 1; i >= 1; i--) {
     const currentUsername = String(data[i][1] || '').trim().toLowerCase();
+    const idMesin = String(data[i][5] || '').trim().toLowerCase();
     if (currentUsername === targetUser) {
+      if (idMesin) capturedIdMesin = idMesin;
       sheet.deleteRow(i + 1);
-      return jsonResponse('success', `Pengguna "${username}" berhasil dihapus.`);
+      userDeleted = true;
     }
   }
 
-  return jsonResponse('error', 'Pengguna tidak ditemukan.');
+  if (!userDeleted) {
+    return jsonResponse('error', 'Pengguna tidak ditemukan.');
+  }
+
+  // Hapus history presensi guru
+  const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
+  if (sheetLogGuru) {
+    const gLogs = sheetLogGuru.getDataRange().getValues();
+    for (let i = gLogs.length - 1; i >= 1; i--) {
+      const u = String(gLogs[i][3] || '').trim().toLowerCase();
+      if (u === targetUser) {
+        sheetLogGuru.deleteRow(i + 1);
+      }
+    }
+  }
+
+  // Hapus pengajuan izin guru
+  const sheetIzin = ss.getSheetByName(SHEET_PENGAJUAN_IZIN);
+  if (sheetIzin) {
+    const iLogs = sheetIzin.getDataRange().getValues();
+    for (let i = iLogs.length - 1; i >= 1; i--) {
+      const u = String(iLogs[i][2] || '').trim().toLowerCase();
+      if (u === targetUser) {
+        sheetIzin.deleteRow(i + 1);
+      }
+    }
+  }
+
+  // Hapus mapping User_Mesin
+  const sheetUserMesin = ss.getSheetByName(SHEET_USER_MESIN);
+  if (sheetUserMesin) {
+    const mLogs = sheetUserMesin.getDataRange().getValues();
+    for (let i = mLogs.length - 1; i >= 1; i--) {
+      const idM = String(mLogs[i][0] || '').trim().toLowerCase();
+      if (idM === targetUser || (capturedIdMesin && idM === capturedIdMesin)) {
+        sheetUserMesin.deleteRow(i + 1);
+      }
+    }
+  }
+
+  return jsonResponse('success', `Pengguna "${username}" beserta seluruh history log presensi dan mesin berhasil dihapus.`);
 }
 
 // Helper Ambil Data Siswa Per-Kelas (RAM Cache per Kelas ~1-2KB, Ultra Fast & Safe)
@@ -1932,26 +1976,81 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id
 
 function handleDeleteStudent(nisn, nis) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_SISWA);
-  if (!sheet) return jsonResponse('error', 'Sheet DataSiswa tidak ditemukan.');
-
-  const data = sheet.getDataRange().getValues();
   const targetNis = String(nis || '').trim().toLowerCase();
   const targetNisn = String(nisn || '').trim().toLowerCase();
 
-  let deletedCount = 0;
-  for (let i = data.length - 1; i >= 1; i--) {
-    const rNisn = String(data[i][0] || '').trim().toLowerCase();
-    const rNis = String(data[i][1] || '').trim().toLowerCase();
+  if (!targetNis && !targetNisn) {
+    return jsonResponse('error', 'NIS atau NISN siswa harus diisi untuk melakukan penghapusan.');
+  }
 
-    if ((targetNis && rNis === targetNis) || (targetNisn && rNisn === targetNisn)) {
-      sheet.deleteRow(i + 1);
-      deletedCount++;
+  let deletedStudentCount = 0;
+  let deletedAbsenCount = 0;
+  let deletedPelanggaranCount = 0;
+  let deletedUserMesinCount = 0;
+  let capturedIdMesin = '';
+
+  // 1. Hapus dari Sheet DataSiswa
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa) {
+    const dataSiswa = sheetSiswa.getDataRange().getValues();
+    for (let i = dataSiswa.length - 1; i >= 1; i--) {
+      const rNisn = String(dataSiswa[i][0] || '').trim().toLowerCase();
+      const rNis = String(dataSiswa[i][1] || '').trim().toLowerCase();
+      const rIdMesin = String(dataSiswa[i][5] || '').trim().toLowerCase();
+
+      if ((targetNis && rNis === targetNis) || (targetNisn && rNisn === targetNisn)) {
+        if (rIdMesin) capturedIdMesin = rIdMesin;
+        sheetSiswa.deleteRow(i + 1);
+        deletedStudentCount++;
+      }
+    }
+  }
+
+  // 2. Hapus History Presensi dari Sheet LogAbsen
+  const sheetLog = ss.getSheetByName(SHEET_LOG);
+  if (sheetLog) {
+    const logs = sheetLog.getDataRange().getValues();
+    for (let i = logs.length - 1; i >= 1; i--) {
+      const lNisn = String(logs[i][1] || '').trim().toLowerCase();
+      const lNis = String(logs[i][2] || '').trim().toLowerCase();
+
+      if ((targetNis && lNis === targetNis) || (targetNisn && lNisn === targetNisn)) {
+        sheetLog.deleteRow(i + 1);
+        deletedAbsenCount++;
+      }
+    }
+  }
+
+  // 3. Hapus History Pelanggaran dari Sheet LogPelanggaran
+  const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
+  if (sheetPelanggaran) {
+    const pelanggaranLogs = sheetPelanggaran.getDataRange().getValues();
+    for (let i = pelanggaranLogs.length - 1; i >= 1; i--) {
+      const pNisn = String(pelanggaranLogs[i][3] || '').trim().toLowerCase();
+      const pNis = String(pelanggaranLogs[i][4] || '').trim().toLowerCase();
+
+      if ((targetNis && pNis === targetNis) || (targetNisn && pNisn === targetNisn)) {
+        sheetPelanggaran.deleteRow(i + 1);
+        deletedPelanggaranCount++;
+      }
+    }
+  }
+
+  // 4. Hapus Mapping User Mesin dari Sheet User_Mesin
+  const sheetUserMesin = ss.getSheetByName(SHEET_USER_MESIN);
+  if (sheetUserMesin) {
+    const uMesinData = sheetUserMesin.getDataRange().getValues();
+    for (let i = uMesinData.length - 1; i >= 1; i--) {
+      const idM = String(uMesinData[i][0] || '').trim().toLowerCase();
+      if ((targetNis && idM === targetNis) || (targetNisn && idM === targetNisn) || (capturedIdMesin && idM === capturedIdMesin)) {
+        sheetUserMesin.deleteRow(i + 1);
+        deletedUserMesinCount++;
+      }
     }
   }
 
   clearStudentCache();
-  return jsonResponse('success', `Berhasil menghapus ${deletedCount} data siswa.`);
+  return jsonResponse('success', `Siswa & Seluruh History Berhasil Dihapus! (${deletedStudentCount} Data Siswa, ${deletedAbsenCount} Log Presensi, ${deletedPelanggaranCount} Log Pelanggaran, ${deletedUserMesinCount} Record Mesin).`);
 }
 
 function handleSaveAllStudents(dataJson, mode) {

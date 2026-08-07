@@ -370,10 +370,10 @@ async function handleSaveStudentSingle(e) {
 // 3. HAPUS SISWA SATUAN
 async function confirmDeleteStudent(nis, nisn, nama) {
     const confirmed = await showCustomConfirm({
-        title: 'Hapus Data Siswa?',
-        message: `Apakah Anda yakin ingin menghapus siswa <strong>"${nama}"</strong> (${nis || nisn}) dari database sekolah?`,
+        title: 'Hapus Siswa & Seluruh History?',
+        message: `Apakah Anda yakin ingin menghapus siswa <strong>"${nama}"</strong> (${nis || nisn}) dari database sekolah?<br><br><span style="color:#f87171; font-size:0.85rem;"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Peringatan:</strong> Seluruh riwayat presensi, log pelanggaran, dan rekaman data mesin milik siswa ini akan <strong>di-hapus bersih secara permanen</strong>.</span>`,
         icon: 'danger',
-        confirmText: 'Ya, Hapus Siswa',
+        confirmText: 'Ya, Hapus Permanen',
         cancelText: 'Batal',
         danger: true
     });
