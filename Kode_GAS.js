@@ -138,10 +138,12 @@ function doPost(e) {
           const chatId = updateData.message.chat.id;
           const senderName = updateData.message.from ? (updateData.message.from.first_name || 'Pengguna') : 'Pengguna';
           
-          const replyMsg = `👋 <b>Selamat datang di Bot Presensi Sekolah!</b>\n\n` +
+          const replyMsg = `<b>SISTEM INFORMASI & PRESENSI DIGITAL</b>\n\n` +
             `Halo <b>${senderName}</b>,\n` +
-            `🆔 <b>ID Telegram Anda adalah:</b> <code>${chatId}</code>\n\n` +
-            `Silakan salin angka ID Telegram di atas dan berikan kepada Admin / Pihak Sekolah untuk didaftarkan pada sistem absensi. Terima kasih!`;
+            `ID Telegram Anda adalah:\n` +
+            `<code>${chatId}</code>\n\n` +
+            `<blockquote>Salin angka ID di atas dan mendaftarkannya pada data profil Anda di sistem presensi.</blockquote>\n\n` +
+            `<i>— Bot Respon Otomatis</i>`;
           
           sendTelegramNotification(chatId, replyMsg);
           return ContentService.createTextOutput("OK");
@@ -2139,13 +2141,16 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
 
       // KIRIM NOTIFIKASI TELEGRAM SISWA / ORTU
       if (matchedStudent.id_telegram) {
-        const msgSiswa = `🔔 <b>NOTIFIKASI PRESENSI SISWA</b>\n\n` +
-          `👤 <b>Nama Siswa:</b> ${matchedStudent.nama}\n` +
-          `🏫 <b>Kelas:</b> ${matchedStudent.kelas}\n` +
-          `⏰ <b>Waktu Scan:</b> ${scanTimeStr} WIB\n` +
-          `📅 <b>Tanggal:</b> ${scanDateStr}\n` +
-          `📍 <b>Metode:</b> Mesin Wajah Solution X902\n` +
-          `✅ <b>Status:</b> ${statusVal}`;
+        const msgSiswa = `<b>PRESENSI DIGITAL SISWA</b>\n` +
+          `<b>${config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SEKOLAH'}</b>\n\n` +
+          `<blockquote>` +
+          `<b>Nama:</b> ${matchedStudent.nama}\n` +
+          `<b>Kelas:</b> ${matchedStudent.kelas}\n` +
+          `<b>Status:</b> ${statusVal}\n` +
+          `<b>Waktu:</b> ${scanTimeStr} WIB (${scanDateStr})\n` +
+          `<b>Metode:</b> Biometrik Solution X902` +
+          `</blockquote>\n\n` +
+          `<i>— Terekam otomatis oleh sistem presensi.</i>`;
         sendTelegramNotification(matchedStudent.id_telegram, msgSiswa);
       }
 
@@ -2200,13 +2205,16 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan) {
 
       // KIRIM NOTIFIKASI TELEGRAM GURU / STAF
       if (matchedUser.id_telegram) {
-        const msgGuru = `🔔 <b>NOTIFIKASI PRESENSI GURU / STAF</b>\n\n` +
-          `👨‍🏫 <b>Nama Guru:</b> ${matchedUser.nama}\n` +
-          `💼 <b>Role / Hak Akses:</b> ${matchedUser.role}\n` +
-          `⏰ <b>Waktu Scan:</b> ${scanTimeStr} WIB\n` +
-          `📅 <b>Tanggal:</b> ${scanDateStr}\n` +
-          `📍 <b>Metode:</b> Mesin Wajah Solution X902\n` +
-          `✅ <b>Status:</b> ${statusVal}`;
+        const msgGuru = `<b>PRESENSI DIGITAL GURU / STAF</b>\n` +
+          `<b>${config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SEKOLAH'}</b>\n\n` +
+          `<blockquote>` +
+          `<b>Nama:</b> ${matchedUser.nama}\n` +
+          `<b>Role / Jabatan:</b> ${matchedUser.role}\n` +
+          `<b>Status:</b> ${statusVal}\n` +
+          `<b>Waktu:</b> ${scanTimeStr} WIB (${scanDateStr})\n` +
+          `<b>Metode:</b> Biometrik Solution X902` +
+          `</blockquote>\n\n` +
+          `<i>— Terekam otomatis oleh sistem presensi.</i>`;
         sendTelegramNotification(matchedUser.id_telegram, msgGuru);
       }
 
@@ -2419,16 +2427,31 @@ function handleSendTelegramBroadcast(targetType, targetValue, subject, message) 
     return jsonResponse('error', 'Tidak ditemukan penerima dengan ID Telegram terdaftar pada target yang dipilih.');
   }
 
-  // Format pesan Telegram
-  let formattedMsg = `📢 <b>INFORMASI & PENGUMUMAN SEKOLAH</b>\n` +
-    `🏫 <b>${config.namaSekolah}</b>\n` +
-    `----------------------------------------\n`;
-  if (subject && String(subject).trim() !== '') {
-    formattedMsg += `📌 <b>Subjek:</b> ${String(subject).trim()}\n\n`;
+  // DEDUP: Cegah pengiriman ganda ke ID Telegram yang sama dalam 1 kali blast
+  const uniqueRecipients = [];
+  const seenTelegramIds = {};
+  for (let r = 0; r < recipients.length; r++) {
+    const tgId = String(recipients[r].id_telegram).trim();
+    if (tgId && !seenTelegramIds[tgId]) {
+      seenTelegramIds[tgId] = true;
+      uniqueRecipients.push(recipients[r]);
+    }
   }
-  formattedMsg += `${String(message).trim()}\n\n` +
-    `----------------------------------------\n` +
-    `⏰ <i>Dikirim pada: ${Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss")} WIB</i>`;
+  recipients = uniqueRecipients;
+
+  // Format pesan Telegram (Modern Typography & Clean HTML Blockquote)
+  const formattedDate = Utilities.formatDate(new Date(), TIMEZONE, "dd MMMM yyyy HH:mm");
+  
+  let formattedMsg = `<b>INFORMASI RESMI SEKOLAH</b>\n` +
+    `<b>${config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SISTEM ABSENSI SEKOLAH'}</b>\n\n`;
+
+  if (subject && String(subject).trim() !== '') {
+    formattedMsg += `<b>▸ ${String(subject).trim()}</b>\n\n`;
+  }
+
+  formattedMsg += `<blockquote>${String(message).trim()}</blockquote>\n\n` +
+    `<i>📅 ${formattedDate} WIB</i>\n` +
+    `<i>— Layanan Presensi & Informasi Digital</i>`;
 
   let successCount = 0;
   let failCount = 0;

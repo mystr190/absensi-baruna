@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initBroadcastTelegramModule();
 });
 
+let isBroadcastSending = false; // Flag status untuk cegah double submit
+
 function getTeachersList() {
     let teachers = [];
     if (typeof userListState !== 'undefined' && Array.isArray(userListState) && userListState.length > 0) {
@@ -33,6 +35,101 @@ async function ensureTeachersLoaded() {
     }
 }
 
+// === FUNGSI CUSTOM DIALOG MODAL GLASSMORPHISM ===
+function showBroadcastConfirmModal({ title, bodyHtml, confirmText, onConfirm }) {
+    const modal = document.getElementById('modalBroadcastDialog');
+    const iconElem = document.getElementById('broadcastDialogIcon');
+    const titleElem = document.getElementById('broadcastDialogTitle');
+    const bodyElem = document.getElementById('broadcastDialogBody');
+    const actionsElem = document.getElementById('broadcastDialogActions');
+
+    if (!modal) return;
+
+    iconElem.style.background = 'rgba(56, 189, 248, 0.15)';
+    iconElem.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+    iconElem.style.color = '#38bdf8';
+    iconElem.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
+
+    titleElem.innerText = title || 'Konfirmasi Broadcast';
+    bodyElem.innerHTML = bodyHtml || 'Apakah Anda yakin ingin mengirim pesan broadcast?';
+
+    actionsElem.innerHTML = `
+        <button type="button" id="btnCancelBroadcastDialog" class="btn-secondary" style="padding: 10px 22px; border-radius: 10px;">Batal</button>
+        <button type="button" id="btnConfirmBroadcastDialog" class="btn-primary" style="padding: 10px 24px; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #2563eb);">
+            ${confirmText || 'Ya, Kirim Sekarang'}
+        </button>
+    `;
+
+    modal.style.display = 'flex';
+
+    document.getElementById('btnCancelBroadcastDialog').onclick = () => {
+        modal.style.display = 'none';
+    };
+
+    document.getElementById('btnConfirmBroadcastDialog').onclick = () => {
+        modal.style.display = 'none';
+        if (typeof onConfirm === 'function') onConfirm();
+    };
+}
+
+function showBroadcastResultModal({ title, isSuccess, data, message }) {
+    const modal = document.getElementById('modalBroadcastDialog');
+    const iconElem = document.getElementById('broadcastDialogIcon');
+    const titleElem = document.getElementById('broadcastDialogTitle');
+    const bodyElem = document.getElementById('broadcastDialogBody');
+    const actionsElem = document.getElementById('broadcastDialogActions');
+
+    if (!modal) return;
+
+    if (isSuccess) {
+        iconElem.style.background = 'rgba(34, 197, 94, 0.15)';
+        iconElem.style.borderColor = 'rgba(34, 197, 94, 0.5)';
+        iconElem.style.color = '#4ade80';
+        iconElem.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+        titleElem.innerText = title || 'Broadcast Berhasil Terkirim!';
+
+        bodyElem.innerHTML = `
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 18px; text-align: left; margin-bottom: 10px;">
+                <p style="margin: 0 0 12px 0; color: #e2e8f0; font-size: 0.92rem;">${message || 'Pengiriman pesan broadcast Telegram telah selesai.'}</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center;">
+                    <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); padding: 10px; border-radius: 10px;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; display: block;">TARGET</span>
+                        <strong style="font-size: 1.2rem; color: #38bdf8;">${data.target_count || 0}</strong>
+                    </div>
+                    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); padding: 10px; border-radius: 10px;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; display: block;">SUKSES</span>
+                        <strong style="font-size: 1.2rem; color: #4ade80;">${data.success_count || 0}</strong>
+                    </div>
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px; border-radius: 10px;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; display: block;">GAGAL</span>
+                        <strong style="font-size: 1.2rem; color: #f87171;">${data.failed_count || 0}</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        iconElem.style.background = 'rgba(239, 68, 68, 0.15)';
+        iconElem.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+        iconElem.style.color = '#f87171';
+        iconElem.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+        titleElem.innerText = title || 'Gagal Mengirim Broadcast';
+        bodyElem.innerHTML = `<div style="color: #f87171; font-size: 0.95rem;">${message || 'Terjadi kesalahan saat menghubungi server.'}</div>`;
+    }
+
+    actionsElem.innerHTML = `
+        <button type="button" id="btnCloseBroadcastResult" class="btn-primary" style="padding: 10px 30px; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #2563eb);">
+            Tutup
+        </button>
+    `;
+
+    modal.style.display = 'flex';
+
+    document.getElementById('btnCloseBroadcastResult').onclick = () => {
+        modal.style.display = 'none';
+    };
+}
+
+
 async function initBroadcastTelegramModule() {
     const targetTypeSelect = document.getElementById('broadcastTargetType');
     const specificContainer = document.getElementById('containerBroadcastSpecific');
@@ -43,10 +140,8 @@ async function initBroadcastTelegramModule() {
 
     if (!targetTypeSelect || !formBroadcast) return;
 
-    // Pastikan data guru dimuat jika belum ada
     await ensureTeachersLoaded();
 
-    // Listener Perubahan Tipe Target
     targetTypeSelect.addEventListener('change', async () => {
         await updateBroadcastTargetOptions();
     });
@@ -57,7 +152,6 @@ async function initBroadcastTelegramModule() {
         });
     }
 
-    // Inisialisasi awal saat menu dibuka
     const navBtnBroadcast = document.getElementById('nav-broadcast-telegram');
     if (navBtnBroadcast) {
         navBtnBroadcast.addEventListener('click', async () => {
@@ -66,7 +160,6 @@ async function initBroadcastTelegramModule() {
         });
     }
 
-    // Update opsi target spesifik
     async function updateBroadcastTargetOptions() {
         const targetType = targetTypeSelect.value;
         targetValueSelect.innerHTML = '';
@@ -133,7 +226,6 @@ async function initBroadcastTelegramModule() {
         updateReachCounter();
     }
 
-    // Hitung Estimasi Jangkauan Penerima Ber-ID Telegram
     function updateReachCounter() {
         const targetType = targetTypeSelect.value;
         const targetVal = targetValueSelect.value;
@@ -178,9 +270,14 @@ async function initBroadcastTelegramModule() {
         }
     }
 
-    // Handle Submit Form Broadcast
+    // Handle Submit Form Broadcast dengan Lock Anti-Double Submit
     formBroadcast.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (isBroadcastSending) {
+            console.warn("Proses broadcast sedang berjalan...");
+            return;
+        }
 
         const targetType = targetTypeSelect.value;
         const targetValue = targetValueSelect.value;
@@ -192,13 +289,40 @@ async function initBroadcastTelegramModule() {
             return;
         }
 
-        if (!confirm(`Apakah Anda yakin ingin mengirimi broadcast pesan ini ke target penerima terpilih?`)) {
-            return;
-        }
+        const reachBadgeText = badgeReachCounter ? badgeReachCounter.textContent : '';
+
+        showBroadcastConfirmModal({
+            title: "🚀 Konfirmasi Kirim Broadcast",
+            bodyHtml: `
+                <div style="text-align: left; background: rgba(15, 23, 42, 0.5); padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;">
+                    <p style="margin: 0 0 8px 0; color: #38bdf8; font-weight: 500;">
+                        <i class="fa-solid fa-bullseye"></i> <strong>Target:</strong> ${targetTypeSelect.options[targetTypeSelect.selectedIndex].text}
+                    </p>
+                    <p style="margin: 0 0 8px 0; color: #e2e8f0; font-size: 0.9rem;">
+                        <strong>Status Jangkauan:</strong> ${reachBadgeText}
+                    </p>
+                    ${subject ? `<p style="margin: 0 0 8px 0; color: #94a3b8; font-size: 0.85rem;"><strong>Subjek:</strong> ${subject}</p>` : ''}
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);">
+                    Apakah Anda yakin ingin mulai mengirimkan pesan pengumuman ini via Telegram?
+                </p>
+            `,
+            confirmText: "Ya, Kirim Broadcast",
+            onConfirm: async () => {
+                executeBroadcastSend({ targetType, targetValue, subject, message });
+            }
+        });
+    });
+
+    async function executeBroadcastSend({ targetType, targetValue, subject, message }) {
+        if (isBroadcastSending) return;
+        isBroadcastSending = true; // Set lock aktif
 
         const btnSend = document.getElementById('btnSendBroadcast');
         if (btnSend) {
             btnSend.disabled = true;
+            btnSend.style.opacity = '0.7';
+            btnSend.style.cursor = 'not-allowed';
             btnSend.innerHTML = '<span><i class="fa-solid fa-spinner fa-spin"></i> Mengirim Broadcast Telegram...</span>';
         }
 
@@ -221,26 +345,42 @@ async function initBroadcastTelegramModule() {
             if (result && result.status === 'success') {
                 const data = result.data || {};
                 showToast(`✅ ${result.message}`, "success");
-                alert(`🎉 BROADCAST TELEGRAM SELESAI!\n\n` +
-                      `- Total Terjangkau: ${data.target_count || 0}\n` +
-                      `- Berhasil Terkirim: ${data.success_count || 0}\n` +
-                      `- Gagal: ${data.failed_count || 0}`);
                 
+                showBroadcastResultModal({
+                    title: "🎉 BROADCAST TELEGRAM SELESAI",
+                    isSuccess: true,
+                    data: data,
+                    message: result.message
+                });
+
                 document.getElementById('broadcastSubject').value = '';
                 document.getElementById('broadcastMessage').value = '';
             } else {
                 showToast(`❌ ${result ? result.message : 'Gagal mengirim broadcast.'}`, "error");
+                showBroadcastResultModal({
+                    title: "Gagal Mengirim Broadcast",
+                    isSuccess: false,
+                    message: result ? result.message : 'Gagal terhubung ke server Telegram.'
+                });
             }
         } catch (err) {
-            console.error(err);
+            console.error("Broadcast Error:", err);
             showToast("❌ Terjadi kesalahan jaringan saat mengirim broadcast.", "error");
+            showBroadcastResultModal({
+                title: "Kesalahan Jaringan",
+                isSuccess: false,
+                message: "Terjadi kesalahan koneksi internet saat mengirim broadcast."
+            });
         } finally {
+            isBroadcastSending = false; // Release lock
             if (btnSend) {
                 btnSend.disabled = false;
+                btnSend.style.opacity = '1';
+                btnSend.style.cursor = 'pointer';
                 btnSend.innerHTML = '<span><i class="fa-solid fa-paper-plane"></i> Kirim Broadcast Telegram Sekarang</span>';
             }
         }
-    });
+    }
 
     updateBroadcastTargetOptions();
 }
