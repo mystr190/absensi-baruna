@@ -617,18 +617,23 @@ async function handleKosongkanAbsenGuruTanggal() {
 
     const formattedDisplay = getFormattedDisplayDate(selectedDate);
     const existingLogs = localLogAbsenGuru.filter(l => l.tanggal === selectedDate);
+    const existingIzins = localPengajuanIzin.filter(i => i.tanggal === selectedDate);
 
-    if (existingLogs.length === 0) {
-        showToast(`ℹ️ Tidak ada data presensi guru yang tercatat pada tanggal ${formattedDisplay}.`, 'info');
+    if (existingLogs.length === 0 && existingIzins.length === 0) {
+        showToast(`ℹ️ Tidak ada data presensi atau pengajuan izin guru pada tanggal ${formattedDisplay}.`, 'info');
         return;
     }
 
+    const countDetails = [];
+    if (existingLogs.length > 0) countDetails.push(`${existingLogs.length} Presensi`);
+    if (existingIzins.length > 0) countDetails.push(`${existingIzins.length} Pengajuan Izin`);
+
     const confirmed = await showCustomConfirmModal({
-        title: 'Kosongkan Presensi Guru & Staf',
-        message: `Apakah Anda yakin ingin menghapus & mengosongkan seluruh data presensi guru dan staf untuk tanggal ${formattedDisplay}? Data yang dihapus tidak dapat dikembalikan.`,
+        title: 'Kosongkan Presensi & Pengajuan Izin',
+        message: `Apakah Anda yakin ingin menghapus & mengosongkan seluruh data presensi serta pengajuan izin guru dan staf untuk tanggal ${formattedDisplay}? Data yang dihapus tidak dapat dikembalikan.`,
         dateText: formattedDisplay,
-        countText: `${existingLogs.length} Record Presensi`,
-        confirmBtnText: 'Ya, Kosongkan Presensi',
+        countText: countDetails.join(' & '),
+        confirmBtnText: 'Ya, Kosongkan Data',
         iconClass: 'fa-solid fa-trash-can-arrow-up'
     });
 
@@ -639,19 +644,24 @@ async function handleKosongkanAbsenGuruTanggal() {
 
     // 1. Optimistic Local Update
     localLogAbsenGuru = localLogAbsenGuru.filter(l => l.tanggal !== selectedDate);
+    localPengajuanIzin = localPengajuanIzin.filter(i => i.tanggal !== selectedDate);
+
     localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
+    localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
 
     isEditAbsenGuruBatchMode = false;
     renderAbsenGuruBatchTable();
     renderTableLogAbsenGuru();
     renderRekapMatrixGuru();
+    renderIzinGuruPanel();
+    renderApprovalKepsekPanel();
     renderWidgetGuruTidakHadirHariIni();
 
     if (typeof renderOverviewDashboard === 'function') {
         renderOverviewDashboard();
     }
 
-    showToast(`🗑️ Berhasil mengosongkan ${existingLogs.length} data presensi guru tanggal ${formattedDisplay}!`, 'success');
+    showToast(`🗑️ Berhasil mengosongkan data presensi & pengajuan izin tanggal ${formattedDisplay}!`, 'success');
 
     // 2. Sync to Backend (GAS)
     try {

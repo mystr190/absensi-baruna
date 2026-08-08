@@ -1554,25 +1554,51 @@ function handleDeleteAbsenGuruByDate(tanggal) {
     }
     const targetTanggal = getFormattedDate(tanggal.trim());
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(SHEET_LOG_GURU);
-    if (!sheet) return jsonResponse('error', 'Sheet LogAbsenGuru tidak ditemukan.');
 
-    const lastRow = sheet.getLastRow();
-    let deletedCount = 0;
-    if (lastRow > 1) {
-      const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
-      for (let i = data.length - 1; i >= 0; i--) {
-        const rawDate = data[i][2];
-        if (!rawDate) continue;
-        const logDateStr = getFormattedDate(rawDate);
-        if (logDateStr === targetTanggal) {
-          sheet.deleteRow(i + 2);
-          deletedCount++;
+    let deletedCountLog = 0;
+    let deletedCountIzin = 0;
+
+    // 1. Hapus dari Sheet LogAbsenGuru
+    let sheetLog = ss.getSheetByName(SHEET_LOG_GURU);
+    if (sheetLog) {
+      const lastRowLog = sheetLog.getLastRow();
+      if (lastRowLog > 1) {
+        const dataLog = sheetLog.getRange(2, 1, lastRowLog - 1, 8).getValues();
+        for (let i = dataLog.length - 1; i >= 0; i--) {
+          const rawDate = dataLog[i][2];
+          if (!rawDate) continue;
+          const logDateStr = getFormattedDate(rawDate);
+          if (logDateStr === targetTanggal) {
+            sheetLog.deleteRow(i + 2);
+            deletedCountLog++;
+          }
         }
       }
     }
 
-    return jsonResponse('success', `Berhasil mengosongkan ${deletedCount} data presensi guru untuk tanggal ${targetTanggal}.`, { deletedCount: deletedCount, tanggal: targetTanggal });
+    // 2. Hapus dari Sheet PengajuanIzin untuk tanggal yang sama
+    let sheetIzin = ss.getSheetByName(SHEET_PENGAJUAN_IZIN);
+    if (sheetIzin) {
+      const lastRowIzin = sheetIzin.getLastRow();
+      if (lastRowIzin > 1) {
+        const dataIzin = sheetIzin.getRange(2, 1, lastRowIzin - 1, 11).getValues();
+        for (let j = dataIzin.length - 1; j >= 0; j--) {
+          const rawDateIzin = dataIzin[j][5];
+          if (!rawDateIzin) continue;
+          const izinDateStr = getFormattedDate(rawDateIzin);
+          if (izinDateStr === targetTanggal) {
+            sheetIzin.deleteRow(j + 2);
+            deletedCountIzin++;
+          }
+        }
+      }
+    }
+
+    return jsonResponse('success', `Berhasil mengosongkan ${deletedCountLog} data presensi & ${deletedCountIzin} data pengajuan izin guru untuk tanggal ${targetTanggal}.`, {
+      deletedCount: deletedCountLog,
+      deletedCountIzin: deletedCountIzin,
+      tanggal: targetTanggal
+    });
   } catch (e) {
     return jsonResponse('error', 'Gagal mengosongkan presensi guru: ' + e.toString());
   }
