@@ -263,7 +263,13 @@ async function fetchServerSchoolConfig() {
 
 function updateAppSchoolConfigUI(config) {
     if (!config) return;
-    localStorage.setItem('smart_absen_config', JSON.stringify(config));
+
+    const currentCache = JSON.parse(localStorage.getItem('smart_absen_config') || '{}');
+    const mergedConfig = { ...currentCache, ...config };
+    localStorage.setItem('smart_absen_config', JSON.stringify(mergedConfig));
+
+    const schoolName = mergedConfig.namaSekolah || mergedConfig.nama_sekolah || '';
+    const tahunPelajaran = mergedConfig.tahunPelajaran || mergedConfig.tahun_pelajaran || '';
 
     // Update input di Admin panel
     const inputNamaSekolah = document.getElementById('inputNamaSekolah');
@@ -271,16 +277,38 @@ function updateAppSchoolConfigUI(config) {
     const inputUrlScript = document.getElementById('inputUrlScript');
     const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
 
-    if (inputNamaSekolah && !inputNamaSekolah.value) inputNamaSekolah.value = config.namaSekolah || '';
-    if (inputTahunPelajaran && !inputTahunPelajaran.value) inputTahunPelajaran.value = config.tahunPelajaran || '';
-    if (inputUrlScript) inputUrlScript.value = config.urlScript || config.url_script || window.SCRIPT_URL || '';
-    if (inputTelegramBotToken && !inputTelegramBotToken.value) inputTelegramBotToken.value = config.telegramBotToken || config.telegram_bot_token || '';
+    if (inputNamaSekolah) inputNamaSekolah.value = schoolName;
+    if (inputTahunPelajaran) inputTahunPelajaran.value = tahunPelajaran;
+    if (inputUrlScript) inputUrlScript.value = mergedConfig.urlScript || mergedConfig.url_script || window.SCRIPT_URL || '';
+    if (inputTelegramBotToken && !inputTelegramBotToken.value) inputTelegramBotToken.value = mergedConfig.telegramBotToken || mergedConfig.telegram_bot_token || '';
 
-    // Update semua elemen tahun pelajaran di seluruh aplikasi
-    const tpElements = document.querySelectorAll('.app-tp-text');
-    tpElements.forEach(el => {
-        if (config.tahunPelajaran) el.innerText = config.tahunPelajaran;
-    });
+    // Update elemen nama sekolah di seluruh aplikasi
+    if (schoolName) {
+        document.querySelectorAll('.app-school-name').forEach(el => {
+            el.innerText = schoolName;
+        });
+
+        const sidebarSchoolName = document.getElementById('sidebarSchoolName');
+        if (sidebarSchoolName) {
+            const spanEl = sidebarSchoolName.querySelector('.app-school-name');
+            if (spanEl) spanEl.innerText = schoolName;
+            else sidebarSchoolName.innerText = schoolName;
+        }
+
+        const loginSchoolTitle = document.getElementById('loginSchoolTitle');
+        if (loginSchoolTitle) {
+            const spanEl = loginSchoolTitle.querySelector('.app-school-name');
+            if (spanEl) spanEl.innerText = schoolName;
+            else loginSchoolTitle.innerText = schoolName;
+        }
+    }
+
+    // Update elemen tahun pelajaran di seluruh aplikasi
+    if (tahunPelajaran) {
+        document.querySelectorAll('.app-tp-text').forEach(el => {
+            el.innerText = tahunPelajaran;
+        });
+    }
 
     if (typeof updatePrintTitles === 'function') {
         updatePrintTitles();

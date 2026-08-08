@@ -734,3 +734,19 @@ function showCustomConfirm({ title = 'Konfirmasi', message = 'Apakah Anda yakin?
         };
     });
 }
+
+// ----------------------------------------------------
+// DYNAMIC FOOTER CURRENT YEAR UPDATER
+// ----------------------------------------------------
+function updateCurrentYearElements() {
+    const currentYear = new Date().getFullYear();
+    document.querySelectorAll('.app-current-year').forEach(el => {
+        el.innerText = currentYear;
+    });
+}
+
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', updateCurrentYearElements);
+} else {
+    updateCurrentYearElements();
+}
