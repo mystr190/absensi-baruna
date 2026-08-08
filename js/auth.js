@@ -77,9 +77,16 @@ function showApp(user) {
     viewApp.classList.add('active');
     viewApp.style.display = 'flex';
 
-    // Update UI Sidebar dengan data User
-    document.getElementById('currentUserName').innerText = user.nama;
-    document.getElementById('currentUserRole').innerText = user.role;
+    // Update UI Sidebar & Mobile Header dengan data User
+    const currentNameElem = document.getElementById('currentUserName');
+    const currentRoleElem = document.getElementById('currentUserRole');
+    if (currentNameElem) currentNameElem.innerText = user.nama;
+    if (currentRoleElem) currentRoleElem.innerText = user.role;
+
+    const mobileNameElem = document.getElementById('mobileCurrentUserName');
+    const mobileRoleElem = document.getElementById('mobileCurrentUserRole');
+    if (mobileNameElem) mobileNameElem.innerText = user.nama;
+    if (mobileRoleElem) mobileRoleElem.innerText = user.role;
     
     // Update Badge Verified / Unverified Telegram di Sidebar bawah profil
     const badgeTgSidebar = document.getElementById('currentUserTelegramBadge');
@@ -223,12 +230,20 @@ if (formLogin) {
     });
 }
 
-// Handle Logout
-btnLogout.addEventListener('click', () => {
+// Handle Logout Function
+function handleUserLogout() {
     localStorage.removeItem('smart_absen_user');
     showToast("Berhasil Logout.", 'info');
     showLogin();
-});
+}
+
+if (typeof btnLogout !== 'undefined' && btnLogout) {
+    btnLogout.addEventListener('click', handleUserLogout);
+}
+const btnMobileLogout = document.getElementById('btnMobileLogout');
+if (btnMobileLogout) {
+    btnMobileLogout.addEventListener('click', handleUserLogout);
+}
 
 // ==========================================
 // FUNGSI NAVIGASI SIDEBAR (SPA ROUTING)
@@ -237,7 +252,12 @@ const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
 const panels = document.querySelectorAll('.main-content .panel');
 
 navItems.forEach(nav => {
-    nav.addEventListener('click', () => {
+    nav.addEventListener('click', (e) => {
+        if (nav.id === 'btnNavLogout') {
+            handleUserLogout();
+            return;
+        }
+
         navItems.forEach(n => n.classList.remove('active'));
         panels.forEach(p => {
             p.classList.remove('active');
@@ -249,6 +269,13 @@ navItems.forEach(nav => {
         if (targetPanel) {
             targetPanel.classList.add('active');
             targetPanel.style.display = 'block';
+        }
+
+        // Auto-center active tab on mobile bottom bar
+        if (window.innerWidth <= 768) {
+            try {
+                nav.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            } catch(err) {}
         }
 
         if (nav.dataset.target === 'panel-overview') {
