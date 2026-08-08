@@ -468,9 +468,14 @@ function renderWalasIzinApprovalTable() {
  */
 async function handleApproveIzinSiswaAction(id, rawNama) {
     const namaSiswa = decodeURIComponent(rawNama);
-    if (!confirm(`Apakah Anda yakin ingin MENYETUJUI pengajuan izin dari "${namaSiswa}"?\n\nPresensi siswa pada tanggal tersebut akan otomatis dicatat sebagai Izin/Sakit.`)) {
-        return;
-    }
+    const confirmed = await showCustomConfirm({
+        title: 'Setujui Pengajuan Izin',
+        message: `Apakah Anda yakin ingin MENYETUJUI pengajuan izin dari "${namaSiswa}"?\n\nPresensi siswa pada tanggal tersebut akan otomatis dicatat sebagai Izin/Sakit.`,
+        icon: 'success',
+        confirmText: 'Ya, Setujui',
+        cancelText: 'Batal'
+    });
+    if (!confirmed) return;
 
     const user = getLoggedUserSafely();
     const approverName = user ? (user.nama || user.namaLengkap || user.username) : 'Wali Kelas';
@@ -506,9 +511,15 @@ async function handleApproveIzinSiswaAction(id, rawNama) {
  */
 async function handleRejectIzinSiswaAction(id, rawNama) {
     const namaSiswa = decodeURIComponent(rawNama);
-    if (!confirm(`Apakah Anda yakin ingin MENOLAK pengajuan izin dari "${namaSiswa}"?`)) {
-        return;
-    }
+    const confirmed = await showCustomConfirm({
+        title: 'Tolak Pengajuan Izin',
+        message: `Apakah Anda yakin ingin MENOLAK pengajuan izin dari "${namaSiswa}"?`,
+        icon: 'danger',
+        confirmText: 'Ya, Tolak',
+        cancelText: 'Batal',
+        danger: true
+    });
+    if (!confirmed) return;
 
     const user = getLoggedUserSafely();
     const approverName = user ? (user.nama || user.namaLengkap || user.username) : 'Wali Kelas';

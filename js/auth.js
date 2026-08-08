@@ -256,6 +256,9 @@ function showApp(user) {
         }, 100);
     }
 
+    // Immediately update Overview UI for current role
+    if (typeof updateOverviewUI === 'function') updateOverviewUI(null);
+
     // Panggil sync master data di latar belakang & auto load jika kelas sudah terisi
     if (typeof syncMasterDataInBackground === 'function') syncMasterDataInBackground();
     if (typeof renderOverviewDashboard === 'function') renderOverviewDashboard();
@@ -291,9 +294,10 @@ if (formLogin) {
             
             if (result && result.status === 'success' && result.data) {
                 const userData = {
-                    username: result.data.username,
-                    nama: result.data.nama,
-                    role: result.data.role,
+                    ...result.data,
+                    username: result.data.username || usernameInput,
+                    nama: result.data.nama || result.data.username || usernameInput,
+                    role: result.data.role || 'User',
                     id_mesin: result.data.id_mesin || '',
                     id_telegram: result.data.id_telegram || ''
                 };
@@ -307,7 +311,7 @@ if (formLogin) {
             }
         } catch (error) {
             console.error("Login Error:", error);
-            showToast("❌ Gagal terhubung ke server. Periksa koneksi internet Anda.", 'error');
+            showToast("❌ Gagal terhubung ke server (Timeout). Pastikan Anda telah melakukan Deploy Baru di Google Apps Script.", 'error');
         } finally {
             if (btn) btn.disabled = false;
             if (text) text.style.display = 'inline-block';

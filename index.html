@@ -342,35 +342,6 @@
 
                 <!-- DASHBOARD KHUSUS SISWA LOGGED IN -->
                 <div id="siswaOverviewContainer" style="display: none; margin-bottom: 25px;">
-                    <!-- Student Personal Summary Cards Grid -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 25px;">
-                        <div class="glass-card" style="padding: 18px; border-left: 4px solid #10b981;">
-                            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total Hadir</span>
-                            <h3 id="studentMyHadir" style="font-size: 1.7rem; font-weight: 700; color: #34d399; margin: 4px 0;">0</h3>
-                            <span style="font-size: 0.78rem; color: var(--text-muted);"><i class="fa-solid fa-check-double"></i> Hari Kehadiran</span>
-                        </div>
-                        <div class="glass-card" style="padding: 18px; border-left: 4px solid #f59e0b;">
-                            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Terlambat</span>
-                            <h3 id="studentMyTelat" style="font-size: 1.7rem; font-weight: 700; color: #fbbf24; margin: 4px 0;">0</h3>
-                            <span style="font-size: 0.78rem; color: var(--text-muted);"><i class="fa-solid fa-clock"></i> Kali Terlambat</span>
-                        </div>
-                        <div class="glass-card" style="padding: 18px; border-left: 4px solid #3b82f6;">
-                            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Izin / Sakit</span>
-                            <h3 id="studentMyIzinSakit" style="font-size: 1.7rem; font-weight: 700; color: #60a5fa; margin: 4px 0;">0</h3>
-                            <span style="font-size: 0.78rem; color: var(--text-muted);"><i class="fa-solid fa-envelope-open-text"></i> Hari Tidak Masuk</span>
-                        </div>
-                        <div class="glass-card" style="padding: 18px; border-left: 4px solid #ef4444;">
-                            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Alpa</span>
-                            <h3 id="studentMyAlpa" style="font-size: 1.7rem; font-weight: 700; color: #f87171; margin: 4px 0;">0</h3>
-                            <span style="font-size: 0.78rem; color: var(--text-muted);"><i class="fa-solid fa-user-xmark"></i> Tanpa Keterangan</span>
-                        </div>
-                        <div class="glass-card" style="padding: 18px; border-left: 4px solid #8b5cf6;">
-                            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Persentase Presensi</span>
-                            <h3 id="studentMyPercentage" style="font-size: 1.7rem; font-weight: 700; color: #a78bfa; margin: 4px 0;">0%</h3>
-                            <span style="font-size: 0.78rem; color: var(--text-muted);"><i class="fa-solid fa-chart-line"></i> Tingkat Kehadiran</span>
-                        </div>
-                    </div>
-
                     <!-- Chart Card Presensi Personal Siswa (Awal Masuk s/d Sekarang) -->
                     <div class="glass-card" style="padding: 22px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
@@ -2117,12 +2088,12 @@
                             <i class="fa-solid fa-paper-plane" style="color: #38bdf8;"></i> Form Pengajuan Izin
                         </h3>
                         <form id="formPengajuanIzinSiswa">
-                            <div class="input-group" style="margin-bottom: 16px;">
+                            <div class="form-group-static" style="margin-bottom: 16px;">
                                 <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Tanggal Izin / Tidak Hadir *</label>
                                 <input type="date" id="inputIzinSiswaTanggal" required style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;">
                             </div>
 
-                            <div class="input-group" style="margin-bottom: 16px;">
+                            <div class="form-group-static" style="margin-bottom: 16px;">
                                 <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Kategori / Alasan *</label>
                                 <select id="inputIzinSiswaKategori" required style="width: 100%; background: rgba(15, 23, 42, 0.9); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;">
                                     <option value="Sakit">Sakit (Melampirkan Surat Dokter / Foto Bukti)</option>
@@ -2131,12 +2102,12 @@
                                 </select>
                             </div>
 
-                            <div class="input-group" style="margin-bottom: 16px;">
+                            <div class="form-group-static" style="margin-bottom: 16px;">
                                 <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Keterangan Lengkap *</label>
                                 <textarea id="inputIzinSiswaKeterangan" rows="3" required placeholder="Jelaskan alasan ketidakhadiran Anda secara rinci..." style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; resize: vertical;"></textarea>
                             </div>
 
-                            <div class="input-group" style="margin-bottom: 20px;">
+                            <div class="form-group-static" style="margin-bottom: 20px;">
                                 <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Lampiran Foto Bukti (Surat Dokter / Pendukung) *</label>
                                 <input type="file" id="inputIzinSiswaFoto" accept="image/*" style="display: none;">
                                 <div style="display: flex; gap: 10px; align-items: center;">

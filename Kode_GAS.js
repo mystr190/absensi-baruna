@@ -581,21 +581,36 @@ function handleLogin(username, password) {
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ensureDatabaseSetup();
+  const uLower = u.toLowerCase();
+  const pLower = p.toLowerCase();
 
-  const users = getUsersFromCacheOrSheet();
-  for (let i = 0; i < users.length; i++) {
-    if (users[i].username.toLowerCase() === u.toLowerCase() && users[i].password === p) {
-      return jsonResponse('success', 'Login berhasil!', {
-        nis: users[i].nis,
-        username: users[i].username,
-        role: users[i].role,
-        nama: users[i].nama,
-        id_mesin: users[i].id_mesin,
-        id_telegram: users[i].id_telegram,
-        wali_kelas: users[i].wali_kelas,
-        tugas_piket: users[i].tugas_piket
-      });
+  // 1. Cek di Sheet Users (Admin, Guru, TU, Kepsek)
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers) {
+    const dataUsers = sheetUsers.getDataRange().getValues();
+    for (let i = 1; i < dataUsers.length; i++) {
+      const userU = String(dataUsers[i][1] || '').trim();
+      if (!userU) continue;
+      const userP = String(dataUsers[i][2] || '').trim();
+
+      if (userU.toLowerCase() === uLower && (userP === p || userP.toLowerCase() === pLower)) {
+        const role = String(dataUsers[i][3] || '').trim();
+        const namaGuru = String(dataUsers[i][4] || userU).trim();
+        const idMesin = String(dataUsers[i][5] || '').trim();
+        const idTg = String(dataUsers[i][6] || '').trim();
+        const tugasPiket = dataUsers[i].length >= 8 ? String(dataUsers[i][7] || '-').trim() : '-';
+
+        return jsonResponse('success', 'Login berhasil!', {
+          nis: userU,
+          username: userU,
+          role: role,
+          nama: namaGuru,
+          id_mesin: idMesin,
+          id_telegram: idTg,
+          wali_kelas: '-',
+          tugas_piket: tugasPiket
+        });
+      }
     }
   }
 
@@ -606,6 +621,8 @@ function handleLogin(username, password) {
     for (let j = 1; j < dataSiswa.length; j++) {
       const nisn = String(dataSiswa[j][0] || '').trim();
       const nis = String(dataSiswa[j][1] || '').trim();
+      if (!nis && !nisn) continue;
+
       const nama = String(dataSiswa[j][2] || '').trim();
       const kelas = String(dataSiswa[j][3] || '').trim();
       const gender = String(dataSiswa[j][4] || '').trim();
@@ -613,10 +630,17 @@ function handleLogin(username, password) {
       const id_telegram = String(dataSiswa[j][6] || '').trim();
       const savedPass = String(dataSiswa[j][7] || '').trim();
 
+      const nisLower = nis.toLowerCase();
+      const nisnLower = nisn.toLowerCase();
+
       // Password default adalah NIS atau NISN jika belum pernah diset custom
       const validPass = savedPass !== '' ? savedPass : (nis || nisn);
+      const validPassLower = validPass.toLowerCase();
 
-      if ((u === nis || u === nisn || u.toLowerCase() === nis.toLowerCase()) && (p === validPass || p === nis || p === nisn)) {
+      const matchUser = (uLower === nisLower || uLower === nisnLower);
+      const matchPass = (p === validPass || pLower === validPassLower || (nis && pLower === nisLower) || (nisn && pLower === nisnLower));
+
+      if (matchUser && matchPass) {
         return jsonResponse('success', 'Berhasil login sebagai Siswa', {
           username: nis || nisn,
           role: 'Siswa',
@@ -4301,6 +4325,40 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
       sendTelegramNotification(studentTgId, msgSiswa);
     }
 
+    // 3. Send Security Telegram Notification to Approver / Wali Kelas
+    let walasTgId = '';
+    const waliKelasName = String(targetRowData[7] || nameStr || '').trim();
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers && sheetUsers.getLastRow() > 1) {
+      const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+      const searchName1 = String(approverName || '').trim().toLowerCase();
+      const searchName2 = waliKelasName.toLowerCase();
+
+      for (let i = 0; i < uData.length; i++) {
+        const uNama = String(uData[i][4] || uData[i][1] || '').trim().toLowerCase();
+        const uTgId = String(uData[i][6] || '').trim();
+        if (uTgId && uNama && (
+          (searchName1 && (uNama === searchName1 || uNama.includes(searchName1) || searchName1.includes(uNama))) ||
+          (searchName2 && (uNama === searchName2 || uNama.includes(searchName2) || searchName2.includes(uNama)))
+        )) {
+          walasTgId = uTgId;
+          break;
+        }
+      }
+    }
+
+    if (walasTgId) {
+      const msgWalas = `🛡️ <b>KONFIRMASI PERSETUJUAN IZIN SISWA</b>\n\n` +
+        `Anda baru saja <b>MENYETUJUI</b> permohonan izin berikut:\n\n` +
+        `👤 Siswa: <b>${nama}</b> (${kelas})\n` +
+        `📅 Tanggal: <b>${tanggal}</b>\n` +
+        `📌 Kategori: <b>${targetRowData[8] || 'Izin'}</b>\n` +
+        `💬 Keterangan: <i>${targetRowData[9] || '-'}</i>\n` +
+        `⏰ Waktu ACC: <b>${timeNowStr}</b>\n\n` +
+        `<i>Pesan keamanan ini dikirim ke Telegram Anda untuk mencegah penyalahgunaan akun.</i>`;
+      sendTelegramNotification(walasTgId, msgWalas);
+    }
+
     return jsonResponse('success', `Berhasil menyetujui izin ${nama} & presensi terisi otomatis`, {
       id: id,
       status: 'Disetujui',
@@ -4344,8 +4402,9 @@ function handleRejectIzinSiswa(id, approverName, approverRole) {
     const nisn = String(targetRowData[3] || '');
     const nis = String(targetRowData[4] || '');
     const nama = String(targetRowData[5] || '');
+    const kelas = String(targetRowData[6] || '');
 
-    // Send Telegram Notification to Student
+    // 1. Send Telegram Notification to Student
     let studentTgId = '';
     const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
     if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
@@ -4365,6 +4424,39 @@ function handleRejectIzinSiswa(id, approverName, approverRole) {
         `Pengajuan izin Anda untuk tanggal <b>${tanggal}</b> telah <b>DITOLAK</b> oleh Wali Kelas/Petugas <b>${nameStr}</b>.\n\n` +
         `Silakan hubungi Wali Kelas Anda untuk informasi lebih lanjut.`;
       sendTelegramNotification(studentTgId, msgSiswa);
+    }
+
+    // 2. Send Security Telegram Notification to Approver / Wali Kelas
+    let walasTgId = '';
+    const waliKelasName = String(targetRowData[7] || nameStr || '').trim();
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers && sheetUsers.getLastRow() > 1) {
+      const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+      const searchName1 = String(approverName || '').trim().toLowerCase();
+      const searchName2 = waliKelasName.toLowerCase();
+
+      for (let i = 0; i < uData.length; i++) {
+        const uNama = String(uData[i][4] || uData[i][1] || '').trim().toLowerCase();
+        const uTgId = String(uData[i][6] || '').trim();
+        if (uTgId && uNama && (
+          (searchName1 && (uNama === searchName1 || uNama.includes(searchName1) || searchName1.includes(uNama))) ||
+          (searchName2 && (uNama === searchName2 || uNama.includes(searchName2) || searchName2.includes(uNama)))
+        )) {
+          walasTgId = uTgId;
+          break;
+        }
+      }
+    }
+
+    if (walasTgId) {
+      const msgWalas = `🛡️ <b>KONFIRMASI PENOLAKAN IZIN SISWA</b>\n\n` +
+        `Anda baru saja <b>MENOLAK</b> permohonan izin berikut:\n\n` +
+        `👤 Siswa: <b>${nama}</b> (${kelas})\n` +
+        `📅 Tanggal: <b>${tanggal}</b>\n` +
+        `📌 Kategori: <b>${targetRowData[8] || 'Izin'}</b>\n` +
+        `⏰ Waktu Penolakan: <b>${timeNowStr}</b>\n\n` +
+        `<i>Pesan keamanan ini dikirim ke Telegram Anda untuk mencegah penyalahgunaan akun.</i>`;
+      sendTelegramNotification(walasTgId, msgWalas);
     }
 
     return jsonResponse('success', `Pengajuan izin ${nama} ditolak`, {

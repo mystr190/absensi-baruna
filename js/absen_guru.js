@@ -202,9 +202,12 @@ function renderIzinGuruPanel() {
 function renderWidgetGuruTidakHadirHariIni() {
     const container = document.getElementById('containerGuruTidakHadirHariIni');
     const badgeTotal = document.getElementById('badgeTotalGuruTidakHadir');
+    const elTxtTanggal = document.getElementById('txtTanggalHariIni');
     if (!container) return;
 
     const todayStr = getTodayFormattedDate();
+    if (elTxtTanggal) elTxtTanggal.innerText = todayStr;
+
     const absentMap = new Map();
 
     localPengajuanIzin.forEach(item => {

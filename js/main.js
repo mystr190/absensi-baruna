@@ -179,11 +179,15 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // Helper untuk Retry otomatis jika jaringan/Google Apps Script tersendat
-async function fetchWithRetry(url, options = {}, retries = 3, delayMs = 1000) {
+async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 800) {
     const fetchOptions = { redirect: 'follow', ...options };
     for (let i = 0; i <= retries; i++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
         try {
-            const response = await fetch(url, fetchOptions);
+            const resOptions = { ...fetchOptions, signal: controller.signal };
+            const response = await fetch(url, resOptions);
+            clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const textData = await response.text();
@@ -197,6 +201,7 @@ async function fetchWithRetry(url, options = {}, retries = 3, delayMs = 1000) {
             
             return jsonResult;
         } catch (err) {
+            clearTimeout(timeoutId);
             if (i === retries) throw err;
             console.warn(`Attempt ${i + 1} failed (${err.message}). Retrying in ${delayMs}ms...`);
             await new Promise(res => setTimeout(res, delayMs));
@@ -734,6 +739,71 @@ function showCustomConfirm({ title = 'Konfirmasi', message = 'Apakah Anda yakin?
         };
     });
 }
+
+function showCustomAlert({ title = 'Informasi', message = '', icon = 'info', buttonText = 'Mengerti' }) {
+    return new Promise((resolve) => {
+        let overlay = document.getElementById('customAlertOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'customAlertOverlay';
+            overlay.className = 'custom-alert-overlay';
+            document.body.appendChild(overlay);
+        }
+
+        let iconClass = 'fa-solid fa-circle-info';
+        let iconTypeClass = 'info';
+
+        if (icon === 'danger' || icon === 'error') {
+            iconClass = 'fa-solid fa-circle-xmark';
+            iconTypeClass = 'danger';
+        } else if (icon === 'warning') {
+            iconClass = 'fa-solid fa-triangle-exclamation';
+            iconTypeClass = 'warning';
+        } else if (icon === 'success') {
+            iconClass = 'fa-solid fa-circle-check';
+            iconTypeClass = 'success';
+        }
+
+        overlay.innerHTML = `
+            <div class="custom-alert-box">
+                <div class="custom-alert-icon-wrap ${iconTypeClass}">
+                    <i class="${iconClass}"></i>
+                </div>
+                <div class="custom-alert-title">${title}</div>
+                <div class="custom-alert-message">${message}</div>
+                <div class="custom-alert-actions">
+                    <button type="button" class="custom-alert-btn custom-alert-btn-confirm" id="btnCustomAlertOk" style="width: 100%;">
+                        <i class="fa-solid fa-check"></i> ${buttonText}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        void overlay.offsetWidth;
+        overlay.classList.add('active');
+
+        const btnOk = overlay.querySelector('#btnCustomAlertOk');
+
+        const closeDialog = () => {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                resolve(true);
+            }, 300);
+        };
+
+        btnOk.onclick = () => closeDialog();
+        overlay.onclick = (e) => {
+            if (e.target === overlay) closeDialog();
+        };
+    });
+}
+
+// Global Override for window.alert to guarantee custom UI styling everywhere
+window.alert = function(msg) {
+    if (typeof showToast === 'function') {
+        showToast(msg, 'info');
+    }
+};
 
 // ----------------------------------------------------
 // DYNAMIC FOOTER CURRENT YEAR UPDATER

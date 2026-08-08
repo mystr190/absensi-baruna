@@ -344,6 +344,8 @@ body.sidebar-collapsed .sidebar-footer .btn-logout-text {
 
 /* Forms & Inputs */
 .form-container { display: flex; flex-direction: column; gap: 20px; }
+.form-group-static { display: flex; flex-direction: column; position: relative; }
+.form-group-static label { position: static !important; transform: none !important; display: block !important; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; pointer-events: auto !important; }
 .input-group { position: relative; }
 .input-group input, .input-group select {
     width: 100%; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1);
