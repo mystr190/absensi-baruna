@@ -305,6 +305,9 @@ function doPost(e) {
     else if (action === 'add_absen_guru') {
       return handleAddAbsenGuruManual(e.parameter.data);
     }
+    else if (action === 'delete_absen_guru_date') {
+      return handleDeleteAbsenGuruByDate(e.parameter.tanggal);
+    }
     else if (action === 'add_pengajuan_izin') {
       return handleAddPengajuanIzin(e.parameter.data);
     }
@@ -1484,6 +1487,11 @@ function handleAddAbsenGuruManual(dataRaw) {
 
     const sampleItem = items[0];
     const targetTanggal = sampleItem ? getFormattedDate(sampleItem.tanggal || new Date()) : getFormattedDate(new Date());
+    const todayFormattedStr = getFormattedDate(new Date());
+
+    if (targetTanggal > todayFormattedStr) {
+      return jsonResponse('error', `Gagal menyimpan: Tidak dapat melakukan presensi guru untuk tanggal yang belum terjadi (${targetTanggal}).`);
+    }
 
     const targetUsers = new Set();
     items.forEach(it => {
@@ -1536,6 +1544,37 @@ function handleAddAbsenGuruManual(dataRaw) {
     return jsonResponse('success', 'Absensi Guru Berhasil Disimpan', { count: rowsToAppend.length });
   } catch (e) {
     return jsonResponse('error', 'Gagal Simpan Absen Guru: ' + e.toString());
+  }
+}
+
+function handleDeleteAbsenGuruByDate(tanggal) {
+  try {
+    if (!tanggal || String(tanggal).trim() === '') {
+      return jsonResponse('error', 'Tanggal wajib diisi.');
+    }
+    const targetTanggal = getFormattedDate(tanggal.trim());
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEET_LOG_GURU);
+    if (!sheet) return jsonResponse('error', 'Sheet LogAbsenGuru tidak ditemukan.');
+
+    const lastRow = sheet.getLastRow();
+    let deletedCount = 0;
+    if (lastRow > 1) {
+      const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+      for (let i = data.length - 1; i >= 0; i--) {
+        const rawDate = data[i][2];
+        if (!rawDate) continue;
+        const logDateStr = getFormattedDate(rawDate);
+        if (logDateStr === targetTanggal) {
+          sheet.deleteRow(i + 2);
+          deletedCount++;
+        }
+      }
+    }
+
+    return jsonResponse('success', `Berhasil mengosongkan ${deletedCount} data presensi guru untuk tanggal ${targetTanggal}.`, { deletedCount: deletedCount, tanggal: targetTanggal });
+  } catch (e) {
+    return jsonResponse('error', 'Gagal mengosongkan presensi guru: ' + e.toString());
   }
 }
 

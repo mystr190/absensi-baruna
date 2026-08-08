@@ -17,7 +17,20 @@ document.addEventListener('DOMContentLoaded', () => {
     applyCachedAbsenGuruData();
 });
 
+function applyMaxDateRestriction() {
+    const todayStr = getTodayFormattedDate();
+    const dateInputIds = ['inputAbsenGuruTanggalBatch', 'inputIzinTanggal', 'inputTanggalAbsen'];
+    dateInputIds.forEach(id => {
+        const inp = document.getElementById(id);
+        if (inp) {
+            inp.setAttribute('max', todayStr);
+        }
+    });
+}
+
 function initAbsenGuruEventListeners() {
+    applyMaxDateRestriction();
+
     const formIzin = document.getElementById('formPengajuanIzin');
     if (formIzin) {
         formIzin.addEventListener('submit', handleSubmiIzinGuru);
@@ -31,9 +44,19 @@ function initAbsenGuruEventListeners() {
     const tglBatch = document.getElementById('inputAbsenGuruTanggalBatch');
     if (tglBatch) {
         tglBatch.addEventListener('change', () => {
+            const todayStr = getTodayFormattedDate();
+            if (tglBatch.value > todayStr) {
+                showToast("⚠️ Tidak dapat melakukan presensi guru untuk tanggal yang belum terjadi!", 'warning');
+                tglBatch.value = todayStr;
+            }
             isEditAbsenGuruBatchMode = false;
             renderAbsenGuruBatchTable();
         });
+    }
+
+    const btnKosongkan = document.getElementById('btnKosongkanAbsenGuruTanggal');
+    if (btnKosongkan) {
+        btnKosongkan.addEventListener('click', handleKosongkanAbsenGuruTanggal);
     }
 
     const btnHadir = document.getElementById('btnSetSemuaHadir');
@@ -507,6 +530,7 @@ async function rejectIzinKepsek(id) {
 // 3. PANEL ABSEN GURU KOLEKTIF / BATCH (GURU, KEPSEK, TU)
 // ----------------------------------------------------
 function renderAbsenGuruAdminPanel() {
+    applyMaxDateRestriction();
     const inputTgl = document.getElementById('inputAbsenGuruTanggalBatch');
     if (inputTgl && !inputTgl.value) {
         inputTgl.value = getTodayFormattedDate();
@@ -515,6 +539,62 @@ function renderAbsenGuruAdminPanel() {
     renderAbsenGuruBatchTable();
     renderTableLogAbsenGuru();
     renderRekapMatrixGuru();
+}
+
+async function handleKosongkanAbsenGuruTanggal() {
+    const inputTgl = document.getElementById('inputAbsenGuruTanggalBatch');
+    const selectedDate = inputTgl ? inputTgl.value : getTodayFormattedDate();
+    if (!selectedDate) {
+        showToast("⚠️ Silakan pilih tanggal presensi terlebih dahulu.", 'warning');
+        return;
+    }
+
+    const todayStr = getTodayFormattedDate();
+    if (selectedDate > todayStr) {
+        showToast("⚠️ Tidak dapat mengosongkan presensi untuk tanggal yang belum terjadi.", 'warning');
+        if (inputTgl) inputTgl.value = todayStr;
+        return;
+    }
+
+    const formattedDisplay = getFormattedDisplayDate(selectedDate);
+    const existingLogs = localLogAbsenGuru.filter(l => l.tanggal === selectedDate);
+
+    if (existingLogs.length === 0) {
+        showToast(`ℹ️ Tidak ada data presensi guru yang tercatat pada tanggal ${formattedDisplay}.`, 'info');
+        return;
+    }
+
+    const confirmMsg = `⚠️ KONFIRMASI PENGOSONGAN PRESENSI GURU\n\nApakah Anda yakin ingin menghapus/mengosongkan seluruh (${existingLogs.length}) data presensi guru & staf untuk tanggal ${formattedDisplay}?\n\nData yang telah dihapus tidak dapat dikembalikan.`;
+    if (!confirm(confirmMsg)) return;
+
+    const btn = document.getElementById('btnKosongkanAbsenGuruTanggal');
+    if (btn) btn.disabled = true;
+
+    // 1. Optimistic Local Update
+    localLogAbsenGuru = localLogAbsenGuru.filter(l => l.tanggal !== selectedDate);
+    localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
+
+    isEditAbsenGuruBatchMode = false;
+    renderAbsenGuruBatchTable();
+    renderTableLogAbsenGuru();
+    renderRekapMatrixGuru();
+    renderWidgetGuruTidakHadirHariIni();
+
+    if (typeof renderOverviewDashboard === 'function') {
+        renderOverviewDashboard();
+    }
+
+    showToast(`🗑️ Berhasil mengosongkan data presensi guru untuk tanggal ${formattedDisplay}!`, 'success');
+
+    // 2. Sync to Backend (GAS)
+    try {
+        await fetchWithRetry(`${SCRIPT_URL}?action=delete_absen_guru_date&tanggal=${encodeURIComponent(selectedDate)}`, { method: 'POST' }, 2, 800);
+        syncAbsenGuruDataFromServer();
+    } catch(err) {
+        console.warn("Backend delete_absen_guru_date postponed.");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 function renderAbsenGuruBatchTable() {
@@ -736,6 +816,15 @@ async function handleSaveAbsenGuruBatch(e) {
     const loggedUser = JSON.parse(localStorage.getItem('smart_absen_user') || '{}');
     const inputTgl = document.getElementById('inputAbsenGuruTanggalBatch');
     const selectedDate = inputTgl ? inputTgl.value : getTodayFormattedDate();
+    const todayStr = getTodayFormattedDate();
+
+    if (selectedDate > todayStr) {
+        showToast("⚠️ Gagal menyimpan: Tidak dapat melakukan presensi guru untuk tanggal yang belum terjadi (" + getFormattedDisplayDate(selectedDate) + ").", 'error');
+        if (inputTgl) inputTgl.value = todayStr;
+        if (btn) btn.disabled = false;
+        return;
+    }
+
     const timeNowStr = new Date().toLocaleString('id-ID');
 
     const tbody = document.getElementById('tableBodyAbsenGuruBatch');

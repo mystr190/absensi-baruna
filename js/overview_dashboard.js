@@ -152,6 +152,11 @@ function updateOverviewUI(data) {
 
     // Render List 5: Guru & Staf Belum Absen
     renderUnabsenGuruList(data.unabsenGuruList || []);
+
+    // Render Widget: Informasi Guru & Staf Yang Bertugas / Tidak Hadir Hari Ini
+    if (typeof renderWidgetGuruTidakHadirHariIni === 'function') {
+        renderWidgetGuruTidakHadirHariIni();
+    }
 }
 
 function renderUnabsenGuruList(list) {

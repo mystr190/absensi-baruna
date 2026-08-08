@@ -134,7 +134,8 @@ function showApp(user) {
     if (navPelanggaran) navPelanggaran.style.display = 'flex';
     if (btnManageJenis) btnManageJenis.style.display = 'none';
 
-    if (user.role === 'Admin') {
+    const uRole = String(user.role || '').trim().toLowerCase();
+    if (uRole === 'admin') {
         if (navAdmin) navAdmin.style.display = 'flex';
         if (navKelolaSiswa) navKelolaSiswa.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
@@ -142,6 +143,7 @@ function showApp(user) {
         if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'flex';
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (btnManageJenis) btnManageJenis.style.display = 'inline-flex';
+        if (navIzinGuru) navIzinGuru.style.display = 'none';
     } else if (user.role === 'Kepala Sekolah') {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
