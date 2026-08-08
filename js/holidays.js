@@ -281,8 +281,17 @@ function renderHolidaysTable() {
     tbody.innerHTML = html;
 }
 
-window.handleDeleteHoliday = function(dateStr) {
-    if (confirm(`Apakah Anda yakin ingin menghapus hari libur tanggal ${dateStr}?`)) {
+window.handleDeleteHoliday = async function(dateStr) {
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Hari Libur',
+        message: `Apakah Anda yakin ingin menghapus hari libur tanggal <strong>${dateStr}</strong>?`,
+        icon: 'danger',
+        confirmText: 'Ya, Hapus Libur',
+        cancelText: 'Batal',
+        danger: true
+    });
+
+    if (confirmed) {
         deleteHoliday(dateStr);
         renderHolidaysTable();
         if (typeof showToast === 'function') showToast("✅ Hari libur berhasil dihapus (Lokal & Sheet)", "success");

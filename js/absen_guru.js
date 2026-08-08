@@ -541,6 +541,64 @@ function renderAbsenGuruAdminPanel() {
     renderRekapMatrixGuru();
 }
 
+function showCustomConfirmModal({ title, message, dateText, countText, confirmBtnText, iconClass }) {
+    const modal = document.getElementById('modalConfirmAction');
+    if (!modal && typeof showCustomConfirm === 'function') {
+        return showCustomConfirm({
+            title: title || 'Konfirmasi Hapus',
+            message: message || 'Apakah Anda yakin?',
+            icon: 'danger',
+            confirmText: confirmBtnText || 'Ya, Kosongkan',
+            cancelText: 'Batal',
+            danger: true
+        });
+    }
+
+    return new Promise((resolve) => {
+        if (!modal) {
+            resolve(true);
+            return;
+        }
+
+        const titleElem = document.getElementById('modalConfirmTitle');
+        const msgElem = document.getElementById('modalConfirmMessage');
+        const dateElem = document.getElementById('modalConfirmDateText');
+        const countElem = document.getElementById('modalConfirmCountText');
+        const btnTextElem = document.getElementById('modalConfirmBtnText');
+        const iconElem = document.getElementById('modalConfirmIcon');
+        const btnConfirm = document.getElementById('btnModalConfirmAction');
+        const btnCancel = document.getElementById('btnModalConfirmCancel');
+
+        if (titleElem) titleElem.innerText = title || "Konfirmasi Hapus";
+        if (msgElem) msgElem.innerText = message || "Apakah Anda yakin ingin melakukan tindakan ini?";
+        if (dateElem) dateElem.innerText = dateText || "-";
+        if (countElem) countElem.innerText = countText || "0 Data";
+        if (btnTextElem) btnTextElem.innerText = confirmBtnText || "Ya, Kosongkan";
+        if (iconElem) iconElem.className = iconClass || "fa-solid fa-triangle-exclamation";
+
+        modal.style.display = 'flex';
+
+        const handleConfirm = () => {
+            cleanup();
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+
+        const cleanup = () => {
+            modal.style.display = 'none';
+            btnConfirm.removeEventListener('click', handleConfirm);
+            btnCancel.removeEventListener('click', handleCancel);
+        };
+
+        btnConfirm.addEventListener('click', handleConfirm);
+        btnCancel.addEventListener('click', handleCancel);
+    });
+}
+
 async function handleKosongkanAbsenGuruTanggal() {
     const inputTgl = document.getElementById('inputAbsenGuruTanggalBatch');
     const selectedDate = inputTgl ? inputTgl.value : getTodayFormattedDate();
@@ -564,8 +622,16 @@ async function handleKosongkanAbsenGuruTanggal() {
         return;
     }
 
-    const confirmMsg = `⚠️ KONFIRMASI PENGOSONGAN PRESENSI GURU\n\nApakah Anda yakin ingin menghapus/mengosongkan seluruh (${existingLogs.length}) data presensi guru & staf untuk tanggal ${formattedDisplay}?\n\nData yang telah dihapus tidak dapat dikembalikan.`;
-    if (!confirm(confirmMsg)) return;
+    const confirmed = await showCustomConfirmModal({
+        title: 'Kosongkan Presensi Guru & Staf',
+        message: `Apakah Anda yakin ingin menghapus & mengosongkan seluruh data presensi guru dan staf untuk tanggal ${formattedDisplay}? Data yang dihapus tidak dapat dikembalikan.`,
+        dateText: formattedDisplay,
+        countText: `${existingLogs.length} Record Presensi`,
+        confirmBtnText: 'Ya, Kosongkan Presensi',
+        iconClass: 'fa-solid fa-trash-can-arrow-up'
+    });
+
+    if (!confirmed) return;
 
     const btn = document.getElementById('btnKosongkanAbsenGuruTanggal');
     if (btn) btn.disabled = true;
@@ -584,7 +650,7 @@ async function handleKosongkanAbsenGuruTanggal() {
         renderOverviewDashboard();
     }
 
-    showToast(`🗑️ Berhasil mengosongkan data presensi guru untuk tanggal ${formattedDisplay}!`, 'success');
+    showToast(`🗑️ Berhasil mengosongkan ${existingLogs.length} data presensi guru tanggal ${formattedDisplay}!`, 'success');
 
     // 2. Sync to Backend (GAS)
     try {

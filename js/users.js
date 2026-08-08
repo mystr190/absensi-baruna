@@ -354,8 +354,13 @@ if (btnTestTelegram) {
         const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
         const token = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
 
-        const targetId = prompt("Masukkan ID Telegram Chat Anda (Angka ID) untuk menerima pesan uji coba:\n(Contoh: 123456789 - bisa cek via @userinfobot di Telegram)");
-        if (!targetId || !targetId.trim()) return;
+        const loggedUser = JSON.parse(localStorage.getItem('smart_absen_user') || '{}');
+        const targetId = loggedUser.id_telegram || '';
+        
+        if (!targetId) {
+            showToast("⚠️ Akun Anda belum terhubung dengan Telegram ID. Silakan sambungkan akun via Bot Telegram terlebih dahulu.", "warning");
+            return;
+        }
 
         btnTestTelegram.disabled = true;
         showToast("⏳ Mengirim pesan tes ke Telegram...", "info");
@@ -426,7 +431,15 @@ const btnInitialSetup = document.getElementById('btnInitialSetup');
 
 if (btnInitialSetup) {
     btnInitialSetup.addEventListener('click', async () => {
-        if (!confirm("Apakah Anda yakin ingin menjalankan Setup Database Otomatis pada Google Sheets? Seluruh tab sheet (Users, DataSiswa, LogAbsen, Pengaturan) akan disiapkan secara otomatis.")) return;
+        const confirmed = await showCustomConfirm({
+            title: 'Setup Database Otomatis',
+            message: 'Apakah Anda yakin ingin menjalankan Setup Database Otomatis pada Google Sheets? Seluruh tab sheet (Users, DataSiswa, LogAbsen, Pengaturan, dsb.) akan disiapkan secara otomatis.',
+            icon: 'info',
+            confirmText: 'Ya, Jalankan Setup',
+            cancelText: 'Batal'
+        });
+
+        if (!confirmed) return;
 
         btnInitialSetup.disabled = true;
         try {
