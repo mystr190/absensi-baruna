@@ -856,10 +856,64 @@ select option { background: var(--bg-color); color: var(--text-main); }
         pointer-events: none !important;
     }
 
+    .btn-mobile-theme-toggle {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .btn-mobile-theme-toggle:active {
+        transform: scale(0.92);
+    }
+
     .nav-item.active {
         background: linear-gradient(135deg, rgba(79, 70, 229, 0.4), rgba(99, 102, 241, 0.25)) !important;
         color: #60a5fa !important;
         border: 1px solid rgba(96, 165, 250, 0.4) !important;
+    }
+
+    /* Mobile Light Mode Specific Overrides */
+    [data-theme="light"] .mobile-top-bar {
+        background: rgba(255, 255, 255, 0.92) !important;
+        border-bottom: 1px solid rgba(203, 213, 225, 0.9) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    [data-theme="light"] .mobile-brand-title {
+        color: #0f172a !important;
+    }
+
+    [data-theme="light"] .mobile-user-name {
+        color: #0f172a !important;
+    }
+
+    [data-theme="light"] .btn-mobile-theme-toggle {
+        background: rgba(0, 0, 0, 0.06) !important;
+        border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    }
+
+    [data-theme="light"] .sidebar {
+        background: rgba(255, 255, 255, 0.96) !important;
+        border-top: 1px solid rgba(203, 213, 225, 0.9) !important;
+        box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    [data-theme="light"] .nav-item {
+        color: #475569 !important;
+    }
+
+    [data-theme="light"] .nav-item.active {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(99, 102, 241, 0.25)) !important;
+        color: #4f46e5 !important;
+        border: 1px solid rgba(79, 70, 229, 0.3) !important;
     }
 
     /* Main Content Area Padding Bottom for Mobile Bottom Bar */

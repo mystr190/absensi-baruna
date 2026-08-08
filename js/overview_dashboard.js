@@ -240,6 +240,8 @@ function renderStudentPersonalDashboard(serverLogs, loggedUser) {
     }
 
     const uName = String(loggedUser ? loggedUser.username || '' : '').trim().toLowerCase();
+    const uNisn = String(loggedUser ? loggedUser.nisn || '' : '').trim().toLowerCase();
+    const uNis = String(loggedUser ? loggedUser.nis || '' : '').trim().toLowerCase();
     const uNama = String(loggedUser ? loggedUser.nama || '' : '').trim().toLowerCase();
 
     const myLogs = allLogs.filter(l => {
@@ -247,6 +249,8 @@ function renderStudentPersonalDashboard(serverLogs, loggedUser) {
         const nis = String(l.nis || '').trim().toLowerCase();
         const nama = String(l.nama || '').trim().toLowerCase();
 
+        if (uNisn && (nisn === uNisn || nis === uNisn)) return true;
+        if (uNis && (nisn === uNis || nis === uNis)) return true;
         if (uName && (nisn === uName || nis === uName)) return true;
         if (uNama && nama && (nama === uNama || nama.includes(uNama) || uNama.includes(nama))) return true;
         return false;

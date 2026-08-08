@@ -423,21 +423,6 @@ function doPost(e) {
   }
 }
 
-// Helper Pastikan Header Kolom Users & Device Sesuai Format (Auto-Fix Columns)
-function ensureUserColumns() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_USERS);
-  if (!sheet) return;
-
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, 7).setValues([['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram']]);
-    return;
-  }
-
-  const headers = sheet.getRange(1, 1, 1, Math.max(7, sheet.getLastColumn())).getValues()[0];
-  if (!headers[5] || headers[5].toString().trim() === '') sheet.getRange(1, 6).setValue('ID_Mesin');
-  if (!headers[6] || headers[6].toString().trim() === '') sheet.getRange(1, 7).setValue('ID_Telegram');
-}
 
 function ensureDatabaseSetup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -3791,19 +3776,23 @@ function handleGetOverviewStats(forceServer) {
   const studentLogs = [];
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   if (sheetLog && sheetLog.getLastRow() > 1) {
-    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 8).getValues();
+    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
     for (let i = 0; i < logData.length; i++) {
-      const rawDate = logData[i][1];
+      const rawDate = logData[i][0];
       if (!rawDate) continue;
       const logDateFormatted = getFormattedDate(rawDate);
-      const st = String(logData[i][7] || '').trim().toUpperCase();
+      const nisn = String(logData[i][1] || '').trim();
+      const nis = String(logData[i][2] || '').trim();
+      const nama = String(logData[i][3] || '').trim();
+      const kelas = String(logData[i][4] || '').trim();
+      const st = String(logData[i][5] || '').trim().toUpperCase();
 
       studentLogs.push({
         tanggal: logDateFormatted,
-        nisn: String(logData[i][3] || '').trim(),
-        nis: String(logData[i][4] || '').trim(),
-        nama: String(logData[i][5] || '').trim(),
-        kelas: String(logData[i][6] || '').trim(),
+        nisn: nisn,
+        nis: nis,
+        nama: nama,
+        kelas: kelas,
         status: st
       });
 
@@ -4359,8 +4348,8 @@ function handleGetIzinSiswa() {
           id: String(r[0]),
           waktu: String(r[1] || ''),
           tanggal: getFormattedDate(r[2]),
-          nisn: String(r[3] || ''),
-          nis: String(r[4] || ''),
+          nisn: String(r[3] || '').trim().replace(/^'/, ''),
+          nis: String(r[4] || '').trim().replace(/^'/, ''),
           nama: String(r[5] || ''),
           kelas: String(r[6] || ''),
           waliKelas: String(r[7] || ''),
@@ -4390,18 +4379,43 @@ function handleAddPengajuanIzinSiswa(dataObj) {
     const id = 'IZIN-SISWA-' + Date.now();
     const waktu = new Date().toLocaleString('id-ID');
     const tanggal = dataObj.tanggal || getFormattedDate(new Date());
-    const nisn = String(dataObj.nisn || '').trim();
-    const nis = String(dataObj.nis || '').trim();
+    let nisn = String(dataObj.nisn || '').trim().replace(/^'/, '');
+    let nis = String(dataObj.nis || '').trim().replace(/^'/, '');
     const nama = String(dataObj.nama || '').trim();
     const kelas = String(dataObj.kelas || '').trim();
     const kategori = String(dataObj.kategori || 'Izin').trim();
     const keterangan = String(dataObj.keterangan || '').trim();
     const fotoUrl = String(dataObj.fotoUrl || dataObj.foto || '').trim();
 
+    // Cross-check dengan DataSiswa untuk memastikan NISN & NIS lengkap dengan 0 di depan
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const masterNisn = String(sData[i][0] || '').trim();
+        const masterNis = String(sData[i][1] || '').trim();
+        const masterNama = String(sData[i][2] || '').trim();
+
+        if (
+          (nisn && (masterNisn === nisn || Number(masterNisn) === Number(nisn))) ||
+          (nis && (masterNis === nis || Number(masterNis) === Number(nis))) ||
+          (nama && masterNama.toLowerCase() === nama.toLowerCase())
+        ) {
+          if (masterNisn) nisn = masterNisn;
+          if (masterNis) nis = masterNis;
+          break;
+        }
+      }
+    }
+
+    // Paksa Google Sheets menyimpan sebagai TEKS (agar angka 0 di depan tidak terhapus)
+    const nisnForSheet = nisn ? (nisn.startsWith("'") ? nisn : "'" + nisn) : '';
+    const nisForSheet = nis ? (nis.startsWith("'") ? nis : "'" + nis) : '';
+
     const waliKelas = getWaliKelasForClass(ss, kelas);
 
     const newRow = [
-      id, waktu, tanggal, nisn, nis, nama,
+      id, waktu, tanggal, nisnForSheet, nisForSheet, nama,
       kelas, waliKelas, kategori, keterangan,
       fotoUrl, 'Pending', '', ''
     ];
@@ -4411,7 +4425,6 @@ function handleAddPengajuanIzinSiswa(dataObj) {
     // 1. Send Telegram Notification to Student (if id_telegram available)
     let studentTgId = String(dataObj.id_telegram || '').trim();
     if (!studentTgId) {
-      const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
       if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
         const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
         for (let i = 0; i < sData.length; i++) {
@@ -4504,11 +4517,36 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
     sheet.getRange(rowIndex, 14).setValue(timeNowStr);
 
     const tanggal = getFormattedDate(targetRowData[2]);
-    const nisn = String(targetRowData[3] || '');
-    const nis = String(targetRowData[4] || '');
-    const nama = String(targetRowData[5] || '');
-    const kelas = String(targetRowData[6] || '');
+    let nisn = String(targetRowData[3] || '').trim().replace(/^'/, '');
+    let nis = String(targetRowData[4] || '').trim().replace(/^'/, '');
+    const nama = String(targetRowData[5] || '').trim();
+    const kelas = String(targetRowData[6] || '').trim();
     const kategori = String(targetRowData[8] || 'Izin').toUpperCase();
+
+    // Cross-check dengan DataSiswa untuk memastikan NISN & NIS lengkap dengan 0 di depan
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const masterNisn = String(sData[i][0] || '').trim();
+        const masterNis = String(sData[i][1] || '').trim();
+        const masterNama = String(sData[i][2] || '').trim();
+
+        if (
+          (nisn && (masterNisn === nisn || Number(masterNisn) === Number(nisn))) ||
+          (nis && (masterNis === nis || Number(masterNis) === Number(nis))) ||
+          (nama && masterNama.toLowerCase() === nama.toLowerCase())
+        ) {
+          if (masterNisn) nisn = masterNisn;
+          if (masterNis) nis = masterNis;
+          break;
+        }
+      }
+    }
+
+    // Paksa Google Sheets menyimpan sebagai TEKS (agar angka 0 di depan tidak terhapus)
+    const nisnForSheet = nisn ? (nisn.startsWith("'") ? nisn : "'" + nisn) : '';
+    const nisForSheet = nis ? (nis.startsWith("'") ? nis : "'" + nis) : '';
 
     // 1. AUTO-FILL PRESENSI (LogAbsen / SHEET_LOG)
     const sheetLog = ss.getSheetByName(SHEET_LOG);
@@ -4522,11 +4560,11 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
         const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
         for (let i = 0; i < logData.length; i++) {
           const lTgl = getFormattedDate(logData[i][0]);
-          const lNisn = String(logData[i][1] || '').trim();
-          const lNis = String(logData[i][2] || '').trim();
+          const lNisn = String(logData[i][1] || '').trim().replace(/^'/, '');
+          const lNis = String(logData[i][2] || '').trim().replace(/^'/, '');
           const lNama = String(logData[i][3] || '').trim();
 
-          if (lTgl === tanggal && ((nisn && lNisn === nisn) || (nis && lNis === nis) || (nama && lNama.toLowerCase() === nama.toLowerCase()))) {
+          if (lTgl === tanggal && ((nisn && (lNisn === nisn || Number(lNisn) === Number(nisn))) || (nis && (lNis === nis || Number(lNis) === Number(nis))) || (nama && lNama.toLowerCase() === nama.toLowerCase()))) {
             existingLogIndex = i + 2;
             break;
           }
@@ -4534,15 +4572,16 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
       }
 
       if (existingLogIndex !== -1) {
+        sheetLog.getRange(existingLogIndex, 2).setValue(nisnForSheet);
+        sheetLog.getRange(existingLogIndex, 3).setValue(nisForSheet);
         sheetLog.getRange(existingLogIndex, 6).setValue(statusAbsen);
       } else {
-        sheetLog.appendRow([timeNowStr, nisn, nis, nama, kelas, statusAbsen]);
+        sheetLog.appendRow([timeNowStr, nisnForSheet, nisForSheet, nama, kelas, statusAbsen]);
       }
     }
 
     // 2. Send Telegram Notification to Student
     let studentTgId = '';
-    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
     if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
       const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
       for (let i = 0; i < sData.length; i++) {

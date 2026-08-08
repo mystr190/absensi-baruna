@@ -22,11 +22,12 @@ function initTheme() {
     const savedTheme = localStorage.getItem('smart_absen_theme') || 'dark';
     applyTheme(savedTheme, false);
 
-    document.querySelectorAll('.btn-theme-toggle').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-theme-toggle');
+        if (btn) {
             e.preventDefault();
             toggleTheme();
-        });
+        }
     });
 }
 
