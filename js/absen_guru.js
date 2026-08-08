@@ -342,6 +342,7 @@ async function handleSubmiIzinGuru(e) {
         username: loggedUser.username || '',
         nama: loggedUser.nama || 'Guru',
         role: loggedUser.role || 'Guru',
+        id_telegram: loggedUser.id_telegram || '',
         tanggal: tgl,
         kategori: kategori,
         keterangan: keterangan,

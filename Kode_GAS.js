@@ -1578,6 +1578,47 @@ function handleDeleteAbsenGuruByDate(tanggal) {
   }
 }
 
+// === HELPER AMBIL ID TELEGRAM USER & KEPALA SEKOLAH ===
+function getKepalaSekolahTelegramIds(ss) {
+  const ids = [];
+  try {
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers) {
+      const data = sheetUsers.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        const role = String(data[i][3] || '').trim().toLowerCase();
+        const idTelegram = String(data[i][6] || '').trim();
+        if ((role === 'kepala sekolah' || role === 'kepsek') && idTelegram) {
+          ids.push(idTelegram);
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log("Error getKepalaSekolahTelegramIds: " + e.toString());
+  }
+  return ids;
+}
+
+function getUserTelegramIdByUsername(ss, username) {
+  try {
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers) {
+      const data = sheetUsers.getDataRange().getValues();
+      const targetUname = String(username || '').trim().toLowerCase();
+      for (let i = 1; i < data.length; i++) {
+        const uname = String(data[i][1] || data[i][0] || '').trim().toLowerCase();
+        const idTelegram = String(data[i][6] || '').trim();
+        if (uname === targetUname && idTelegram) {
+          return idTelegram;
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log("Error getUserTelegramIdByUsername: " + e.toString());
+  }
+  return '';
+}
+
 function handleGetPengajuanIzin() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return jsonResponse('success', 'Berhasil', fetchPengajuanIzinList(ss));
@@ -1645,6 +1686,48 @@ function handleAddPengajuanIzin(dataRaw) {
       ]);
     }
 
+    // === NOTIFIKASI TELEGRAM PENGAJUAN IZIN ===
+    try {
+      const config = getConfigObject(ss);
+      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+
+      // 1. Notifikasi ke Kepala Sekolah
+      const kepsekTgIds = getKepalaSekolahTelegramIds(ss);
+      const msgKepsek = `<b>📩 PERMOHONAN IZIN GURU BARU</b>\n` +
+        `<b>${schoolTitle}</b>\n\n` +
+        `<blockquote>` +
+        `<b>Pengaju:</b> ${item.nama || '-'} (${role || 'Guru'})\n` +
+        `<b>Tanggal:</b> ${item.tanggal || getFormattedDate(new Date())}\n` +
+        `<b>Kategori:</b> ${item.kategori || 'Izin'}\n` +
+        `<b>Keterangan:</b> ${item.keterangan || '-'}\n` +
+        `<b>Status:</b> ${initialStatus === 'Disetujui' ? '✅ Disetujui Otomatis' : '⏳ Menunggu Persetujuan'}` +
+        `</blockquote>\n\n` +
+        `<i>Mohon periksa dan berikan persetujuan pada portal Smart School.</i>`;
+
+      kepsekTgIds.forEach(tgId => {
+        if (tgId) sendTelegramNotification(tgId, msgKepsek);
+      });
+
+      // 2. Notifikasi Konfirmasi ke Guru Pengaju
+      const guruTgId = item.id_telegram || getUserTelegramIdByUsername(ss, item.username);
+      if (guruTgId) {
+        const msgGuru = `<b>📩 PENGAJUAN IZIN DIKIRIM</b>\n` +
+          `<b>${schoolTitle}</b>\n\n` +
+          `<blockquote>` +
+          `Halo <b>${item.nama || 'Bapak/Ibu Guru'}</b>, pengajuan izin Anda berhasil terkirim:\n` +
+          `<b>Tanggal:</b> ${item.tanggal || getFormattedDate(new Date())}\n` +
+          `<b>Kategori:</b> ${item.kategori || 'Izin'}\n` +
+          `<b>Keterangan:</b> ${item.keterangan || '-'}\n` +
+          `<b>Status:</b> ${initialStatus === 'Disetujui' ? '✅ Disetujui Otomatis' : '⏳ Menunggu Persetujuan Kepala Sekolah'}` +
+          `</blockquote>\n\n` +
+          `<i>Status persetujuan akan diinformasikan kembali via Telegram ini.</i>`;
+
+        sendTelegramNotification(guruTgId, msgGuru);
+      }
+    } catch(errTg) {
+      Logger.log("Error Telegram Notif AddIzin: " + errTg.toString());
+    }
+
     return jsonResponse('success', initialStatus === 'Disetujui' ? 'Pengajuan Izin Otomatis Disetujui' : 'Pengajuan Izin Berhasil Dikirim', { id, status: initialStatus });
   } catch (e) {
     return jsonResponse('error', 'Gagal Mengirim Pengajuan Izin: ' + e.toString());
@@ -1710,6 +1793,31 @@ function handleApprovePengajuanIzin(id, approver) {
       approver || 'Kepala Sekolah'
     ]);
 
+    // === NOTIFIKASI TELEGRAM KE GURU (DISETUJUI) ===
+    try {
+      const config = getConfigObject(ss);
+      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+      const guruTgId = getUserTelegramIdByUsername(ss, item.username);
+
+      if (guruTgId) {
+        const msgAcc = `<b>✅ PENGAJUAN IZIN DISETUJUI</b>\n` +
+          `<b>${schoolTitle}</b>\n\n` +
+          `<blockquote>` +
+          `Halo <b>${item.nama}</b>, permohonan izin Anda telah <b>DISETUJUI</b>.\n\n` +
+          `<b>Tanggal:</b> ${item.tanggal}\n` +
+          `<b>Kategori:</b> ${item.kategori}\n` +
+          `<b>Keterangan:</b> ${item.keterangan || '-'}\n` +
+          `<b>Disetujui Oleh:</b> ${approver || 'Kepala Sekolah'}\n` +
+          `<b>Waktu ACC:</b> ${timeNow} WIB` +
+          `</blockquote>\n\n` +
+          `<i>Data presensi Anda telah otomatis dicatat & disesuaikan di sistem. Terima kasih!</i>`;
+
+        sendTelegramNotification(guruTgId, msgAcc);
+      }
+    } catch(errAccTg) {
+      Logger.log("Error Telegram Notif ApproveIzin: " + errAccTg.toString());
+    }
+
     return jsonResponse('success', 'Pengajuan Izin Disetujui & Absensi Otomatis Dicatat', { id });
   } catch (e) {
     return jsonResponse('error', 'Gagal Menyetujui Izin: ' + e.toString());
@@ -1724,10 +1832,21 @@ function handleRejectPengajuanIzin(id, approver) {
 
     const data = sheetIzin.getDataRange().getValues();
     let targetRow = -1;
+    let item = null;
 
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(id)) {
         targetRow = i + 1;
+        let tgl = data[i][5];
+        if (tgl instanceof Date) tgl = getFormattedDate(tgl);
+
+        item = {
+          username: String(data[i][2]),
+          nama: String(data[i][3]),
+          tanggal: String(tgl),
+          kategori: String(data[i][6]),
+          keterangan: String(data[i][7])
+        };
         break;
       }
     }
@@ -1740,6 +1859,31 @@ function handleRejectPengajuanIzin(id, approver) {
     sheetIzin.getRange(targetRow, 9).setValue('Ditolak');
     sheetIzin.getRange(targetRow, 10).setValue(approver || 'Kepala Sekolah');
     sheetIzin.getRange(targetRow, 11).setValue(timeNow);
+
+    // === NOTIFIKASI TELEGRAM KE GURU (DITOLAK) ===
+    try {
+      if (item) {
+        const config = getConfigObject(ss);
+        const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+        const guruTgId = getUserTelegramIdByUsername(ss, item.username);
+
+        if (guruTgId) {
+          const msgReject = `<b>❌ PENGAJUAN IZIN DITOLAK</b>\n` +
+            `<b>${schoolTitle}</b>\n\n` +
+            `<blockquote>` +
+            `Halo <b>${item.nama}</b>, permohonan izin Anda pada tanggal <b>${item.tanggal}</b> telah <b>DITOLAK</b>.\n\n` +
+            `<b>Kategori:</b> ${item.kategori}\n` +
+            `<b>Keterangan:</b> ${item.keterangan || '-'}\n` +
+            `<b>Ditindak Oleh:</b> ${approver || 'Kepala Sekolah'}` +
+            `</blockquote>\n\n` +
+            `<i>Silakan hubungi Kepala Sekolah atau Administrasi Sekolah untuk informasi lebih lanjut.</i>`;
+
+          sendTelegramNotification(guruTgId, msgReject);
+        }
+      }
+    } catch(errRejTg) {
+      Logger.log("Error Telegram Notif RejectIzin: " + errRejTg.toString());
+    }
 
     return jsonResponse('success', 'Pengajuan Izin Ditolak', { id });
   } catch (e) {
