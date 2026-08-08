@@ -253,20 +253,30 @@ async function autoLoadStudents() {
     let submittedBy = '';
     let submittedTime = '';
     let todayStatusMap = {};
+    let nonAutoLogsCount = 0;
+    let totalLogsCount = 0;
 
     localRecentLogs.forEach(log => {
         const logKelas = String(log.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
         const logDateNorm = String(log.tanggal || '').trim();
         if (logKelas === normSelectedKelas && (logDateNorm === tanggal || logDateNorm.includes(tanggal))) {
-            alreadySubmitted = true;
-            submittedBy = log.petugas || 'Petugas';
-            submittedTime = log.jam || '08:00';
+            totalLogsCount++;
+            const pStr = String(log.petugas || '');
+            if (!pStr.startsWith('Auto-Izin')) {
+                nonAutoLogsCount++;
+                submittedBy = log.petugas || 'Petugas';
+                submittedTime = log.jam || '08:00';
+            }
             const status = log.status || 'HADIR';
             if (log.nis) todayStatusMap[String(log.nis).trim()] = status;
             if (log.nisn) todayStatusMap[String(log.nisn).trim()] = status;
             if (log.nama) todayStatusMap[String(log.nama).trim().toLowerCase()] = status;
         }
     });
+
+    if (nonAutoLogsCount > 0 || (filteredStudents.length > 0 && totalLogsCount >= filteredStudents.length)) {
+        alreadySubmitted = true;
+    }
 
     currentStudents = filteredStudents;
     currentAlreadySubmitted = alreadySubmitted;

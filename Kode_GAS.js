@@ -1072,10 +1072,37 @@ function handleGetStudents(kelas, tanggal) {
 
   const targetTanggalStr = String(tanggal || '').trim() || getFormattedDate(new Date());
 
+  // 1. Tarik status permohonan izin siswa yang sudah DISETUJU pada tanggal tersebut
+  const sheetIzinSiswa = ss.getSheetByName(SHEET_IZIN_SISWA);
+  if (sheetIzinSiswa && sheetIzinSiswa.getLastRow() > 1) {
+    const izinData = sheetIzinSiswa.getRange(2, 1, sheetIzinSiswa.getLastRow() - 1, 14).getValues();
+    for (let i = 0; i < izinData.length; i++) {
+      const izTgl = getFormattedDate(izinData[i][2]);
+      const izStatus = String(izinData[i][11] || '').trim().toLowerCase();
+      if (izTgl === targetTanggalStr && izStatus === 'disetujui') {
+        const izNisn = String(izinData[i][3] || '').trim().replace(/^'/, '');
+        const izNis = String(izinData[i][4] || '').trim().replace(/^'/, '');
+        const izNama = String(izinData[i][5] || '').trim().toLowerCase();
+        const izKategori = String(izinData[i][8] || 'IZIN').toUpperCase();
+        let st = 'IZIN';
+        if (izKategori.includes('SAKIT')) st = 'SAKIT';
+        else if (izKategori.includes('IZIN')) st = 'IZIN';
+
+        if (izNis) todayStatus[izNis] = st;
+        if (izNisn) todayStatus[izNisn] = st;
+        if (izNama) todayStatus[izNama] = st;
+      }
+    }
+  }
+
+  // 2. Scan LogAbsen harian
+  let totalLogCountForClass = 0;
+  let nonAutoLogCount = 0;
+
   if (sheetLog) {
     const lastRow = sheetLog.getLastRow();
     if (lastRow > 1) {
-      const startRow = 2; // Scan SELURUH data log agar rekap dan status kunci absensi 100% akurat
+      const startRow = 2;
       const numRows = lastRow - startRow + 1;
       const maxCols = Math.min(7, sheetLog.getLastColumn() || 7);
       const logData = sheetLog.getRange(startRow, 1, numRows, maxCols).getValues();
@@ -1091,12 +1118,16 @@ function handleGetStudents(kelas, tanggal) {
         const normLogKelas = logKelas.replace(/[\s\-]/g, '');
 
         if ((logKelas === rawTargetKelas || normLogKelas === normTargetKelas) && logDateStr === targetTanggalStr) {
-          alreadySubmitted = true;
-          submittedBy = String(logData[i][6] || 'Petugas');
-          submittedTime = logTimeStr;
+          totalLogCountForClass++;
+          const petugasStr = String(logData[i][6] || '');
+          if (!petugasStr.startsWith('Auto-Izin')) {
+            nonAutoLogCount++;
+            submittedBy = petugasStr || 'Petugas';
+            submittedTime = logTimeStr;
+          }
 
-          const nisn = String(logData[i][1] || '').trim();
-          const nis = String(logData[i][2] || '').trim();
+          const nisn = String(logData[i][1] || '').trim().replace(/^'/, '');
+          const nis = String(logData[i][2] || '').trim().replace(/^'/, '');
           const nama = String(logData[i][3] || '').trim().toLowerCase();
           const status = String(logData[i][5] || 'HADIR');
 
@@ -1106,6 +1137,11 @@ function handleGetStudents(kelas, tanggal) {
         }
       }
     }
+  }
+
+  // Dikunci (alreadySubmitted = true) hanya jika ada absensi massal manual dari guru/petugas atau jumlah log >= jumlah siswa
+  if (nonAutoLogCount > 0 || (students.length > 0 && totalLogCountForClass >= students.length)) {
+    alreadySubmitted = true;
   }
 
   return jsonResponse('success', 'Daftar Siswa', {
@@ -1380,8 +1416,24 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
     const numCheck = lastRow - checkStart + 1;
     const existingLogs = sheetLog.getRange(checkStart, 1, numCheck, 7).getValues();
 
-    if (isEditMode) {
-      // MODE EDIT: Hapus log lama untuk kelas & tanggal ini agar ter-update tanpa duplikasi
+    let nonAutoCount = 0;
+    for (let i = existingLogs.length - 1; i >= 0; i--) {
+      const rawDate = existingLogs[i][0];
+      if (!rawDate) continue;
+
+      const logDateStr = getFormattedDate(rawDate);
+      const logKelas = String(existingLogs[i][4] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+      const petugasStr = String(existingLogs[i][6] || '');
+
+      if (logKelas === normSampleKelas && logDateStr === targetTanggalStr) {
+        if (!petugasStr.startsWith('Auto-Izin')) {
+          nonAutoCount++;
+        }
+      }
+    }
+
+    if (isEditMode || nonAutoCount === 0) {
+      // Hapus log lama (termasuk auto-izin sementara) untuk kelas & tanggal ini agar ter-update tanpa duplikasi
       for (let i = existingLogs.length - 1; i >= 0; i--) {
         const rawDate = existingLogs[i][0];
         if (!rawDate) continue;
@@ -1395,18 +1447,8 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
         }
       }
     } else {
-      // SIMPAN NORMAL: Tolak simpan ganda jika data sudah tersimpan di sheet
-      for (let i = existingLogs.length - 1; i >= 0; i--) {
-        const rawDate = existingLogs[i][0];
-        if (!rawDate) continue;
-
-        const logDateStr = getFormattedDate(rawDate);
-        const logKelas = String(existingLogs[i][4] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
-
-        if (logKelas === normSampleKelas && logDateStr === targetTanggalStr) {
-          return jsonResponse('error', `Gagal menyimpan: Data absensi kelas ${firstStudent.kelas} untuk tanggal ${targetTanggalStr} sudah ada di database sheet. Klik tombol 'Edit Data Absensi' jika ingin mengedit.`);
-        }
-      }
+      // SIMPAN NORMAL: Tolak simpan ganda jika absensi kelas sudah pernah di-submit penuh oleh guru/petugas
+      return jsonResponse('error', `Gagal menyimpan: Data absensi kelas ${firstStudent.kelas} untuk tanggal ${targetTanggalStr} sudah ada di database sheet. Klik tombol 'Edit Data Absensi' jika ingin mengedit.`);
     }
   }
 
@@ -4571,12 +4613,14 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
         }
       }
 
+      const petugasTag = 'Auto-Izin (Walas: ' + nameStr + ')';
       if (existingLogIndex !== -1) {
         sheetLog.getRange(existingLogIndex, 2).setValue(nisnForSheet);
         sheetLog.getRange(existingLogIndex, 3).setValue(nisForSheet);
         sheetLog.getRange(existingLogIndex, 6).setValue(statusAbsen);
+        sheetLog.getRange(existingLogIndex, 7).setValue(petugasTag);
       } else {
-        sheetLog.appendRow([timeNowStr, nisnForSheet, nisForSheet, nama, kelas, statusAbsen]);
+        sheetLog.appendRow([timeNowStr, nisnForSheet, nisForSheet, nama, kelas, statusAbsen, petugasTag]);
       }
     }
 
