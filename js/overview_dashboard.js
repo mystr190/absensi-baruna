@@ -149,6 +149,67 @@ function updateOverviewUI(data) {
 
     // Render Chart 4: Presensi Guru Pie Chart
     renderChartTeacherAbsen(gSummary);
+
+    // Render List 5: Guru & Staf Belum Absen
+    renderUnabsenGuruList(data.unabsenGuruList || []);
+}
+
+function renderUnabsenGuruList(list) {
+    const container = document.getElementById('listUnabsenGuru');
+    const badge = document.getElementById('badgeUnabsenGuruCount');
+    if (!container) return;
+
+    if (!list || !Array.isArray(list) || list.length === 0) {
+        if (badge) {
+            badge.innerText = '0 Orang';
+            badge.style.background = 'rgba(34, 197, 94, 0.2)';
+            badge.style.color = '#4ade80';
+            badge.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+        }
+        container.innerHTML = `
+            <div style="text-align: center; padding: 35px 10px; color: #4ade80; font-size: 0.88rem;">
+                <i class="fa-solid fa-circle-check" style="font-size: 2rem; margin-bottom: 8px; display: block; color: #22c55e;"></i>
+                <strong>Semua Guru & Staf Sudah Presensi!</strong>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Tidak ada guru/staf yang tertinggal hari ini.</div>
+            </div>
+        `;
+        return;
+    }
+
+    if (badge) {
+        badge.innerText = `${list.length} Orang`;
+        badge.style.background = 'rgba(239, 68, 68, 0.2)';
+        badge.style.color = '#fca5a5';
+        badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+    }
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+    list.forEach(item => {
+        const initial = (item.nama || item.username || 'G').charAt(0).toUpperCase();
+        const role = item.role || 'Guru / Staf';
+        const namaDisplay = typeof escapeHtml === 'function' ? escapeHtml(item.nama) : item.nama;
+        const roleDisplay = typeof escapeHtml === 'function' ? escapeHtml(role) : role;
+
+        html += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #ef4444, #f59e0b); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.85rem; flex-shrink: 0;">
+                        ${initial}
+                    </div>
+                    <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <strong style="color: #f8fafc; font-size: 0.84rem; display: block; overflow: hidden; text-overflow: ellipsis;">${namaDisplay}</strong>
+                        <span style="font-size: 0.74rem; color: #94a3b8;"><i class="fa-solid fa-user-tag" style="font-size:0.68rem; margin-right: 3px;"></i> ${roleDisplay}</span>
+                    </div>
+                </div>
+                <span style="font-size: 0.7rem; color: #fca5a5; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 6px; font-weight: 600; flex-shrink: 0;">
+                    Belum Absen
+                </span>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
 }
 
 // ==========================================

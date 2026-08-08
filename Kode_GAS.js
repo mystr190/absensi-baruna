@@ -3101,6 +3101,9 @@ function handleGetOverviewStats() {
   // 4. Data Absensi Guru & Staf (Hari Ini / Hari Berjalan)
   let guruAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
   let totalGuruLog = 0;
+  const attendedGuruUsernames = new Set();
+  const attendedGuruNames = new Set();
+
   const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
   if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
     const gData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 6).getValues();
@@ -3109,6 +3112,11 @@ function handleGetOverviewStats() {
       if (!rawDate) continue;
       const logDateFormatted = getFormattedDate(rawDate);
       if (logDateFormatted !== todayFormatted) continue;
+
+      const uName = String(gData[i][3] || '').trim().toLowerCase();
+      const nama = String(gData[i][4] || '').trim().toLowerCase();
+      if (uName) attendedGuruUsernames.add(uName);
+      if (nama) attendedGuruNames.add(nama);
 
       const st = String(gData[i][5] || '').trim().toUpperCase(); // Status di Kolom F (index 5)
       if (!st) continue;
@@ -3122,6 +3130,33 @@ function handleGetOverviewStats() {
     }
   }
 
+  // 5. Daftar Guru & Staf Yang Belum Presensi Hari Ini
+  const unabsenGuruList = [];
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers && sheetUsers.getLastRow() > 1) {
+    const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 5).getValues();
+    for (let i = 0; i < uData.length; i++) {
+      const uName = String(uData[i][1] || uData[i][0] || '').trim();
+      const role = String(uData[i][3] || 'Guru').trim();
+      const nama = String(uData[i][4] || uName).trim();
+      if (!nama || !uName) continue;
+
+      const roleUpper = role.toUpperCase();
+      if (roleUpper.includes('GURU') || roleUpper.includes('TATA USAHA') || roleUpper.includes('KEPALA') || roleUpper.includes('STAF') || roleUpper.includes('TU')) {
+        const uNameLower = uName.toLowerCase();
+        const namaLower = nama.toLowerCase();
+
+        if (!attendedGuruUsernames.has(uNameLower) && !attendedGuruNames.has(namaLower)) {
+          unabsenGuruList.push({
+            username: uName,
+            nama: nama,
+            role: role
+          });
+        }
+      }
+    }
+  }
+
   return jsonResponse('success', 'Data overview berhasil ditarik', {
     totalSiswa: totalSiswa,
     totalLaki: totalLaki,
@@ -3132,6 +3167,7 @@ function handleGetOverviewStats() {
     totalViolations: totalViolations,
     violationSummary: violationSummary,
     totalGuruLog: totalGuruLog,
-    guruAbsenSummary: guruAbsenSummary
+    guruAbsenSummary: guruAbsenSummary,
+    unabsenGuruList: unabsenGuruList
   });
 }
