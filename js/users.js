@@ -294,6 +294,7 @@ if (formUserModal) {
             if (password) formData.append('password', password);
             formData.append('nama', nama);
             formData.append('role', role);
+            formData.append('wali_kelas', modalWaliKelas ? modalWaliKelas.value : '-');
             formData.append('tugas_piket', tugas_piket);
 
             const result = await fetchWithRetry(SCRIPT_URL, {

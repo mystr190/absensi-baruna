@@ -8,6 +8,8 @@ let chartViolations = null;
 let chartTeacherAbsen = null;
 let chartStudentPersonalTimeline = null;
 
+let overviewAutoRefreshInterval = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     const navOverview = document.getElementById('nav-overview');
     if (navOverview) {
@@ -25,32 +27,57 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function renderOverviewDashboard(forceServer = false) {
-    if (typeof updateOverviewUI === 'function') updateOverviewUI(null);
-
     const btnRefresh = document.getElementById('btnRefreshOverview');
     const iconBtn = btnRefresh ? btnRefresh.querySelector('i') : null;
     if (iconBtn) iconBtn.classList.add('fa-spin');
 
-    // 1. Initial quick load from local storage cache if available
+    // 1. Instant load from local cache if available (0ms delay UI render)
     loadLocalOverviewStats();
 
     // 2. Fetch fresh real-time overview stats from server backend
     try {
-        const url = `${SCRIPT_URL}?action=get_overview_stats`;
-        const res = await fetchWithRetry(url, { method: 'GET' }, forceServer ? 2 : 1, 1000);
+        const forceParam = forceServer ? '&force_server=1' : '';
+        const url = `${SCRIPT_URL}?action=get_overview_stats${forceParam}`;
+        const res = await fetchWithRetry(url, { method: 'GET' }, forceServer ? 1 : 0, 600);
 
         if (res && res.status === 'success' && res.data) {
             updateOverviewUI(res.data);
+            try {
+                localStorage.setItem('smart_absen_overview_cache', JSON.stringify(res.data));
+            } catch(e){}
         }
     } catch (e) {
         console.warn("Failed loading live overview stats from server, fallback to local data:", e);
     } finally {
         if (iconBtn) iconBtn.classList.remove('fa-spin');
     }
+
+    // Auto-refresh interval (every 30 seconds) when Overview is active
+    if (!overviewAutoRefreshInterval) {
+        overviewAutoRefreshInterval = setInterval(() => {
+            const overviewSection = document.getElementById('overview');
+            if (overviewSection && overviewSection.style.display !== 'none') {
+                renderOverviewDashboard(false);
+            }
+        }, 30000);
+    }
 }
 
 function loadLocalOverviewStats() {
     try {
+        // 1. Try saved full overview cache first
+        const cachedOverview = localStorage.getItem('smart_absen_overview_cache');
+        if (cachedOverview) {
+            try {
+                const parsed = JSON.parse(cachedOverview);
+                if (parsed && typeof parsed === 'object' && parsed.totalSiswa !== undefined) {
+                    updateOverviewUI(parsed);
+                    return;
+                }
+            } catch(e){}
+        }
+
+        // 2. Fallback to master student list calculation
         const rawMaster = localStorage.getItem('smart_absen_master_siswa');
         const siswaList = rawMaster ? JSON.parse(rawMaster) : [];
         let totalSiswa = siswaList.length;
@@ -70,7 +97,6 @@ function loadLocalOverviewStats() {
             else if (g === 'P' || g === 'PEREMPUAN') kelasMap[kls].P++;
         });
 
-        // Hitung presensi siswa lokal jika tersedia (Hari Ini saja)
         let studentAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
         const rawRecent = localStorage.getItem('smart_absen_recent_logs');
         const todayStr = typeof getTodayYYYYMMDD === 'function' ? getTodayYYYYMMDD() : new Date().toISOString().substring(0, 10);

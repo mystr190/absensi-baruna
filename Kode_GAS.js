@@ -338,10 +338,10 @@ function doPost(e) {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
     }
     else if (action === 'add_user') {
-      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket);
+      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket, e.parameter.wali_kelas);
     }
     else if (action === 'update_user') {
-      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket);
+      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket, e.parameter.wali_kelas);
     }
     else if (action === 'delete_user') {
       return handleDeleteUser(e.parameter.username);
@@ -550,7 +550,13 @@ function getUsersFromCacheOrSheet() {
     // Determine Tugas_Piket (If legacy 9-column sheet, col 9 [index 8], else col 8 [index 7])
     let tugasPiket = '-';
     if (data[i].length >= 9) {
-      tugasPiket = String(data[i][8] || '-').trim();
+      const col8Val = String(data[i][8] || '').trim();
+      const col7Val = String(data[i][7] || '').trim();
+      if (col8Val && col8Val !== '-') {
+        tugasPiket = col8Val;
+      } else if (col7Val && col7Val !== '-' && !col7Val.match(/^(x|xi|xii)/i)) {
+        tugasPiket = col7Val;
+      }
     } else if (data[i].length >= 8) {
       tugasPiket = String(data[i][7] || '-').trim();
     }
@@ -662,31 +668,218 @@ function handleLogin(username, password) {
 }
 
 // === HANDLER MANAJEMEN GURU / PENGGUNA (CRUD) ===
-function fetchUsersList(ss) {
-  const sheet = ss.getSheetByName(SHEET_USERS);
-  if (!sheet) return [];
-  ensureDatabaseSetup();
+function updateClassWaliAssignment(ss, teacherNama, waliKelas) {
+  if (!teacherNama) return;
+  const sheetKelas = getOrCreateKelasSheet(ss);
+  if (!sheetKelas) return;
+  const kData = sheetKelas.getDataRange().getValues();
+  const teacherLower = String(teacherNama).trim().toLowerCase();
+  const targetK = String(waliKelas || '-').trim().toLowerCase();
 
-  const data = sheet.getDataRange().getValues();
-  let users = [];
+  for (let i = 1; i < kData.length; i++) {
+    const kNama = String(kData[i][0] || '').trim().toLowerCase();
+    const kWali = String(kData[i][3] || '').trim().toLowerCase();
 
-  for (let i = 1; i < data.length; i++) {
-    const id = String(data[i][0] || '').trim();
-    const username = String(data[i][1] || '').trim();
-    const password = String(data[i][2] || '').trim();
-    const role = String(data[i][3] || '').trim();
-    const nama = String(data[i][4] || '').trim();
-    const id_mesin = String(data[i][5] || '').trim();
-    const id_telegram = String(data[i][6] || '').trim();
-    const wali_kelas = String(data[i][7] || '-').trim();
-    const tugas_piket = String(data[i][8] || '-').trim();
-
-    if (username) {
-      users.push({ id, username, password, role, nama, id_mesin, id_telegram, wali_kelas, tugas_piket });
+    if (targetK !== '-' && kNama === targetK) {
+      sheetKelas.getRange(i + 1, 4).setValue(teacherNama);
+    } else if (kWali === teacherLower && teacherLower) {
+      sheetKelas.getRange(i + 1, 4).setValue('-');
     }
   }
+}
 
-  return users;
+// === CASCADE DATA UPDATE HELPERS (PREVENT DATA INCONSISTENCY) ===
+
+function cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, newNis, newNisn, newNama, newKelas, newIdMesin, newIdTelegram, oldIdMesin) {
+  try {
+    const oNis = String(oldNis || '').trim().toLowerCase();
+    const oNisn = String(oldNisn || '').trim().toLowerCase();
+    const oNama = String(oldNama || '').trim().toLowerCase();
+    const oIdMesin = String(oldIdMesin || '').trim().toLowerCase();
+
+    const cNisn = String(newNisn || '').trim();
+    const cNis = String(newNis || '').trim();
+    const cNama = String(newNama || '').trim();
+    const cKelas = String(newKelas || '').trim();
+    const cIdMesin = String(newIdMesin || '').trim();
+    const cIdTg = String(newIdTelegram || '').trim();
+
+    // 1. Update Sheet LogAbsen
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog && sheetLog.getLastRow() > 1) {
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 11).getValues();
+      for (let i = 0; i < lData.length; i++) {
+        const rNisn = String(lData[i][3] || '').trim().toLowerCase();
+        const rNis = String(lData[i][4] || '').trim().toLowerCase();
+        const rNama = String(lData[i][5] || '').trim().toLowerCase();
+
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn) sheetLog.getRange(rowIdx, 4).setValue(cNisn);
+          if (cNis) sheetLog.getRange(rowIdx, 5).setValue(cNis);
+          if (cNama) sheetLog.getRange(rowIdx, 6).setValue(cNama);
+          if (cKelas) sheetLog.getRange(rowIdx, 7).setValue(cKelas);
+          if (cIdMesin) sheetLog.getRange(rowIdx, 10).setValue(cIdMesin);
+          if (cIdTg) sheetLog.getRange(rowIdx, 11).setValue(cIdTg);
+        }
+      }
+    }
+
+    // 2. Update Sheet LogIzinSiswa
+    const sheetIzin = ss.getSheetByName(SHEET_IZIN_SISWA);
+    if (sheetIzin && sheetIzin.getLastRow() > 1) {
+      const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < izData.length; i++) {
+        const rNisn = String(izData[i][3] || '').trim().toLowerCase();
+        const rNis = String(izData[i][4] || '').trim().toLowerCase();
+        const rNama = String(izData[i][5] || '').trim().toLowerCase();
+
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn) sheetIzin.getRange(rowIdx, 4).setValue(cNisn);
+          if (cNis) sheetIzin.getRange(rowIdx, 5).setValue(cNis);
+          if (cNama) sheetIzin.getRange(rowIdx, 6).setValue(cNama);
+          if (cKelas) sheetIzin.getRange(rowIdx, 7).setValue(cKelas);
+        }
+      }
+    }
+
+    // 3. Update Sheet LogPelanggaran
+    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
+    if (sheetPel && sheetPel.getLastRow() > 1) {
+      const pData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < pData.length; i++) {
+        const rNis = String(pData[i][2] || '').trim().toLowerCase();
+        const rNama = String(pData[i][3] || '').trim().toLowerCase();
+
+        if ((oNisn && rNis === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn || cNis) sheetPel.getRange(rowIdx, 3).setValue(cNisn || cNis);
+          if (cNama) sheetPel.getRange(rowIdx, 4).setValue(cNama);
+          if (cKelas) sheetPel.getRange(rowIdx, 5).setValue(cKelas);
+        }
+      }
+    }
+
+    // 4. Update Sheet User_Mesin
+    const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
+    if (sheetUM && sheetUM.getLastRow() > 1) {
+      const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 6).getValues();
+      for (let i = 0; i < umData.length; i++) {
+        const rIdM = String(umData[i][0] || '').trim().toLowerCase();
+        const rNama = String(umData[i][2] || '').trim().toLowerCase();
+
+        if ((cIdMesin && rIdM === cIdMesin.toLowerCase()) || (oIdMesin && rIdM === oIdMesin) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cIdMesin) sheetUM.getRange(rowIdx, 1).setValue(cIdMesin);
+          if (cNama) sheetUM.getRange(rowIdx, 3).setValue(cNama);
+          sheetUM.getRange(rowIdx, 4).setValue('Siswa');
+          if (cKelas) sheetUM.getRange(rowIdx, 5).setValue(cKelas);
+          if (cIdTg) sheetUM.getRange(rowIdx, 6).setValue(cIdTg);
+        }
+      }
+    }
+  } catch (err) {
+    Logger.log("Err cascadeUpdateStudentData: " + err.toString());
+  }
+}
+
+function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama, newRole, newIdMesin, newIdTelegram, newWaliKelas, newTugasPiket, oldIdMesin) {
+  try {
+    const oU = String(oldUsername || '').trim().toLowerCase();
+    const oNama = String(oldNama || '').trim().toLowerCase();
+    const oIdMesin = String(oldIdMesin || '').trim().toLowerCase();
+
+    const cU = String(newUsername || '').trim();
+    const cNama = String(newNama || '').trim();
+    const cRole = String(newRole || 'Guru').trim();
+    const cIdMesin = String(newIdMesin || '').trim();
+    const cIdTg = String(newIdTelegram || '').trim();
+
+    // 1. Update Sheet LogAbsenGuru
+    const sheetLogG = ss.getSheetByName(SHEET_LOG_GURU);
+    if (sheetLogG && sheetLogG.getLastRow() > 1) {
+      const gData = sheetLogG.getRange(2, 1, sheetLogG.getLastRow() - 1, 10).getValues();
+      for (let i = 0; i < gData.length; i++) {
+        const rU = String(gData[i][3] || '').trim().toLowerCase();
+        const rNama = String(gData[i][4] || '').trim().toLowerCase();
+
+        if ((oU && rU === oU) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cU) sheetLogG.getRange(rowIdx, 4).setValue(cU);
+          if (cNama) sheetLogG.getRange(rowIdx, 5).setValue(cNama);
+          if (cRole) sheetLogG.getRange(rowIdx, 6).setValue(cRole);
+          if (cIdMesin) sheetLogG.getRange(rowIdx, 9).setValue(cIdMesin);
+          if (cIdTg) sheetLogG.getRange(rowIdx, 10).setValue(cIdTg);
+        }
+      }
+    }
+
+    // 2. Update Sheet DataKelas (Wali Kelas assignment & name sync)
+    const sheetKelas = ss.getSheetByName(SHEET_KELAS);
+    if (sheetKelas && sheetKelas.getLastRow() > 1) {
+      const kData = sheetKelas.getRange(2, 1, sheetKelas.getLastRow() - 1, 4).getValues();
+      const targetWaliK = String(newWaliKelas || '-').trim().toLowerCase();
+
+      for (let i = 0; i < kData.length; i++) {
+        const kNama = String(kData[i][0] || '').trim().toLowerCase();
+        const kWali = String(kData[i][3] || '').trim().toLowerCase();
+
+        if (targetWaliK !== '-' && kNama === targetWaliK) {
+          sheetKelas.getRange(i + 2, 4).setValue(cNama);
+        } else if (kWali === oNama || (oU && kWali === oU)) {
+          if (targetWaliK === '-') {
+            sheetKelas.getRange(i + 2, 4).setValue('-');
+          } else {
+            sheetKelas.getRange(i + 2, 4).setValue(cNama);
+          }
+        }
+      }
+    }
+
+    // 3. Update Sheet LogIzinSiswa (Wali Kelas & Approver name sync)
+    const sheetIzin = ss.getSheetByName(SHEET_IZIN_SISWA);
+    if (sheetIzin && sheetIzin.getLastRow() > 1) {
+      const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 13).getValues();
+      for (let i = 0; i < izData.length; i++) {
+        const rWali = String(izData[i][7] || '').trim().toLowerCase();
+        const rAppr = String(izData[i][12] || '').trim().toLowerCase();
+
+        const rowIdx = i + 2;
+        if (oNama && rWali === oNama && cNama) {
+          sheetIzin.getRange(rowIdx, 8).setValue(cNama);
+        }
+        if (oNama && rAppr === oNama && cNama) {
+          sheetIzin.getRange(rowIdx, 13).setValue(cNama);
+        }
+      }
+    }
+
+    // 4. Update Sheet User_Mesin
+    const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
+    if (sheetUM && sheetUM.getLastRow() > 1) {
+      const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 6).getValues();
+      for (let i = 0; i < umData.length; i++) {
+        const rIdM = String(umData[i][0] || '').trim().toLowerCase();
+        const rNama = String(umData[i][2] || '').trim().toLowerCase();
+
+        if ((cIdMesin && rIdM === cIdMesin.toLowerCase()) || (oIdMesin && rIdM === oIdMesin) || (oNama && rNama === oNama) || (oU && rNama === oU)) {
+          const rowIdx = i + 2;
+          if (cIdMesin) sheetUM.getRange(rowIdx, 1).setValue(cIdMesin);
+          if (cNama) sheetUM.getRange(rowIdx, 3).setValue(cNama);
+          sheetUM.getRange(rowIdx, 4).setValue('Guru');
+          if (cRole) sheetUM.getRange(rowIdx, 5).setValue(cRole);
+          if (cIdTg) sheetUM.getRange(rowIdx, 6).setValue(cIdTg);
+        }
+      }
+    }
+  } catch (err) {
+    Logger.log("Err cascadeUpdateTeacherData: " + err.toString());
+  }
+}
+
+function fetchUsersList(ss) {
+  return getUsersFromCacheOrSheet();
 }
 
 function handleGetUsers() {
@@ -694,7 +887,7 @@ function handleGetUsers() {
   return jsonResponse('success', 'Daftar Pengguna', fetchUsersList(ss));
 }
 
-function handleAddUser(username, password, role, nama, id_mesin, id_telegram, tugas_piket) {
+function handleAddUser(username, password, role, nama, id_mesin, id_telegram, tugas_piket, wali_kelas) {
   if (!username || !password || !nama) {
     return jsonResponse('error', 'Username, Password, dan Nama Lengkap wajib diisi.');
   }
@@ -726,10 +919,14 @@ function handleAddUser(username, password, role, nama, id_mesin, id_telegram, tu
     String(tugas_piket || '-').trim()
   ]);
 
+  if (wali_kelas) {
+    updateClassWaliAssignment(ss, nama.trim(), wali_kelas);
+  }
+
   return jsonResponse('success', `Pengguna "${nama}" berhasil ditambahkan.`);
 }
 
-function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram, tugas_piket) {
+function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram, tugas_piket, wali_kelas) {
   if (!oldUsername || !username || !nama) {
     return jsonResponse('error', 'Data pengguna tidak lengkap.');
   }
@@ -747,6 +944,9 @@ function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin,
       const currentUsername = String(data[i][1] || '').trim().toLowerCase();
       if (currentUsername === targetOld) {
         const rowIndex = i + 1;
+        const oldNama = String(data[i][4] || '').trim();
+        const oldIdMesin = String(data[i][5] || '').trim();
+
         sheet.getRange(rowIndex, 2).setValue(username.trim()); // Username
         if (password) sheet.getRange(rowIndex, 3).setValue(password.trim()); // Password
         sheet.getRange(rowIndex, 4).setValue(role || 'Guru'); // Role
@@ -754,6 +954,13 @@ function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin,
         sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
         sheet.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram
         sheet.getRange(rowIndex, 8).setValue(String(tugas_piket || '-').trim()); // Tugas_Piket
+
+        if (wali_kelas !== undefined) {
+          updateClassWaliAssignment(ss, nama.trim(), wali_kelas);
+        }
+
+        // Cascade Update related teacher data across all sheets
+        cascadeUpdateTeacherData(ss, oldUsername, oldNama, username.trim(), nama.trim(), role || 'Guru', String(id_mesin || '').trim(), String(id_telegram || '').trim(), wali_kelas, String(tugas_piket || '-').trim(), oldIdMesin);
 
         return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
       }
@@ -771,8 +978,16 @@ function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin,
 
       if (nis === targetOld || nisn === targetOld) {
         const rowIndex = j + 1;
+        const sNisn = String(dataSiswa[j][0] || '').trim();
+        const sNis = String(dataSiswa[j][1] || '').trim();
+        const sNama = String(dataSiswa[j][2] || '').trim();
+        const sKelas = String(dataSiswa[j][3] || '').trim();
+        const sIdMesin = String(dataSiswa[j][5] || '').trim();
+
         if (password) sheetSiswa.getRange(rowIndex, 8).setValue(password.trim()); // Password (col H)
         sheetSiswa.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram (col G)
+
+        cascadeUpdateStudentData(ss, sNis, sNisn, sNama, sNis, sNisn, sNama, sKelas, sIdMesin, String(id_telegram || '').trim(), sIdMesin);
 
         return jsonResponse('success', `Profil Siswa "${nama}" berhasil diperbarui.`);
       }
@@ -2497,12 +2712,17 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id
   const targetOldNisn = String(oldNisn || '').trim().toLowerCase();
 
   let targetRow = -1;
+  let oldNama = '';
+  let oldIdMesin = '';
+
   for (let i = 1; i < data.length; i++) {
     const rNisn = String(data[i][0] || '').trim().toLowerCase();
     const rNis = String(data[i][1] || '').trim().toLowerCase();
 
     if ((targetOldNis && rNis === targetOldNis) || (targetOldNisn && rNisn === targetOldNisn)) {
       targetRow = i + 1;
+      oldNama = String(data[i][2] || '').trim();
+      oldIdMesin = String(data[i][5] || '').trim();
       break;
     }
   }
@@ -2521,6 +2741,9 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id
 
   sheet.getRange(targetRow, 1, 1, 7).setValues([[cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin, cleanIdTelegram]]);
   clearStudentCache();
+
+  // Cascade Update across all related sheets (LogAbsen, LogIzinSiswa, LogPelanggaran, User_Mesin)
+  cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, cleanNis, cleanNisn, cleanNama, cleanKelas, cleanIdMesin, cleanIdTelegram, oldIdMesin);
 
   return jsonResponse('success', `Data siswa "${cleanNama}" berhasil diperbarui.`);
 }
@@ -3520,7 +3743,18 @@ function handleGetSelfProfile(username) {
 }
 
 // === OVERVIEW STATS & ANALYTICS SUMMARY ENDPOINT ===
-function handleGetOverviewStats() {
+function handleGetOverviewStats(forceServer) {
+  const cache = CacheService.getScriptCache();
+  if (!forceServer) {
+    const cached = cache.get("OVERVIEW_STATS_CACHE");
+    if (cached) {
+      try {
+        const obj = JSON.parse(cached);
+        return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+      } catch (e) {}
+    }
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // 1. Data Siswa & Gender & Kelas
@@ -3533,15 +3767,16 @@ function handleGetOverviewStats() {
   if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
     const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 6).getValues();
     for (let i = 0; i < sData.length; i++) {
-      const nama = String(sData[i][3] || '').trim();
+      const nama = String(sData[i][2] || '').trim();
       if (!nama) continue;
 
       totalSiswa++;
+      const kls = String(sData[i][3] || 'Lainnya').trim();
       const gender = String(sData[i][4] || '').trim().toUpperCase();
+
       if (gender === 'L' || gender === 'LAKI-LAKI') totalLaki++;
       else if (gender === 'P' || gender === 'PEREMPUAN') totalPerempuan++;
 
-      const kls = String(sData[i][5] || 'Lainnya').trim();
       if (!kelasMap[kls]) kelasMap[kls] = { kls: kls, total: 0, L: 0, P: 0 };
       kelasMap[kls].total++;
       if (gender === 'L' || gender === 'LAKI-LAKI') kelasMap[kls].L++;
@@ -3551,25 +3786,36 @@ function handleGetOverviewStats() {
 
   const todayFormatted = getFormattedDate(new Date());
 
-  // 2. Data Absensi Siswa (Hari Ini / Hari Berjalan)
+  // 2. Data Absensi Siswa (Hari Ini & Historical Logs)
   let studentAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
+  const studentLogs = [];
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   if (sheetLog && sheetLog.getLastRow() > 1) {
-    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
+    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 8).getValues();
     for (let i = 0; i < logData.length; i++) {
-      const rawDate = logData[i][0];
+      const rawDate = logData[i][1];
       if (!rawDate) continue;
       const logDateFormatted = getFormattedDate(rawDate);
-      if (logDateFormatted !== todayFormatted) continue;
+      const st = String(logData[i][7] || '').trim().toUpperCase();
 
-      const st = String(logData[i][5] || '').trim().toUpperCase();
-      if (!st) continue;
-      if (st.includes('HADIR') || st === 'H') studentAbsenSummary.Hadir++;
-      else if (st.includes('SAKIT') || st === 'S') studentAbsenSummary.Sakit++;
-      else if (st.includes('IZIN') || st === 'I') studentAbsenSummary.Izin++;
-      else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') studentAbsenSummary.Alpa++;
-      else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') studentAbsenSummary.Terlambat++;
-      else studentAbsenSummary.Hadir++;
+      studentLogs.push({
+        tanggal: logDateFormatted,
+        nisn: String(logData[i][3] || '').trim(),
+        nis: String(logData[i][4] || '').trim(),
+        nama: String(logData[i][5] || '').trim(),
+        kelas: String(logData[i][6] || '').trim(),
+        status: st
+      });
+
+      if (logDateFormatted === todayFormatted) {
+        if (!st) continue;
+        if (st.includes('HADIR') || st === 'H') studentAbsenSummary.Hadir++;
+        else if (st.includes('SAKIT') || st === 'S') studentAbsenSummary.Sakit++;
+        else if (st.includes('IZIN') || st === 'I') studentAbsenSummary.Izin++;
+        else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') studentAbsenSummary.Alpa++;
+        else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') studentAbsenSummary.Terlambat++;
+        else studentAbsenSummary.Hadir++;
+      }
     }
   }
 
@@ -3578,16 +3824,16 @@ function handleGetOverviewStats() {
   let totalViolations = 0;
   const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
   if (sheetPelanggaran && sheetPelanggaran.getLastRow() > 1) {
-    const pData = sheetPelanggaran.getRange(2, 6, sheetPelanggaran.getLastRow() - 1, 1).getValues();
+    const pData = sheetPelanggaran.getRange(2, 1, sheetPelanggaran.getLastRow() - 1, 6).getValues();
     for (let i = 0; i < pData.length; i++) {
-      const kat = String(pData[i][0] || 'Lainnya').trim();
+      const kat = String(pData[i][5] || pData[i][4] || 'Lainnya').trim();
       if (!kat) continue;
       totalViolations++;
       violationSummary[kat] = (violationSummary[kat] || 0) + 1;
     }
   }
 
-  // 4. Data Absensi Guru & Staf (Hari Ini / Hari Berjalan)
+  // 4. Data Absensi Guru & Staf (Hari Ini)
   let guruAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
   let totalGuruLog = 0;
   const attendedGuruUsernames = new Set();
@@ -3595,9 +3841,9 @@ function handleGetOverviewStats() {
 
   const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
   if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
-    const gData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 6).getValues();
+    const gData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 7).getValues();
     for (let i = 0; i < gData.length; i++) {
-      const rawDate = gData[i][2]; // Tanggal di Kolom C (index 2)
+      const rawDate = gData[i][1];
       if (!rawDate) continue;
       const logDateFormatted = getFormattedDate(rawDate);
       if (logDateFormatted !== todayFormatted) continue;
@@ -3607,7 +3853,7 @@ function handleGetOverviewStats() {
       if (uName) attendedGuruUsernames.add(uName);
       if (nama) attendedGuruNames.add(nama);
 
-      const st = String(gData[i][5] || '').trim().toUpperCase(); // Status di Kolom F (index 5)
+      const st = String(gData[i][6] || '').trim().toUpperCase();
       if (!st) continue;
       totalGuruLog++;
       if (st.includes('HADIR') || st === 'H') guruAbsenSummary.Hadir++;
@@ -3646,26 +3892,7 @@ function handleGetOverviewStats() {
     }
   }
 
-  // 6. Data Seluruh Log Presensi Siswa (Untuk Riwayat & Tren Personal Siswa)
-  const studentLogs = [];
-  if (sheetLog && sheetLog.getLastRow() > 1) {
-    const allLogData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
-    for (let i = 0; i < allLogData.length; i++) {
-      const rawWaktu = allLogData[i][0];
-      if (!rawWaktu) continue;
-      const tglStr = getFormattedDate(rawWaktu);
-      studentLogs.push({
-        tanggal: tglStr,
-        nisn: String(allLogData[i][1] || '').trim(),
-        nis: String(allLogData[i][2] || '').trim(),
-        nama: String(allLogData[i][3] || '').trim(),
-        kelas: String(allLogData[i][4] || '').trim(),
-        status: String(allLogData[i][5] || '').trim()
-      });
-    }
-  }
-
-  return jsonResponse('success', 'Data overview berhasil ditarik', {
+  const resultObj = {
     totalSiswa: totalSiswa,
     totalLaki: totalLaki,
     totalPerempuan: totalPerempuan,
@@ -3678,7 +3905,17 @@ function handleGetOverviewStats() {
     guruAbsenSummary: guruAbsenSummary,
     unabsenGuruList: unabsenGuruList,
     studentLogs: studentLogs
-  });
+  };
+
+  try {
+    cache.put("OVERVIEW_STATS_CACHE", JSON.stringify({
+      status: 'success',
+      message: 'Data overview (cached)',
+      data: resultObj
+    }), 45); // Cache for 45s
+  } catch (e) {}
+
+  return jsonResponse('success', 'Data overview berhasil ditarik', resultObj);
 }
 
 // ==========================================
