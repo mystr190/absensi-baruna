@@ -1202,12 +1202,39 @@ function handleGetAllMasterData() {
         recentLogs.push({
           tanggal: logDateStr,
           jam: logTimeStr,
-          nisn: String(logData[i][1] || ''),
-          nis: String(logData[i][2] || ''),
-          nama: String(logData[i][3] || ''),
-          kelas: String(logData[i][4] || ''),
+          nisn: String(logData[i][1] || '').trim().replace(/^'/, ''),
+          nis: String(logData[i][2] || '').trim().replace(/^'/, ''),
+          nama: String(logData[i][3] || '').trim(),
+          kelas: String(logData[i][4] || '').trim(),
           status: String(logData[i][5] || 'HADIR'),
           petugas: String(logData[i][6] || 'Petugas')
+        });
+      }
+    }
+  }
+
+  // 2b. Ambil Permohonan Izin Siswa yang Disetujui
+  const sheetIzinSiswa = ss.getSheetByName(SHEET_IZIN_SISWA);
+  if (sheetIzinSiswa && sheetIzinSiswa.getLastRow() > 1) {
+    const izData = sheetIzinSiswa.getRange(2, 1, sheetIzinSiswa.getLastRow() - 1, 14).getValues();
+    for (let i = izData.length - 1; i >= 0; i--) {
+      const statusIz = String(izData[i][11] || '').trim().toLowerCase();
+      if (statusIz === 'disetujui') {
+        const izTgl = getFormattedDate(izData[i][2]);
+        const izKat = String(izData[i][8] || 'IZIN').toUpperCase();
+        let st = 'IZIN';
+        if (izKat.includes('SAKIT')) st = 'SAKIT';
+        else if (izKat.includes('IZIN')) st = 'IZIN';
+
+        recentLogs.push({
+          tanggal: izTgl,
+          jam: '07:00:00',
+          nisn: String(izData[i][3] || '').trim().replace(/^'/, ''),
+          nis: String(izData[i][4] || '').trim().replace(/^'/, ''),
+          nama: String(izData[i][5] || '').trim(),
+          kelas: String(izData[i][6] || '').trim(),
+          status: st,
+          petugas: 'Auto-Izin (Walas)'
         });
       }
     }

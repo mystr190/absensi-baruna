@@ -253,6 +253,7 @@ async function autoLoadStudents() {
     let submittedBy = '';
     let submittedTime = '';
     let todayStatusMap = {};
+    let autoIzinMap = {};
     let nonAutoLogsCount = 0;
     let totalLogsCount = 0;
 
@@ -262,12 +263,16 @@ async function autoLoadStudents() {
         if (logKelas === normSelectedKelas && (logDateNorm === tanggal || logDateNorm.includes(tanggal))) {
             totalLogsCount++;
             const pStr = String(log.petugas || '');
-            if (!pStr.startsWith('Auto-Izin')) {
+            const status = log.status || 'HADIR';
+            if (pStr.startsWith('Auto-Izin')) {
+                if (log.nis) autoIzinMap[String(log.nis).trim()] = status;
+                if (log.nisn) autoIzinMap[String(log.nisn).trim()] = status;
+                if (log.nama) autoIzinMap[String(log.nama).trim().toLowerCase()] = status;
+            } else {
                 nonAutoLogsCount++;
                 submittedBy = log.petugas || 'Petugas';
                 submittedTime = log.jam || '08:00';
             }
-            const status = log.status || 'HADIR';
             if (log.nis) todayStatusMap[String(log.nis).trim()] = status;
             if (log.nisn) todayStatusMap[String(log.nisn).trim()] = status;
             if (log.nama) todayStatusMap[String(log.nama).trim().toLowerCase()] = status;
@@ -281,6 +286,7 @@ async function autoLoadStudents() {
     currentStudents = filteredStudents;
     currentAlreadySubmitted = alreadySubmitted;
     currentTodayStatus = todayStatusMap;
+    window.currentAutoIzinMap = autoIzinMap;
 
     // 3. RENDER KELAS KE TABEL INSTAN!
     if (labelKelasTerpilih) labelKelasTerpilih.innerText = `${kelas} (Tanggal: ${tanggal})`;
@@ -305,7 +311,24 @@ async function autoLoadStudents() {
         showToast(`Tidak ada data siswa ditemukan untuk kelas ${kelas}.`, 'warning');
     } else {
         const lockInputs = isFutureDate || (currentAlreadySubmitted && !isEditAttendanceMode);
-        renderStudentList(currentStudents, lockInputs, currentTodayStatus);
+        renderStudentList(currentStudents, lockInputs, currentTodayStatus, window.currentAutoIzinMap);
+
+        // Tarik data tanggal & kelas ini dari Google Sheets secara background
+        if (window.SCRIPT_URL) {
+            fetchWithRetry(`${SCRIPT_URL}?action=get_students&kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`, { method: 'GET' }, 1, 500)
+            .then(res => {
+                if (res && res.status === 'success' && res.data) {
+                    if (res.data.todayStatus && Object.keys(res.data.todayStatus).length > 0) {
+                        Object.assign(currentTodayStatus, res.data.todayStatus);
+                        if (res.data.alreadySubmitted) {
+                            currentAlreadySubmitted = true;
+                        }
+                        const updatedLockInputs = isFutureDate || (currentAlreadySubmitted && !isEditAttendanceMode);
+                        renderStudentList(currentStudents, updatedLockInputs, currentTodayStatus, window.currentAutoIzinMap);
+                    }
+                }
+            }).catch(e => console.log('Date sync info:', e));
+        }
 
         const btnTextElem = btnSimpanAbsenKelas ? btnSimpanAbsenKelas.querySelector('.btn-text') : null;
 
@@ -479,7 +502,7 @@ if (inputTanggalAbsen) {
     });
 }
 
-function renderStudentList(students, isSubmitted, todayStatusMap) {
+function renderStudentList(students, isSubmitted, todayStatusMap, autoIzinMap = {}) {
     const tableBody = document.getElementById('tableBodySiswa') || document.getElementById('tbodySiswa');
     if (!tableBody) return;
 
@@ -492,25 +515,33 @@ function renderStudentList(students, isSubmitted, todayStatusMap) {
         const nisnKey = String(siswa.nisn || '').trim();
         const namaKey = String(siswa.nama || '').trim().toLowerCase();
         const existingStatus = todayStatusMap[nisKey] || todayStatusMap[nisnKey] || todayStatusMap[namaKey] || 'HADIR';
+        const isAutoIzin = autoIzinMap[nisKey] || autoIzinMap[nisnKey] || autoIzinMap[namaKey];
 
         statuses.forEach(status => {
             const checked = status === existingStatus ? 'checked' : '';
-            const disabledAttr = isSubmitted ? 'disabled' : '';
+            // Kunci sementara siswa yang memiliki Izin yang disetujui (Auto-Izin) agar tidak sengaja diubah oleh guru/petugas
+            const isStudentLocked = isSubmitted || (isAutoIzin && !isEditAttendanceMode);
+            const disabledAttr = isStudentLocked ? 'disabled' : '';
             
             radioButtons += `
-                <label style="margin-right: 10px; cursor: ${isSubmitted ? 'not-allowed' : 'pointer'}; display: inline-flex; align-items: center; gap: 3px; opacity: ${isSubmitted && !checked ? '0.5' : '1'};">
+                <label style="margin-right: 10px; cursor: ${isStudentLocked ? 'not-allowed' : 'pointer'}; display: inline-flex; align-items: center; gap: 3px; opacity: ${isStudentLocked && !checked ? '0.4' : '1'};">
                     <input type="radio" name="status_${siswa.nis}" value="${status}" ${checked} ${disabledAttr}>
-                    <span style="font-size: 0.85rem; font-weight: ${checked ? 'bold' : 'normal'};">${status}</span>
+                    <span style="font-size: 0.85rem; font-weight: ${checked ? 'bold' : 'normal'}; color: ${checked && isAutoIzin ? '#f59e0b' : 'inherit'};">${status}</span>
                 </label>
             `;
         });
 
+        let nameDisplay = escapeHtml(siswa.nama);
+        if (isAutoIzin) {
+            nameDisplay += ` <span class="badge" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem; padding: 2px 7px; margin-left: 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-lock" style="font-size: 0.68rem;"></i> Izin ACC Walas (${isAutoIzin})</span>`;
+        }
+
         html += `
-            <tr style="background: ${isSubmitted ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.02)'};">
+            <tr style="background: ${isSubmitted ? 'rgba(255,255,255,0.01)' : (isAutoIzin ? 'rgba(245, 158, 11, 0.04)' : 'rgba(255,255,255,0.02)')};">
                 <td style="text-align:center; font-weight:bold;">${index + 1}</td>
                 <td style="font-size: 0.9rem;">${siswa.nisn || '-'}</td>
                 <td><strong>${siswa.nis || '-'}</strong></td>
-                <td>${siswa.nama}</td>
+                <td>${nameDisplay}</td>
                 <td><span class="badge" style="background:rgba(255,255,255,0.08); font-size:0.8rem;">${siswa.kelas}</span></td>
                 <td style="text-align: center;">
                     <div style="display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;">
