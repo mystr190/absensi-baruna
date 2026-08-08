@@ -817,7 +817,6 @@ select option { background: var(--bg-color); color: var(--text-main); }
 
     .nav-item {
         flex: 0 0 auto !important;
-        display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
@@ -832,6 +831,11 @@ select option { background: var(--bg-color); color: var(--text-main); }
         -webkit-user-select: none !important;
         touch-action: manipulation !important;
         -webkit-tap-highlight-color: transparent !important;
+    }
+
+    .nav-item[style*="display: none"],
+    .nav-item[style*="display:none"] {
+        display: none !important;
     }
 
     .nav-item:active {
