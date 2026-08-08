@@ -764,6 +764,25 @@ function cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, newNis, newNisn,
         }
       }
     }
+
+    // 5. Update Sheet Users (If Student Account Exists)
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers && sheetUsers.getLastRow() > 1) {
+      const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < uData.length; i++) {
+        const rUsername = String(uData[i][1] || '').trim().toLowerCase();
+        const rRole = String(uData[i][3] || '').trim().toLowerCase();
+        const rNama = String(uData[i][4] || '').trim().toLowerCase();
+
+        if (rRole === 'siswa' && ((oNisn && rUsername === oNisn) || (oNis && rUsername === oNis) || (oNama && rNama === oNama))) {
+          const rowIdx = i + 2;
+          if (cNisn || cNis) sheetUsers.getRange(rowIdx, 2).setValue(cNisn || cNis);
+          if (cNama) sheetUsers.getRange(rowIdx, 5).setValue(cNama);
+          if (cIdMesin) sheetUsers.getRange(rowIdx, 6).setValue(cIdMesin);
+          if (cIdTg) sheetUsers.getRange(rowIdx, 7).setValue(cIdTg);
+        }
+      }
+    }
   } catch (err) {
     Logger.log("Err cascadeUpdateStudentData: " + err.toString());
   }
@@ -840,7 +859,49 @@ function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama
       }
     }
 
-    // 4. Update Sheet User_Mesin
+    // 4. Update Sheet PengajuanIzin (Guru & Staff leave requests)
+    const sheetPengajuan = ss.getSheetByName(SHEET_PENGAJUAN_IZIN);
+    if (sheetPengajuan && sheetPengajuan.getLastRow() > 1) {
+      const pData = sheetPengajuan.getRange(2, 1, sheetPengajuan.getLastRow() - 1, 9).getValues();
+      for (let i = 0; i < pData.length; i++) {
+        const rNama = String(pData[i][1] || '').trim().toLowerCase();
+        const rAppr = String(pData[i][8] || '').trim().toLowerCase();
+
+        const rowIdx = i + 2;
+        if (oNama && rNama === oNama && cNama) {
+          sheetPengajuan.getRange(rowIdx, 2).setValue(cNama);
+        }
+        if (oNama && rAppr === oNama && cNama) {
+          sheetPengajuan.getRange(rowIdx, 9).setValue(cNama);
+        }
+      }
+    }
+
+    // 5. Update Sheet LogPelanggaran (Guru Pelapor sync)
+    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
+    if (sheetPel && sheetPel.getLastRow() > 1) {
+      const pelData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 9).getValues();
+      for (let i = 0; i < pelData.length; i++) {
+        const rGuru = String(pelData[i][8] || '').trim().toLowerCase();
+        if (oNama && rGuru === oNama && cNama) {
+          sheetPel.getRange(i + 2, 9).setValue(cNama);
+        }
+      }
+    }
+
+    // 6. Update Sheet LogAbsen (Petugas/Guru name sync)
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog && sheetLog.getLastRow() > 1) {
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < lData.length; i++) {
+        const rPetugas = String(lData[i][6] || '').trim().toLowerCase();
+        if (oNama && rPetugas === oNama && cNama) {
+          sheetLog.getRange(i + 2, 7).setValue(cNama);
+        }
+      }
+    }
+
+    // 7. Update Sheet User_Mesin
     const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
     if (sheetUM && sheetUM.getLastRow() > 1) {
       const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 6).getValues();
@@ -860,6 +921,68 @@ function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama
     }
   } catch (err) {
     Logger.log("Err cascadeUpdateTeacherData: " + err.toString());
+  }
+}
+
+// === CASCADE UPDATE CLASS NAME ACROSS ALL RELATED SHEETS ===
+function cascadeUpdateClassName(ss, oldClassName, newClassName) {
+  if (!oldClassName || !newClassName || oldClassName === newClassName) return;
+
+  try {
+    const oK = String(oldClassName).trim().toLowerCase();
+    const nK = String(newClassName).trim();
+
+    // 1. Update Sheet DataSiswa
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const k = String(sData[i][3] || '').trim().toLowerCase();
+        if (k === oK) sheetSiswa.getRange(i + 2, 4).setValue(nK);
+      }
+    }
+
+    // 2. Update Sheet LogAbsen
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog && sheetLog.getLastRow() > 1) {
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < lData.length; i++) {
+        const k = String(lData[i][4] || '').trim().toLowerCase();
+        if (k === oK) sheetLog.getRange(i + 2, 5).setValue(nK);
+      }
+    }
+
+    // 3. Update Sheet LogIzinSiswa
+    const sheetIzin = ss.getSheetByName(SHEET_IZIN_SISWA);
+    if (sheetIzin && sheetIzin.getLastRow() > 1) {
+      const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < izData.length; i++) {
+        const k = String(izData[i][6] || '').trim().toLowerCase();
+        if (k === oK) sheetIzin.getRange(i + 2, 7).setValue(nK);
+      }
+    }
+
+    // 4. Update Sheet LogPelanggaran
+    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
+    if (sheetPel && sheetPel.getLastRow() > 1) {
+      const pData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < pData.length; i++) {
+        const k = String(pData[i][6] || '').trim().toLowerCase();
+        if (k === oK) sheetPel.getRange(i + 2, 7).setValue(nK);
+      }
+    }
+
+    // 5. Update Sheet User_Mesin
+    const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
+    if (sheetUM && sheetUM.getLastRow() > 1) {
+      const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < umData.length; i++) {
+        const k = String(umData[i][4] || '').trim().toLowerCase();
+        if (k === oK) sheetUM.getRange(i + 2, 5).setValue(nK);
+      }
+    }
+  } catch (err) {
+    Logger.log("Err cascadeUpdateClassName: " + err.toString());
   }
 }
 
@@ -4225,6 +4348,9 @@ function handleSaveKelas(nama, tingkat, jurusan, wali_kelas, kapasitas, old_nama
   
   if (foundRow > 0) {
     sheet.getRange(foundRow, 1, 1, 5).setValues([[nama, cleanTingkat, jurusan || '-', cleanWali, kapasitas || '36']]);
+    if (old_nama && old_nama.trim() !== nama.trim()) {
+      cascadeUpdateClassName(ss, old_nama.trim(), nama.trim());
+    }
     return jsonResponse('success', `Data Kelas '${nama}' berhasil diperbarui!`);
   } else {
     sheet.appendRow([nama, cleanTingkat, jurusan || '-', cleanWali, kapasitas || '36']);
