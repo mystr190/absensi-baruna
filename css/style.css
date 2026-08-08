@@ -651,51 +651,100 @@ select option { background: var(--bg-color); color: var(--text-main); }
     filter: brightness(1.1);
 }
 
-/* Responsive */
+/* Responsive - Mobile Bottom Navigation Bar */
 @media (max-width: 768px) {
-    #view-app { flex-direction: column; }
-    .sidebar {
-        transform: translateX(-100%);
-        width: 260px !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        height: 100vh !important;
-        z-index: 999 !important;
-        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
-    }
-    .main-content {
-        margin-left: 0 !important;
-        padding: 70px 15px 25px 15px !important;
-    }
-    .btn-floating-sidebar-toggle {
-        display: flex !important;
-    }
-    .sidebar-nav {
-        flex-direction: column !important;
-        flex-wrap: nowrap !important;
-        justify-content: flex-start !important;
-    }
-    .nav-item {
-        flex: none !important;
-        text-align: left !important;
-        justify-content: flex-start !important;
-        padding: 12px 14px !important;
-    }
-    .nav-item .nav-icon {
-        display: inline-block !important;
-        margin-bottom: 0 !important;
-    }
-    .nav-item .nav-label {
-        display: inline !important;
+    #view-app {
+        flex-direction: column;
     }
 
-    body.sidebar-mobile-open .sidebar {
-        transform: translateX(0) !important;
+    /* Move Sidebar to Bottom Fixed Navigation Bar */
+    .sidebar {
+        width: 100% !important;
+        height: auto !important;
+        position: fixed !important;
+        top: auto !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        transform: none !important;
+        border-radius: 20px 20px 0 0 !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        border-left: none !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+        background: rgba(15, 23, 42, 0.94) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        z-index: 1000 !important;
+        box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.45) !important;
+        padding: 0 !important;
     }
-    body.sidebar-mobile-open .sidebar-overlay {
+
+    /* Hide header elements inside sidebar on mobile */
+    .sidebar-brand,
+    .user-info,
+    .sidebar-footer,
+    .btn-toggle-sidebar,
+    .btn-floating-sidebar-toggle,
+    .sidebar-overlay {
+        display: none !important;
+    }
+
+    /* Horizontal Scrollable Bottom Navigation Bar */
+    .sidebar-nav {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 8px 10px !important;
+        gap: 6px !important;
+        scrollbar-width: none !important; /* Firefox */
+        -ms-overflow-style: none !important;  /* IE and Edge */
+    }
+
+    .sidebar-nav::-webkit-scrollbar {
+        display: none !important; /* Chrome, Safari, Opera */
+    }
+
+    .nav-item {
+        flex: 0 0 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 8px 12px !important;
+        min-width: 68px !important;
+        text-align: center !important;
+        border-radius: 12px !important;
+        gap: 3px !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .nav-item .nav-icon {
         display: block !important;
-        opacity: 1 !important;
+        font-size: 1.25rem !important;
+        margin: 0 !important;
+        width: auto !important;
+    }
+
+    .nav-item .nav-label {
+        display: block !important;
+        font-size: 0.68rem !important;
+        font-weight: 500 !important;
+        white-space: nowrap !important;
+        line-height: 1.1 !important;
+    }
+
+    .nav-item.active {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.4), rgba(99, 102, 241, 0.25)) !important;
+        color: #60a5fa !important;
+        border: 1px solid rgba(96, 165, 250, 0.4) !important;
+    }
+
+    /* Main Content Area Padding Bottom for Mobile Bottom Bar */
+    .main-content {
+        margin-left: 0 !important;
+        padding: 20px 14px 90px 14px !important;
     }
 }
 
