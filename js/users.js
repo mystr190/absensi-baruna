@@ -287,20 +287,6 @@ function updateAppSchoolConfigUI(config) {
         document.querySelectorAll('.app-school-name').forEach(el => {
             el.innerText = schoolName;
         });
-
-        const sidebarSchoolName = document.getElementById('sidebarSchoolName');
-        if (sidebarSchoolName) {
-            const spanEl = sidebarSchoolName.querySelector('.app-school-name');
-            if (spanEl) spanEl.innerText = schoolName;
-            else sidebarSchoolName.innerText = schoolName;
-        }
-
-        const loginSchoolTitle = document.getElementById('loginSchoolTitle');
-        if (loginSchoolTitle) {
-            const spanEl = loginSchoolTitle.querySelector('.app-school-name');
-            if (spanEl) spanEl.innerText = schoolName;
-            else loginSchoolTitle.innerText = schoolName;
-        }
     }
 
     // Update elemen tahun pelajaran di seluruh aplikasi
