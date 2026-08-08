@@ -87,7 +87,10 @@
                 </div>
             </div>
             <nav class="sidebar-nav">
-                <button class="nav-item active" data-target="panel-scan">
+                <button class="nav-item active" data-target="panel-overview" id="nav-overview">
+                    <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span> Overview Dashboard
+                </button>
+                <button class="nav-item" data-target="panel-scan">
                     <span class="nav-icon"><i class="fa-solid fa-clipboard-user"></i></span> Absen Per Kelas
                 </button>
                 <button class="nav-item" data-target="panel-dashboard">
@@ -135,8 +138,141 @@
         <!-- MAIN CONTENT AREA -->
         <main class="main-content">
 
+            <!-- PANEL 0: OVERVIEW DASHBOARD ANALITIK -->
+            <section id="panel-overview" class="panel active">
+                <div class="panel-header flex-between">
+                    <div>
+                        <h2><i class="fa-solid fa-chart-pie" style="color: #6366f1;"></i> Overview Dashboard</h2>
+                        <p>Ringkasan Analitik Real-Time Presensi, Siswa, Guru & Catatan Pelanggaran Sekolah</p>
+                    </div>
+                    <button id="btnRefreshOverview" class="btn-secondary" style="padding: 10px 18px; border-radius: 12px; font-size: 0.88rem; gap: 8px;">
+                        <i class="fa-solid fa-rotate"></i> Refresh Analitik
+                    </button>
+                </div>
+
+                <!-- METRIC SUMMARY CARDS GRID -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-bottom: 25px;">
+                    <!-- Card 1: Siswa & Kelas -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #6366f1; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Data Siswa & Kelas</span>
+                            <h3 id="ovTotalSiswa" style="font-size: 1.8rem; font-weight: 700; color: #f8fafc; margin: 4px 0;">0 Siswa</h3>
+                            <span style="font-size: 0.83rem; color: #a5b4fc;"><i class="fa-solid fa-school"></i> <span id="ovTotalKelas">0</span> Kelas Terdaftar</span>
+                        </div>
+                        <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #818cf8;">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Gender -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #ec4899; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Jenis Kelamin</span>
+                            <h3 id="ovGenderText" style="font-size: 1.6rem; font-weight: 700; color: #f8fafc; margin: 4px 0;">0 L / 0 P</h3>
+                            <span style="font-size: 0.83rem; color: #f472b6;"><i class="fa-solid fa-venus-mars"></i> Rasio Laki-Laki & Perempuan</span>
+                        </div>
+                        <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(236, 72, 153, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #f472b6;">
+                            <i class="fa-solid fa-venus-mars"></i>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Presensi Siswa -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #10b981; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Presensi Siswa</span>
+                            <h3 id="ovPresensiHadir" style="font-size: 1.8rem; font-weight: 700; color: #34d399; margin: 4px 0;">0 Hadir</h3>
+                            <span style="font-size: 0.83rem; color: var(--text-muted);"><span id="ovPresensiIzinSakit" style="color:#fbbf24;">0 Izin/Sakit</span> | <span id="ovPresensiAlpa" style="color:#f87171;">0 Alpa</span></span>
+                        </div>
+                        <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #34d399;">
+                            <i class="fa-solid fa-user-check"></i>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Presensi Guru & Staf -->
+                    <div class="glass-card" style="padding: 20px; border-left: 4px solid #38bdf8; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Presensi Guru & Staf</span>
+                            <h3 id="ovGuruHadir" style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; margin: 4px 0;">0 Hadir</h3>
+                            <span style="font-size: 0.83rem; color: var(--text-muted);"><span id="ovGuruIzin" style="color:#fde047;">0 Izin</span> | <span id="ovGuruAlpa" style="color:#fca5a5;">0 Alpa</span></span>
+                        </div>
+                        <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #38bdf8;">
+                            <i class="fa-solid fa-chalkboard-user"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHARTS GRID ROW 1 -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; margin-bottom: 25px;">
+                    <!-- Chart 1: Gender Distribution -->
+                    <div class="glass-card" style="padding: 22px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-pie-chart" style="color: #ec4899;"></i> Demografi Siswa (Jenis Kelamin)</h3>
+                        </div>
+                        <div style="position: relative; height: 260px; display: flex; justify-content: center;">
+                            <canvas id="chartGenderDistribution"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2: Student Attendance Status -->
+                    <div class="glass-card" style="padding: 22px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-chart-bar" style="color: #10b981;"></i> Rekapitulasi Presensi Siswa</h3>
+                        </div>
+                        <div style="position: relative; height: 260px;">
+                            <canvas id="chartStudentAttendance"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHARTS GRID ROW 2 -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; margin-bottom: 25px;">
+                    <!-- Chart 3: Catatan Pelanggaran Siswa -->
+                    <div class="glass-card" style="padding: 22px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b;"></i> Catatan Pelanggaran Siswa</h3>
+                        </div>
+                        <div style="position: relative; height: 260px;">
+                            <canvas id="chartViolationsBreakdown"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 4: Presensi Guru & Karyawan -->
+                    <div class="glass-card" style="padding: 22px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-id-badge" style="color: #38bdf8;"></i> Presensi Guru & Staf Karyawan</h3>
+                        </div>
+                        <div style="position: relative; height: 260px; display: flex; justify-content: center;">
+                            <canvas id="chartTeacherAttendance"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLE: REKAP KELAS SUMMARY -->
+                <div class="glass-card" style="padding: 22px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-table-cells" style="color: #a855f7;"></i> Rincian Distribusi Jumlah Siswa Per Kelas</h3>
+                    </div>
+                    <div class="modern-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px; text-align: center;">No</th>
+                                    <th>Nama Kelas</th>
+                                    <th style="text-align: center;">Laki-Laki (L)</th>
+                                    <th style="text-align: center;">Perempuan (P)</th>
+                                    <th style="text-align: center;">Total Siswa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyOverviewKelas">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data overview...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <!-- PANEL 1: ABSEN PER KELAS -->
-            <section id="panel-scan" class="panel active">
+            <section id="panel-scan" class="panel" style="display: none;">
                 <div class="panel-header">
                     <h2>Input Kehadiran Kelas</h2>
                     <p>Status Petugas Aktif: <strong id="petugasName" class="text-primary"></strong></p>
@@ -1659,6 +1795,7 @@
     <script src="js/kelola_siswa.js?v=1.0"></script>
     <script src="js/broadcast_telegram.js?v=1.0"></script>
     <script src="js/user_mesin.js?v=1.0"></script>
+    <script src="js/overview_dashboard.js?v=1.0"></script>
 </body>
 
 </html>

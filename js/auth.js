@@ -163,6 +163,7 @@ function showApp(user) {
 
     // Panggil sync master data di latar belakang & auto load jika kelas sudah terisi
     if (typeof syncMasterDataInBackground === 'function') syncMasterDataInBackground();
+    if (typeof renderOverviewDashboard === 'function') renderOverviewDashboard();
     if (typeof autoLoadStudents === 'function') autoLoadStudents();
     if (typeof loadUsers === 'function') loadUsers();
     if (typeof renderIzinGuruPanel === 'function') renderIzinGuruPanel();
@@ -248,7 +249,9 @@ navItems.forEach(nav => {
             targetPanel.style.display = 'block';
         }
 
-        if (nav.dataset.target === 'panel-dashboard') {
+        if (nav.dataset.target === 'panel-overview') {
+            if(typeof renderOverviewDashboard === 'function') renderOverviewDashboard();
+        } else if (nav.dataset.target === 'panel-dashboard') {
             if(typeof loadDashboardData === 'function') loadDashboardData();
         } else if (nav.dataset.target === 'panel-admin') {
             if(typeof loadUsers === 'function') loadUsers();

@@ -105,6 +105,9 @@ function doGet(e) {
     else if (action === 'delete_attendance_class') {
       return handleDeleteAttendanceByDateAndClass(e.parameter.tanggal, e.parameter.kelas);
     }
+    else if (action === 'get_overview_stats') {
+      return handleGetOverviewStats();
+    }
     else if (action === 'device_scan' || action === 'solution_scan') {
       return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status, e.parameter.nama_mesin || e.parameter.name);
     }
@@ -3025,4 +3028,98 @@ function handleGetSelfProfile(username) {
     }
   }
   return jsonResponse('error', 'Pengguna tidak ditemukan.');
+}
+
+// === OVERVIEW STATS & ANALYTICS SUMMARY ENDPOINT ===
+function handleGetOverviewStats() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Data Siswa & Gender & Kelas
+  let totalSiswa = 0;
+  let totalLaki = 0;
+  let totalPerempuan = 0;
+  const kelasMap = {};
+
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+    const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 6).getValues();
+    for (let i = 0; i < sData.length; i++) {
+      const nama = String(sData[i][3] || '').trim();
+      if (!nama) continue;
+
+      totalSiswa++;
+      const gender = String(sData[i][4] || '').trim().toUpperCase();
+      if (gender === 'L' || gender === 'LAKI-LAKI') totalLaki++;
+      else if (gender === 'P' || gender === 'PEREMPUAN') totalPerempuan++;
+
+      const kls = String(sData[i][5] || 'Lainnya').trim();
+      if (!kelasMap[kls]) kelasMap[kls] = { kls: kls, total: 0, L: 0, P: 0 };
+      kelasMap[kls].total++;
+      if (gender === 'L' || gender === 'LAKI-LAKI') kelasMap[kls].L++;
+      else if (gender === 'P' || gender === 'PEREMPUAN') kelasMap[kls].P++;
+    }
+  }
+
+  // 2. Data Absensi Siswa
+  let studentAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
+  const sheetLog = ss.getSheetByName(SHEET_LOG);
+  if (sheetLog && sheetLog.getLastRow() > 1) {
+    const logData = sheetLog.getRange(2, 6, sheetLog.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < logData.length; i++) {
+      const st = String(logData[i][0] || '').trim();
+      if (!st) continue;
+      if (st.includes('Hadir')) studentAbsenSummary.Hadir++;
+      else if (st.includes('Sakit')) studentAbsenSummary.Sakit++;
+      else if (st.includes('Izin')) studentAbsenSummary.Izin++;
+      else if (st.includes('Alpa')) studentAbsenSummary.Alpa++;
+      else if (st.includes('Terlambat') || st.includes('Telat')) studentAbsenSummary.Terlambat++;
+      else studentAbsenSummary.Hadir++;
+    }
+  }
+
+  // 3. Data Pelanggaran Siswa
+  let violationSummary = {};
+  let totalViolations = 0;
+  const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
+  if (sheetPelanggaran && sheetPelanggaran.getLastRow() > 1) {
+    const pData = sheetPelanggaran.getRange(2, 6, sheetPelanggaran.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < pData.length; i++) {
+      const kat = String(pData[i][0] || 'Lainnya').trim();
+      if (!kat) continue;
+      totalViolations++;
+      violationSummary[kat] = (violationSummary[kat] || 0) + 1;
+    }
+  }
+
+  // 4. Data Absensi Guru & Staf
+  let guruAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
+  let totalGuruLog = 0;
+  const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
+  if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
+    const gData = sheetLogGuru.getRange(2, 6, sheetLogGuru.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < gData.length; i++) {
+      const st = String(gData[i][0] || '').trim();
+      if (!st) continue;
+      totalGuruLog++;
+      if (st.includes('Hadir')) guruAbsenSummary.Hadir++;
+      else if (st.includes('Sakit')) guruAbsenSummary.Sakit++;
+      else if (st.includes('Izin')) guruAbsenSummary.Izin++;
+      else if (st.includes('Alpa')) guruAbsenSummary.Alpa++;
+      else if (st.includes('Dinas')) guruAbsenSummary.DinasLuar++;
+      else guruAbsenSummary.Hadir++;
+    }
+  }
+
+  return jsonResponse('success', 'Data overview berhasil ditarik', {
+    totalSiswa: totalSiswa,
+    totalLaki: totalLaki,
+    totalPerempuan: totalPerempuan,
+    totalKelas: Object.keys(kelasMap).length,
+    kelasMap: kelasMap,
+    studentAbsenSummary: studentAbsenSummary,
+    totalViolations: totalViolations,
+    violationSummary: violationSummary,
+    totalGuruLog: totalGuruLog,
+    guruAbsenSummary: guruAbsenSummary
+  });
 }
