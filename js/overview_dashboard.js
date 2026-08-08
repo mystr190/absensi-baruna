@@ -218,8 +218,18 @@ function renderUnabsenGuruList(list) {
 }
 
 // ==========================================
-// CHART.JS RENDER HELPERS
+// CHART.JS RENDER HELPERS (DYNAMIC THEME COMPATIBLE)
 // ==========================================
+
+function getChartTextColor() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? '#0f172a' : '#f8fafc';
+}
+function getChartSubTextColor() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? '#475569' : '#cbd5e1';
+}
+function getChartGridColor() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+}
 
 function renderChartGender(laki, perempuan) {
     const ctx = document.getElementById('chartGenderDistribution');
@@ -244,7 +254,7 @@ function renderChartGender(laki, perempuan) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { color: '#f8fafc', font: { family: 'Outfit', size: 12 } }
+                    labels: { color: getChartTextColor(), font: { family: 'Outfit', size: 12 } }
                 }
             }
         }
@@ -287,8 +297,8 @@ function renderChartStudentAbsen(sSummary) {
                 legend: { display: false }
             },
             scales: {
-                x: { ticks: { color: '#cbd5e1' }, grid: { display: false } },
-                y: { ticks: { color: '#cbd5e1' }, grid: { color: 'rgba(255,255,255,0.08)' } }
+                x: { ticks: { color: getChartSubTextColor() }, grid: { display: false } },
+                y: { ticks: { color: getChartSubTextColor() }, grid: { color: getChartGridColor() } }
             }
         }
     });
@@ -327,8 +337,8 @@ function renderChartViolations(vSummary) {
                 legend: { display: false }
             },
             scales: {
-                x: { ticks: { color: '#cbd5e1' }, grid: { color: 'rgba(255,255,255,0.08)' } },
-                y: { ticks: { color: '#cbd5e1' }, grid: { display: false } }
+                x: { ticks: { color: getChartSubTextColor() }, grid: { color: getChartGridColor() } },
+                y: { ticks: { color: getChartSubTextColor() }, grid: { display: false } }
             }
         }
     });
@@ -354,7 +364,7 @@ function renderChartTeacherAbsen(gSummary) {
                 ],
                 backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'],
                 borderWidth: 2,
-                borderColor: 'rgba(15, 23, 42, 0.8)'
+                borderColor: document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : 'rgba(15, 23, 42, 0.8)'
             }]
         },
         options: {
@@ -363,7 +373,7 @@ function renderChartTeacherAbsen(gSummary) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { color: '#f8fafc', font: { family: 'Outfit', size: 12 } }
+                    labels: { color: getChartTextColor(), font: { family: 'Outfit', size: 12 } }
                 }
             }
         }

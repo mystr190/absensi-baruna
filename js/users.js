@@ -21,21 +21,61 @@ const modalIdTelegram = document.getElementById('modalIdTelegram');
 const modalPassword = document.getElementById('modalPassword');
 const modalNama = document.getElementById('modalNama');
 const modalRole = document.getElementById('modalRole');
+const modalWaliKelas = document.getElementById('modalWaliKelas');
+const modalTugasPiket = document.getElementById('modalTugasPiket');
 
-// Handle Tombol Buka Modal Tambah
+// Handle Tombol Buka Modal & Search Input
 if (btnTambahUser) {
     btnTambahUser.addEventListener('click', () => {
         openUserModal();
     });
 }
 
+const inputSearchUser = document.getElementById('inputSearchUser');
+if (inputSearchUser) {
+    inputSearchUser.addEventListener('input', filterAndRenderUsers);
+}
+
 // Handle Close Modal
 if (btnCloseModalUser) btnCloseModalUser.addEventListener('click', closeUserModal);
 if (btnCancelModalUser) btnCancelModalUser.addEventListener('click', closeUserModal);
 
+function populateWaliKelasOptions(selectedClass = '-') {
+    if (!modalWaliKelas) return;
+
+    let students = window.allStudents || [];
+    if (!students || students.length === 0) {
+        try {
+            students = JSON.parse(localStorage.getItem('smart_absen_students') || '[]');
+        } catch (e) {
+            students = [];
+        }
+    }
+
+    const uniqueClasses = [...new Set(students.map(s => String(s.kelas || '').trim()).filter(Boolean))].sort();
+
+    // Pastikan kelas terpilih ikut dimasukkan jika belum ada di daftar
+    if (selectedClass && selectedClass !== '-' && !uniqueClasses.includes(selectedClass)) {
+        uniqueClasses.push(selectedClass);
+        uniqueClasses.sort();
+    }
+
+    let html = `<option value="-">Bukan Wali Kelas / -</option>`;
+    uniqueClasses.forEach(cls => {
+        const isSel = String(selectedClass).trim() === cls ? 'selected' : '';
+        html += `<option value="${cls}" ${isSel}>Kelas ${cls}</option>`;
+    });
+
+    modalWaliKelas.innerHTML = html;
+    modalWaliKelas.value = selectedClass || '-';
+}
+
 function openUserModal(user = null) {
     if (!modalUser) return;
     
+    const targetWali = user ? (user.wali_kelas || '-') : '-';
+    populateWaliKelasOptions(targetWali);
+
     if (user) {
         if (modalUserTitle) modalUserTitle.innerText = "Edit Data Pengguna / Guru";
         if (modalOldUsername) modalOldUsername.value = user.username;
@@ -45,6 +85,7 @@ function openUserModal(user = null) {
         if (modalPassword) modalPassword.value = ''; // Kosongkan password saat edit
         if (modalNama) modalNama.value = user.nama;
         if (modalRole) modalRole.value = user.role || 'Guru';
+        if (modalTugasPiket) modalTugasPiket.value = user.tugas_piket || '-';
     } else {
         if (modalUserTitle) modalUserTitle.innerText = "Tambah Pengguna Baru";
         if (modalOldUsername) modalOldUsername.value = '';
@@ -54,6 +95,7 @@ function openUserModal(user = null) {
         if (modalPassword) modalPassword.value = '';
         if (modalNama) modalNama.value = '';
         if (modalRole) modalRole.value = 'Guru';
+        if (modalTugasPiket) modalTugasPiket.value = '-';
     }
 
     modalUser.style.display = 'flex';
@@ -67,7 +109,7 @@ function closeUserModal() {
 async function loadUsers() {
     const tableBody = document.getElementById('tableBodyUsers');
     if (tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
     }
 
     try {
@@ -77,17 +119,47 @@ async function loadUsers() {
             window.allUsers = userListState;
             window.allTeachers = userListState.map(u => ({ username: u.username, namaLengkap: u.nama, role: u.role, id_mesin: u.id_mesin, id_telegram: u.id_telegram }));
             localStorage.setItem('smart_absen_users_cache', JSON.stringify(window.allUsers));
-            if (tableBody) renderUserTable(userListState);
+            if (tableBody) filterAndRenderUsers();
             if (typeof renderAbsenGuruBatchTable === 'function') {
                 renderAbsenGuruBatchTable();
             }
         } else {
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
         }
     } catch (err) {
         console.error("Load users error:", err);
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
     }
+}
+
+function filterAndRenderUsers() {
+    const searchInp = document.getElementById('inputSearchUser');
+    const query = (searchInp ? searchInp.value : '').trim().toLowerCase();
+
+    if (!query) {
+        renderUserTable(userListState);
+        return;
+    }
+
+    const filtered = userListState.filter(u => {
+        const username = String(u.username || '').toLowerCase();
+        const nama = String(u.nama || '').toLowerCase();
+        const role = String(u.role || '').toLowerCase();
+        const wali = String(u.wali_kelas || '').toLowerCase();
+        const piket = String(u.tugas_piket || '').toLowerCase();
+        const idMesin = String(u.id_mesin || '').toLowerCase();
+        const idTelegram = String(u.id_telegram || '').toLowerCase();
+
+        return username.includes(query) ||
+               nama.includes(query) ||
+               role.includes(query) ||
+               wali.includes(query) ||
+               piket.includes(query) ||
+               idMesin.includes(query) ||
+               idTelegram.includes(query);
+    });
+
+    renderUserTable(filtered);
 }
 
 function renderUserTable(users) {
@@ -95,7 +167,11 @@ function renderUserTable(users) {
     if (!tableBody) return;
 
     if (!users || users.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--text-muted);">Belum ada data pengguna.</td></tr>`;
+        const query = (document.getElementById('inputSearchUser')?.value || '').trim();
+        const emptyText = query 
+            ? `Tidak ada pengguna yang cocok dengan pencarian "<strong>${escapeHtml(query)}</strong>".`
+            : 'Belum ada data pengguna.';
+        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 25px; color: var(--text-muted);"><i class="fa-solid fa-user-slash" style="font-size: 1.5rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>${emptyText}</td></tr>`;
         return;
     }
 
@@ -109,6 +185,14 @@ function renderUserTable(users) {
         const idTelegramDisplay = u.id_telegram 
             ? `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-family: monospace; font-size: 0.85rem;"><i class="fa-brands fa-telegram"></i> ${u.id_telegram}</span>`
             : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
+        
+        const waliKelasDisplay = (u.wali_kelas && u.wali_kelas !== '-') 
+            ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.82rem;"><i class="fa-solid fa-chalkboard-user"></i> ${u.wali_kelas}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
+
+        const piketDisplay = (u.tugas_piket && u.tugas_piket !== '-') 
+            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fde047; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.82rem;"><i class="fa-solid fa-user-shield"></i> ${u.tugas_piket}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
 
         html += `
             <tr>
@@ -118,6 +202,8 @@ function renderUserTable(users) {
                 <td style="text-align:center;">${idMesinDisplay}</td>
                 <td style="text-align:center;">${idTelegramDisplay}</td>
                 <td style="text-align:center;"><span class="badge" style="${roleBadge}">${u.role}</span></td>
+                <td style="text-align:center;">${waliKelasDisplay}</td>
+                <td style="text-align:center;">${piketDisplay}</td>
                 <td style="text-align:center;">
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem; margin-right:4px;" onclick="editUserByUsername('${u.username}')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
                     ${!isSelf ? `<button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); border-color:rgba(239,68,68,0.4); color:#fca5a5;" onclick="deleteUserByUsername('${u.username}', '${u.nama}')"><i class="fa-solid fa-trash-can"></i> Hapus</button>` : ''}
@@ -182,6 +268,8 @@ if (formUserModal) {
         const password = modalPassword ? modalPassword.value.trim() : '';
         const nama = modalNama ? modalNama.value.trim() : '';
         const role = modalRole ? modalRole.value : 'Guru';
+        const wali_kelas = modalWaliKelas ? modalWaliKelas.value.trim() : '-';
+        const tugas_piket = modalTugasPiket ? modalTugasPiket.value : '-';
 
         if (!username || !nama) {
             showToast("Username dan Nama Lengkap wajib diisi.", 'warning');
@@ -207,6 +295,8 @@ if (formUserModal) {
             if (password) formData.append('password', password);
             formData.append('nama', nama);
             formData.append('role', role);
+            formData.append('wali_kelas', wali_kelas);
+            formData.append('tugas_piket', tugas_piket);
 
             const result = await fetchWithRetry(SCRIPT_URL, {
                 method: 'POST',

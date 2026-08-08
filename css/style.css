@@ -1038,3 +1038,419 @@ select option { background: var(--bg-color); color: var(--text-main); }
     color: #f87171;
     border: 1px solid rgba(239, 68, 68, 0.35);
 }
+
+/* ========================================================================= */
+/* THEME MODE: LIGHT MODE & DARK MODE OVERRIDES */
+/* ========================================================================= */
+/* ========================================================================= */
+/* THEME MODE: LIGHT MODE & DARK MODE OVERRIDES */
+/* ========================================================================= */
+/* ========================================================================= */
+/* THEME MODE: MASTER LIGHT MODE & DARK MODE OVERRIDES */
+/* ========================================================================= */
+[data-theme="light"] {
+    --bg-color: #f1f5f9;
+    --card-bg: rgba(255, 255, 255, 0.94);
+    --card-border: rgba(203, 213, 225, 0.9);
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --primary: #4F46E5;
+    --primary-hover: #4338CA;
+}
+
+[data-theme="light"] body {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+
+/* Glass Cards & Containers */
+[data-theme="light"] .glass-card,
+[data-theme="light"] .modern-table-container,
+[data-theme="light"] .card,
+[data-theme="light"] .stat-card,
+[data-theme="light"] .widget-card,
+[data-theme="light"] .login-container {
+    background: rgba(255, 255, 255, 0.94) !important;
+    border: 1px solid rgba(203, 213, 225, 0.9) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05) !important;
+    color: #0f172a !important;
+}
+
+/* Sidebar Styling in Light Mode */
+[data-theme="light"] .sidebar {
+    background: rgba(255, 255, 255, 0.97) !important;
+    border-right: 1px solid rgba(203, 213, 225, 0.9) !important;
+}
+
+[data-theme="light"] .sidebar-brand {
+    border-bottom: 1px solid rgba(203, 213, 225, 0.9) !important;
+}
+
+[data-theme="light"] .sidebar-brand h2,
+[data-theme="light"] .sidebar-brand p {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .user-info {
+    border-bottom: 1px solid rgba(203, 213, 225, 0.9) !important;
+}
+
+[data-theme="light"] .user-info h3 {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .sidebar-footer {
+    background: rgba(248, 250, 252, 0.97) !important;
+    border-top: 1px solid rgba(203, 213, 225, 0.9) !important;
+}
+
+[data-theme="light"] .nav-item {
+    color: #475569 !important;
+}
+
+[data-theme="light"] .nav-item:hover,
+[data-theme="light"] .nav-item.active {
+    background: rgba(79, 70, 229, 0.12) !important;
+    color: #4f46e5 !important;
+    font-weight: 600;
+}
+
+/* All Headings & Paragraph Text */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6 {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] p,
+[data-theme="light"] label,
+[data-theme="light"] td,
+[data-theme="light"] th {
+    color: #1e293b;
+}
+
+[data-theme="light"] small,
+[data-theme="light"] .text-muted,
+[data-theme="light"] .subtext {
+    color: #475569 !important;
+}
+
+/* Master Inline Style Text Color Overrides */
+[data-theme="light"] [style*="color: #f8fafc"],
+[data-theme="light"] [style*="color:#f8fafc"],
+[data-theme="light"] [style*="color: white"],
+[data-theme="light"] [style*="color:white"],
+[data-theme="light"] [style*="color: #ffffff"],
+[data-theme="light"] [style*="color:#ffffff"],
+[data-theme="light"] [style*="color: #e2e8f0"],
+[data-theme="light"] [style*="color:#e2e8f0"],
+[data-theme="light"] [style*="color: #cbd5e1"],
+[data-theme="light"] [style*="color:#cbd5e1"] {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] [style*="color: var(--text-muted)"],
+[data-theme="light"] [style*="color: #94a3b8"],
+[data-theme="light"] [style*="color:#94a3b8"],
+[data-theme="light"] [style*="color: #64748b"],
+[data-theme="light"] [style*="color:#64748b"] {
+    color: #475569 !important;
+}
+
+/* High Contrast Accent Colors in Light Mode */
+[data-theme="light"] [style*="color: #38bdf8"],
+[data-theme="light"] [style*="color:#38bdf8"] {
+    color: #0284c7 !important;
+}
+
+[data-theme="light"] [style*="color: #93c5fd"],
+[data-theme="light"] [style*="color:#93c5fd"] {
+    color: #1d4ed8 !important;
+}
+
+[data-theme="light"] [style*="color: #60a5fa"],
+[data-theme="light"] [style*="color:#60a5fa"] {
+    color: #2563eb !important;
+}
+
+[data-theme="light"] [style*="color: #6ee7b7"],
+[data-theme="light"] [style*="color:#6ee7b7"],
+[data-theme="light"] [style*="color: #a7f3d0"],
+[data-theme="light"] [style*="color:#a7f3d0"] {
+    color: #047857 !important;
+}
+
+[data-theme="light"] [style*="color: #4ade80"],
+[data-theme="light"] [style*="color:#4ade80"] {
+    color: #15803d !important;
+}
+
+[data-theme="light"] [style*="color: #fde047"],
+[data-theme="light"] [style*="color:#fde047"],
+[data-theme="light"] [style*="color: #fbbf24"],
+[data-theme="light"] [style*="color:#fbbf24"] {
+    color: #b45309 !important;
+}
+
+[data-theme="light"] [style*="color: #fca5a5"],
+[data-theme="light"] [style*="color:#fca5a5"],
+[data-theme="light"] [style*="color: #f87171"],
+[data-theme="light"] [style*="color:#f87171"] {
+    color: #b91c1c !important;
+}
+
+[data-theme="light"] [style*="color: #c084fc"],
+[data-theme="light"] [style*="color:#c084fc"] {
+    color: #7e22ce !important;
+}
+
+/* Inline Dark Background Overrides */
+[data-theme="light"] [style*="background: rgba(0, 0, 0"],
+[data-theme="light"] [style*="background: rgba(0,0,0"],
+[data-theme="light"] [style*="background:rgba(0,0,0"],
+[data-theme="light"] [style*="background: rgba(15, 23, 42"],
+[data-theme="light"] [style*="background: rgba(15,23,42"],
+[data-theme="light"] [style*="background:rgba(15,23,42"],
+[data-theme="light"] [style*="background: rgba(30, 41, 59"],
+[data-theme="light"] [style*="background:rgba(30,41,59"] {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.03)"],
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.04)"],
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.05)"],
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.07)"],
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.08)"],
+[data-theme="light"] [style*="background: rgba(255, 255, 255, 0.1)"] {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* Data Tables & Matrix Tables */
+[data-theme="light"] .data-table {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .data-table th,
+[data-theme="light"] .matrix-table th {
+    background: #e2e8f0 !important;
+    color: #1e293b !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+}
+
+[data-theme="light"] .data-table td,
+[data-theme="light"] .matrix-table td {
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #334155 !important;
+    background: #ffffff !important;
+}
+
+[data-theme="light"] .data-table tbody tr:hover,
+[data-theme="light"] .matrix-table tbody tr:hover {
+    background: #f1f5f9 !important;
+}
+
+[data-theme="light"] tfoot td {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    font-weight: bold;
+}
+
+/* Forms, Inputs, Selects & Textareas */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea,
+[data-theme="light"] .styled-input,
+[data-theme="light"] .styled-select,
+[data-theme="light"] .styled-textarea {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] select option {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+    color: #64748b !important;
+}
+
+/* Modals & Dialog Overrides */
+[data-theme="light"] .modal-overlay,
+[data-theme="light"] [id^="modal"] {
+    background: rgba(15, 23, 42, 0.45) !important;
+}
+
+[data-theme="light"] .modal-content,
+[data-theme="light"] .modal-body,
+[data-theme="light"] .modal-container,
+[data-theme="light"] .modal-card {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="light"] .modal-header h3,
+[data-theme="light"] .modal-header h2 {
+    color: #0f172a !important;
+}
+
+/* Buttons & Navigation Controls */
+[data-theme="light"] .btn-secondary {
+    background: #e2e8f0 !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .btn-toggle-sidebar {
+    background: rgba(0, 0, 0, 0.06) !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .btn-toggle-sidebar:hover {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="light"] .btn-floating-sidebar-toggle {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* Status Badges */
+[data-theme="light"] [style*="background: rgba(59, 130, 246, 0.15)"],
+[data-theme="light"] [style*="background:rgba(59,130,246,0.15)"] {
+    background: rgba(59, 130, 246, 0.12) !important;
+    color: #1d4ed8 !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+[data-theme="light"] [style*="background: rgba(56, 189, 248, 0.15)"],
+[data-theme="light"] [style*="background:rgba(56,189,248,0.15)"] {
+    background: rgba(2, 132, 199, 0.12) !important;
+    color: #0284c7 !important;
+    border-color: rgba(2, 132, 199, 0.3) !important;
+}
+
+[data-theme="light"] [style*="background: rgba(16, 185, 129, 0.15)"],
+[data-theme="light"] [style*="background:rgba(16,185,129,0.15)"] {
+    background: rgba(16, 185, 129, 0.12) !important;
+    color: #047857 !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+[data-theme="light"] [style*="background: rgba(245, 158, 11, 0.15)"],
+[data-theme="light"] [style*="background:rgba(245,158,11,0.15)"] {
+    background: rgba(245, 158, 11, 0.12) !important;
+    color: #b45309 !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+[data-theme="light"] [style*="background: rgba(239, 68, 68, 0.15)"],
+[data-theme="light"] [style*="background:rgba(239,68,68,0.15)"] {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: #b91c1c !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Background Animated Shapes */
+[data-theme="light"] .shape-1 { background: rgba(79, 70, 229, 0.12) !important; }
+[data-theme="light"] .shape-2 { background: rgba(236, 72, 153, 0.1) !important; }
+[data-theme="light"] .shape-3 { background: rgba(16, 185, 129, 0.08) !important; }
+
+/* Styled Cards & Styled Card Headers (Teacher & Approval Panels) */
+[data-theme="light"] .styled-card {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05) !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .styled-card-header {
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme="light"] .styled-card-title {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .styled-label {
+    color: #334155 !important;
+}
+
+/* Linear Gradients & Dark Card Overrides */
+[data-theme="light"] [style*="linear-gradient"] {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+/* Specific Alerts in Light Mode */
+[data-theme="light"] [style*="background: rgba(34, 197, 94, 0.1)"],
+[data-theme="light"] [style*="background:rgba(34,197,94,0.1)"],
+[data-theme="light"] [style*="background: rgba(34, 197, 94, 0.15)"] {
+    background: #f0fdf4 !important;
+    border-color: #bbf7d0 !important;
+    color: #15803d !important;
+}
+
+/* Table Containers inside Styled Cards */
+[data-theme="light"] .styled-card .modern-table-container {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* Unabsen Guru List Items & Widget Containers */
+[data-theme="light"] #containerGuruTidakHadirHariIni,
+[data-theme="light"] #listUnabsenGuru {
+    color: #0f172a !important;
+}
+
+/* Multi-Select Dropdown Menu for Target Mapel in Light Mode */
+[data-theme="light"] #dropdownTargetKelasMenu {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="light"] #btnToggleClassDropdown {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] #containerMapelClassCheckboxes label {
+    color: #1e293b !important;
+}
+
+/* Master Data Kelas Form in Light Mode */
+[data-theme="light"] #formKelas {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] #formKelas input,
+[data-theme="light"] #formKelas select,
+[data-theme="light"] #inputSearchKelas {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] #selectWaliKelas option,
+[data-theme="light"] #selectTingkatKelas option {
+    background: #ffffff;
+    color: #0f172a;
+}

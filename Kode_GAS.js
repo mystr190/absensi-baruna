@@ -14,6 +14,8 @@ const SHEET_LOG_GURU = 'LogAbsenGuru';
 const SHEET_PENGAJUAN_IZIN = 'PengajuanIzin';
 const SHEET_HOLIDAYS = 'HariLibur';
 const SHEET_USER_MESIN = 'User_Mesin';
+const SHEET_MAPEL = 'Mapel';
+const SHEET_KELAS = 'DataKelas';
 const TIMEZONE = 'Asia/Jakarta'; // Menggunakan Timezone WIB Indonesia
 
 // === DUKUNGAN GET (Tarik Data Cepat & Real-Time) ===
@@ -45,8 +47,8 @@ function doGet(e) {
     else if (action === 'get_config') {
       return handleGetConfig();
     }
-    else if (action === 'initial_setup') {
-      return handleInitialSetupWeb();
+    else if (action === 'setup_database' || action === 'initial_setup' || action === 'cleanup_and_repair_data' || action === 'fix_database') {
+      return handleCleanupAndRepairData();
     }
     else if (action === 'get_pelanggaran') {
       return handleGetPelanggaran();
@@ -86,6 +88,30 @@ function doGet(e) {
     }
     else if (action === 'get_holidays') {
       return handleGetHolidays();
+    }
+    else if (action === 'get_mapel') {
+      return handleGetMapel();
+    }
+    else if (action === 'save_mapel') {
+      return handleSaveMapel(e.parameter.nama, e.parameter.target_kelas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_mapel') {
+      return handleDeleteMapel(e.parameter.nama);
+    }
+    else if (action === 'seed_default_mapel') {
+      return handleSeedDefaultMapel();
+    }
+    else if (action === 'get_kelas') {
+      return handleGetKelas();
+    }
+    else if (action === 'save_kelas') {
+      return handleSaveKelas(e.parameter.nama, e.parameter.tingkat, e.parameter.jurusan, e.parameter.wali_kelas, e.parameter.kapasitas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_kelas') {
+      return handleDeleteKelas(e.parameter.nama);
+    }
+    else if (action === 'seed_default_kelas') {
+      return handleSeedDefaultKelas();
     }
     else if (action === 'get_students') {
       return handleGetStudents();
@@ -152,11 +178,21 @@ function doGet(e) {
 function doPost(e) {
   try {
     let action = e ? (e.parameter ? e.parameter.action : null) : null;
+    let postBody = null;
+
+    if (e && e.postData && e.postData.contents) {
+      try {
+        postBody = JSON.parse(e.postData.contents);
+        if (!action && postBody && postBody.action) {
+          action = postBody.action;
+        }
+      } catch (pErr) {}
+    }
 
     // JIKA TERIMA WEBHOOK TELEGRAM AUTOMATIC ID BOT (Hanya jika bukan request dari Web App API)
-    if (!action && e && e.postData && e.postData.contents) {
+    if (!action && postBody && postBody.message && postBody.message.chat) {
       try {
-        const updateData = JSON.parse(e.postData.contents);
+        const updateData = postBody;
         if (updateData && updateData.message && updateData.message.chat) {
           // Abaikan pesan dari bot lain untuk mencegah loop
           if (updateData.message.from && updateData.message.from.is_bot) {
@@ -276,10 +312,10 @@ function doPost(e) {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
     }
     else if (action === 'add_user') {
-      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
+      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.wali_kelas, e.parameter.tugas_piket);
     }
     else if (action === 'update_user') {
-      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
+      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.wali_kelas, e.parameter.tugas_piket);
     }
     else if (action === 'delete_user') {
       return handleDeleteUser(e.parameter.username);
@@ -287,8 +323,32 @@ function doPost(e) {
     else if (action === 'save_config') {
       return handleSaveConfig(e.parameter.nama_sekolah, e.parameter.tahun_pelajaran, e.parameter.telegram_bot_token);
     }
-    else if (action === 'initial_setup') {
-      return handleInitialSetupWeb();
+    else if (action === 'setup_database' || action === 'initial_setup' || action === 'cleanup_and_repair_data' || action === 'fix_database') {
+      return handleCleanupAndRepairData();
+    }
+    else if (action === 'get_kelas') {
+      return handleGetKelas();
+    }
+    else if (action === 'save_kelas') {
+      return handleSaveKelas(e.parameter.nama, e.parameter.tingkat, e.parameter.jurusan, e.parameter.wali_kelas, e.parameter.kapasitas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_kelas') {
+      return handleDeleteKelas(e.parameter.nama);
+    }
+    else if (action === 'seed_default_kelas') {
+      return handleSeedDefaultKelas();
+    }
+    else if (action === 'get_mapel') {
+      return handleGetMapel();
+    }
+    else if (action === 'save_mapel') {
+      return handleSaveMapel(e.parameter.nama, e.parameter.target_kelas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_mapel') {
+      return handleDeleteMapel(e.parameter.nama);
+    }
+    else if (action === 'seed_default_mapel') {
+      return handleSeedDefaultMapel();
     }
     else if (action === 'add_pelanggaran') {
       return handleAddPelanggaran(e.parameter.data);
@@ -353,22 +413,69 @@ function ensureUserColumns() {
   if (!headers[6] || headers[6].toString().trim() === '') sheet.getRange(1, 7).setValue('ID_Telegram');
 }
 
-function ensureDeviceUserIdColumns() {
-  ensureUserColumns();
+function ensureDatabaseSetup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+
+  // 1. Ensure SHEET_USERS
+  let sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (!sheetUsers) {
+    sheetUsers = ss.insertSheet(SHEET_USERS);
+    sheetUsers.appendRow(['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram', 'Wali_Kelas', 'Tugas_Piket']);
+  } else {
+    const lastCol = Math.max(9, sheetUsers.getLastColumn());
+    const headers = sheetUsers.getRange(1, 1, 1, lastCol).getValues()[0];
+    if (!headers[0] || headers[0].toString().trim() === '') sheetUsers.getRange(1, 1).setValue('ID');
+    if (!headers[1] || headers[1].toString().trim() === '') sheetUsers.getRange(1, 2).setValue('Username');
+    if (!headers[2] || headers[2].toString().trim() === '') sheetUsers.getRange(1, 3).setValue('Password');
+    if (!headers[3] || headers[3].toString().trim() === '') sheetUsers.getRange(1, 4).setValue('Role');
+    if (!headers[4] || headers[4].toString().trim() === '') sheetUsers.getRange(1, 5).setValue('NamaLengkap');
+    if (!headers[5] || headers[5].toString().trim() === '') sheetUsers.getRange(1, 6).setValue('ID_Mesin');
+    if (!headers[6] || headers[6].toString().trim() === '') sheetUsers.getRange(1, 7).setValue('ID_Telegram');
+    if (!headers[7] || headers[7].toString().trim() === '') sheetUsers.getRange(1, 8).setValue('Wali_Kelas');
+    if (!headers[8] || headers[8].toString().trim() === '') sheetUsers.getRange(1, 9).setValue('Tugas_Piket');
+  }
+
+  // 2. Ensure SHEET_SISWA
+  let sheetSiswa = ss.getSheetByName(SHEET_SISWA);
   if (sheetSiswa && sheetSiswa.getLastRow() > 0) {
-    const headers = sheetSiswa.getRange(1, 1, 1, Math.max(7, sheetSiswa.getLastColumn())).getValues()[0];
+    const lastCol = Math.max(8, sheetSiswa.getLastColumn());
+    const headers = sheetSiswa.getRange(1, 1, 1, lastCol).getValues()[0];
     if (!headers[5] || headers[5].toString().trim() === '') sheetSiswa.getRange(1, 6).setValue('ID_Mesin');
     if (!headers[6] || headers[6].toString().trim() === '') sheetSiswa.getRange(1, 7).setValue('ID_Telegram');
+    if (!headers[7] || headers[7].toString().trim() === '') sheetSiswa.getRange(1, 8).setValue('Password');
   }
+
+  return true;
+}
+
+function ensureUserColumns() {
+  ensureDatabaseSetup();
+}
+
+function ensureDeviceUserIdColumns() {
+  ensureDatabaseSetup();
 }
 
 // Helper Ambil Data Pengguna / User
 function getUsersFromCacheOrSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return [];
+
+  // Build Wali Kelas lookup from DataKelas (Single Source of Truth)
+  const classWaliMap = {};
+  const sheetKelas = ss.getSheetByName(SHEET_KELAS);
+  if (sheetKelas) {
+    const kData = sheetKelas.getDataRange().getValues();
+    for (let k = 1; k < kData.length; k++) {
+      const namaKelas = String(kData[k][0] || '').trim();
+      const waliGuru = String(kData[k][3] || '').trim();
+      if (namaKelas && waliGuru && waliGuru !== '-') {
+        classWaliMap[waliGuru.toLowerCase()] = namaKelas;
+      }
+    }
+  }
 
   const data = sheet.getDataRange().getValues();
   let users = [];
@@ -376,14 +483,26 @@ function getUsersFromCacheOrSheet() {
   for (let i = 1; i < data.length; i++) {
     const u = String(data[i][1] || '').trim();
     if (!u) continue;
+    const namaGuru = String(data[i][4] || u).trim();
+    let waliK = String(data[i][7] || '-').trim();
+
+    // Auto-resolve Wali Kelas from DataKelas single source of truth
+    if (classWaliMap[namaGuru.toLowerCase()]) {
+      waliK = classWaliMap[namaGuru.toLowerCase()];
+    } else if (classWaliMap[u.toLowerCase()]) {
+      waliK = classWaliMap[u.toLowerCase()];
+    }
+
     users.push({
       nis: String(data[i][0] || ''),
       username: u,
       password: String(data[i][2] || '').trim(),
       role: String(data[i][3] || ''),
-      nama: String(data[i][4] || ''),
+      nama: namaGuru,
       id_mesin: String(data[i][5] || '').trim(),
-      id_telegram: String(data[i][6] || '').trim()
+      id_telegram: String(data[i][6] || '').trim(),
+      wali_kelas: waliK,
+      tugas_piket: String(data[i][8] || '-').trim()
     });
   }
 
@@ -395,11 +514,14 @@ function handleLogin(username, password) {
   const p = String(password || '').trim();
 
   if (!u || !p) {
-    return jsonResponse('error', 'Username dan Password wajib diisi.');
+    return jsonResponse('error', 'Username/NIS dan Password wajib diisi.');
   }
 
-  const users = getUsersFromCacheOrSheet();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
 
+  // 1. Cek di Sheet Users (Admin, Guru, Kepsek, TU, Siswa terdaftar)
+  const users = getUsersFromCacheOrSheet();
   for (let i = 0; i < users.length; i++) {
     const userU = String(users[i].username || '').trim();
     const userP = String(users[i].password || '').trim();
@@ -410,17 +532,56 @@ function handleLogin(username, password) {
         role: users[i].role,
         nama: users[i].nama,
         id_mesin: users[i].id_mesin || '',
-        id_telegram: users[i].id_telegram || ''
+        id_telegram: users[i].id_telegram || '',
+        wali_kelas: users[i].wali_kelas || '-',
+        tugas_piket: users[i].tugas_piket || '-'
       });
     }
   }
-  return jsonResponse('error', 'Username atau Password salah!');
+
+  // 2. Jika tidak ada di Sheet Users, Cek di Sheet DataSiswa (Matching NIS / NISN)
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa) {
+    const dataSiswa = sheetSiswa.getDataRange().getValues();
+    for (let j = 1; j < dataSiswa.length; j++) {
+      const nisn = String(dataSiswa[j][0] || '').trim();
+      const nis = String(dataSiswa[j][1] || '').trim();
+      const nama = String(dataSiswa[j][2] || '').trim();
+      const kelas = String(dataSiswa[j][3] || '').trim();
+      const gender = String(dataSiswa[j][4] || '').trim();
+      const id_mesin = String(dataSiswa[j][5] || '').trim();
+      const id_telegram = String(dataSiswa[j][6] || '').trim();
+      const savedPass = String(dataSiswa[j][7] || '').trim();
+
+      // Password default adalah NIS atau NISN jika belum pernah diset custom
+      const validPass = savedPass !== '' ? savedPass : (nis || nisn);
+
+      if ((u === nis || u === nisn || u.toLowerCase() === nis.toLowerCase()) && (p === validPass || p === nis || p === nisn)) {
+        return jsonResponse('success', 'Berhasil login sebagai Siswa', {
+          username: nis || nisn,
+          role: 'Siswa',
+          nama: nama,
+          nis: nis,
+          nisn: nisn,
+          kelas: kelas,
+          gender: gender,
+          id_mesin: id_mesin,
+          id_telegram: id_telegram,
+          wali_kelas: '-',
+          tugas_piket: '-'
+        });
+      }
+    }
+  }
+
+  return jsonResponse('error', 'Username/NIS atau Password salah!');
 }
 
 // === HANDLER MANAJEMEN GURU / PENGGUNA (CRUD) ===
 function fetchUsersList(ss) {
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return [];
+  ensureDatabaseSetup();
 
   const data = sheet.getDataRange().getValues();
   let users = [];
@@ -433,9 +594,11 @@ function fetchUsersList(ss) {
     const nama = String(data[i][4] || '').trim();
     const id_mesin = String(data[i][5] || '').trim();
     const id_telegram = String(data[i][6] || '').trim();
+    const wali_kelas = String(data[i][7] || '-').trim();
+    const tugas_piket = String(data[i][8] || '-').trim();
 
     if (username) {
-      users.push({ id, username, password, role, nama, id_mesin, id_telegram });
+      users.push({ id, username, password, role, nama, id_mesin, id_telegram, wali_kelas, tugas_piket });
     }
   }
 
@@ -447,12 +610,13 @@ function handleGetUsers() {
   return jsonResponse('success', 'Daftar Pengguna', fetchUsersList(ss));
 }
 
-function handleAddUser(username, password, role, nama, id_mesin, id_telegram) {
+function handleAddUser(username, password, role, nama, id_mesin, id_telegram, wali_kelas, tugas_piket) {
   if (!username || !password || !nama) {
     return jsonResponse('error', 'Username, Password, dan Nama Lengkap wajib diisi.');
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return jsonResponse('error', 'Sheet Users tidak ditemukan.');
 
@@ -467,35 +631,69 @@ function handleAddUser(username, password, role, nama, id_mesin, id_telegram) {
   }
 
   const newId = String(data.length);
-  sheet.appendRow([newId, username.trim(), password.trim(), role || 'Guru', nama.trim(), String(id_mesin || '').trim(), String(id_telegram || '').trim()]);
+  sheet.appendRow([
+    newId, 
+    username.trim(), 
+    password.trim(), 
+    role || 'Guru', 
+    nama.trim(), 
+    String(id_mesin || '').trim(), 
+    String(id_telegram || '').trim(),
+    String(wali_kelas || '-').trim(),
+    String(tugas_piket || '-').trim()
+  ]);
 
   return jsonResponse('success', `Pengguna "${nama}" berhasil ditambahkan.`);
 }
 
-function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram) {
+function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram, wali_kelas, tugas_piket) {
   if (!oldUsername || !username || !nama) {
     return jsonResponse('error', 'Data pengguna tidak lengkap.');
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
+
+  // 1. Cek di SHEET_USERS
   const sheet = ss.getSheetByName(SHEET_USERS);
-  if (!sheet) return jsonResponse('error', 'Sheet Users tidak ditemukan.');
+  if (sheet) {
+    const data = sheet.getDataRange().getValues();
+    const targetOld = String(oldUsername).trim().toLowerCase();
 
-  const data = sheet.getDataRange().getValues();
-  const targetOld = String(oldUsername).trim().toLowerCase();
+    for (let i = 1; i < data.length; i++) {
+      const currentUsername = String(data[i][1] || '').trim().toLowerCase();
+      if (currentUsername === targetOld) {
+        const rowIndex = i + 1;
+        sheet.getRange(rowIndex, 2).setValue(username.trim()); // Username
+        if (password) sheet.getRange(rowIndex, 3).setValue(password.trim()); // Password
+        sheet.getRange(rowIndex, 4).setValue(role || 'Guru'); // Role
+        sheet.getRange(rowIndex, 5).setValue(nama.trim()); // NamaLengkap
+        sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
+        sheet.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram
+        sheet.getRange(rowIndex, 8).setValue(String(wali_kelas || '-').trim()); // Wali_Kelas
+        sheet.getRange(rowIndex, 9).setValue(String(tugas_piket || '-').trim()); // Tugas_Piket
 
-  for (let i = 1; i < data.length; i++) {
-    const currentUsername = String(data[i][1] || '').trim().toLowerCase();
-    if (currentUsername === targetOld) {
-      const rowIndex = i + 1;
-      sheet.getRange(rowIndex, 2).setValue(username.trim()); // Username
-      if (password) sheet.getRange(rowIndex, 3).setValue(password.trim()); // Password
-      sheet.getRange(rowIndex, 4).setValue(role || 'Guru'); // Role
-      sheet.getRange(rowIndex, 5).setValue(nama.trim()); // NamaLengkap
-      sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
-      sheet.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram
+        return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
+      }
+    }
+  }
 
-      return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
+  // 2. Jika tidak ditemukan di SHEET_USERS, Cek di SHEET_SISWA (Siswa Self-Profile Update)
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa) {
+    const dataSiswa = sheetSiswa.getDataRange().getValues();
+    const targetOld = String(oldUsername).trim().toLowerCase();
+    for (let j = 1; j < dataSiswa.length; j++) {
+      const nisn = String(dataSiswa[j][0] || '').trim().toLowerCase();
+      const nis = String(dataSiswa[j][1] || '').trim().toLowerCase();
+
+      if (nis === targetOld || nisn === targetOld) {
+        const rowIndex = j + 1;
+        if (password) sheetSiswa.getRange(rowIndex, 8).setValue(password.trim()); // Password (col H)
+        sheetSiswa.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram (col G)
+
+        return jsonResponse('success', `Profil Siswa "${nama}" berhasil diperbarui.`);
+      }
     }
   }
 
@@ -3378,5 +3576,381 @@ function handleGetOverviewStats() {
     totalGuruLog: totalGuruLog,
     guruAbsenSummary: guruAbsenSummary,
     unabsenGuruList: unabsenGuruList
+  });
+}
+
+// ==========================================
+// MANAJEMEN DATA MATA PELAJARAN (MAPEL) & TARGET KELAS
+// ==========================================
+const DEFAULT_MAPEL_DATA = [
+  { nama: 'Informatika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-5' },
+  { nama: 'IT Preneur', target_kelas: 'X-1, X-2, X-3, X-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Geografi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2' },
+  { nama: 'Pendidikan Agama Islam', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Bahasa Indonesia', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Ekonomi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
+  { nama: 'PJOK', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Bahasa Jerman', target_kelas: 'XI-1, XI-2, XII-1, XII-2, XII-3' },
+  { nama: 'Sosiologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
+  { nama: 'Matematika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Matematika TL', target_kelas: 'XI-3, XI-4, XII-4, XII-5' },
+  { nama: 'Kimia', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
+  { nama: 'Pendidikan Pancasila', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Bahasa Inggris', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Fisika', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
+  { nama: 'Seni Rupa', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Sejarah', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Biologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-3, XII-4' }
+];
+
+function getOrCreateMapelSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_MAPEL);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_MAPEL);
+    sheet.appendRow(['Nama Mata Pelajaran', 'Target Kelas']);
+    for (let i = 0; i < DEFAULT_MAPEL_DATA.length; i++) {
+      sheet.appendRow([DEFAULT_MAPEL_DATA[i].nama, DEFAULT_MAPEL_DATA[i].target_kelas]);
+    }
+  }
+  return sheet;
+}
+
+function handleGetMapel() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateMapelSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  const list = [];
+  
+  if (data.length > 1) {
+    for (let i = 1; i < data.length; i++) {
+      const nama = String(data[i][0] || '').trim();
+      const target = String(data[i][1] || '').trim();
+      if (nama) {
+        list.push({ nama: nama, target_kelas: target });
+      }
+    }
+  } else {
+    for (let i = 0; i < DEFAULT_MAPEL_DATA.length; i++) {
+      sheet.appendRow([DEFAULT_MAPEL_DATA[i].nama, DEFAULT_MAPEL_DATA[i].target_kelas]);
+      list.push(DEFAULT_MAPEL_DATA[i]);
+    }
+  }
+  
+  return jsonResponse('success', 'Data Mata Pelajaran berhasil ditarik', list);
+}
+
+function handleSaveMapel(nama, target_kelas, old_nama) {
+  if (!nama) return jsonResponse('error', 'Nama Mata Pelajaran wajib diisi!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateMapelSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  
+  let foundRow = -1;
+  const targetNamaSearch = String(old_nama || nama).trim().toLowerCase();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, 2).setValues([[nama, target_kelas || '']]);
+    return jsonResponse('success', `Mata Pelajaran '${nama}' berhasil diperbarui!`);
+  } else {
+    sheet.appendRow([nama, target_kelas || '']);
+    return jsonResponse('success', `Mata Pelajaran '${nama}' berhasil ditambahkan!`);
+  }
+}
+
+function handleDeleteMapel(nama) {
+  if (!nama) return jsonResponse('error', 'Nama Mata Pelajaran tidak valid!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateMapelSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  const targetNamaSearch = String(nama).trim().toLowerCase();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse('success', `Mata Pelajaran '${nama}' berhasil dihapus!`);
+    }
+  }
+  
+  return jsonResponse('error', `Mata Pelajaran '${nama}' tidak ditemukan.`);
+}
+
+function handleSeedDefaultMapel() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_MAPEL);
+  if (sheet) {
+    ss.deleteSheet(sheet);
+  }
+  sheet = ss.insertSheet(SHEET_MAPEL);
+  sheet.appendRow(['Nama Mata Pelajaran', 'Target Kelas']);
+  
+  for (let i = 0; i < DEFAULT_MAPEL_DATA.length; i++) {
+    sheet.appendRow([DEFAULT_MAPEL_DATA[i].nama, DEFAULT_MAPEL_DATA[i].target_kelas]);
+  }
+  
+  return jsonResponse('success', '18 Data Mata Pelajaran Bawaan berhasil disetup ulang!', DEFAULT_MAPEL_DATA);
+}
+
+// ==========================================
+// MANAJEMEN MASTER DATA KELAS (DATAKELAS)
+// ==========================================
+const DEFAULT_KELAS_DATA = [
+  { nama: 'X-1', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'X-2', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'X-3', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'X-4', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-1', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-2', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-3', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-4', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-1', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-2', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-3', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-4', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-5', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' }
+];
+
+function getOrCreateKelasSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_KELAS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_KELAS);
+    sheet.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+    for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+      sheet.appendRow([
+        DEFAULT_KELAS_DATA[i].nama,
+        DEFAULT_KELAS_DATA[i].tingkat,
+        DEFAULT_KELAS_DATA[i].jurusan,
+        DEFAULT_KELAS_DATA[i].wali_kelas,
+        DEFAULT_KELAS_DATA[i].kapasitas
+      ]);
+    }
+  }
+  return sheet;
+}
+
+function handleGetKelas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateKelasSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  // Create Wali Kelas lookup from Sheet Users (Single Source of Truth)
+  const waliMap = {};
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers) {
+    const uData = sheetUsers.getDataRange().getValues();
+    for (let i = 1; i < uData.length; i++) {
+      const role = String(uData[i][3] || '').trim();
+      const namaGuru = String(uData[i][4] || uData[i][0] || '').trim();
+      const wKelas = String(uData[i][7] || uData[i][8] || '').trim(); // Wali Kelas column
+      if (wKelas && wKelas !== '-') {
+        waliMap[wKelas.toLowerCase()] = namaGuru;
+      }
+    }
+  }
+
+  const list = [];
+  
+  if (data.length > 1) {
+    for (let i = 1; i < data.length; i++) {
+      const nama = String(data[i][0] || '').trim();
+      const tingkat = String(data[i][1] || '').trim();
+      const jurusan = String(data[i][2] || '-').trim();
+      let wali = String(data[i][3] || '-').trim();
+      
+      // Auto resolve from Users sheet if empty/dash
+      if ((!wali || wali === '-') && waliMap[nama.toLowerCase()]) {
+        wali = waliMap[nama.toLowerCase()];
+      }
+
+      const kap = String(data[i][4] || '-').trim();
+      if (nama) {
+        list.push({ nama: nama, tingkat: tingkat, jurusan: jurusan, wali_kelas: wali, kapasitas: kap });
+      }
+    }
+  } else {
+    for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+      let wali = DEFAULT_KELAS_DATA[i].wali_kelas;
+      if (waliMap[DEFAULT_KELAS_DATA[i].nama.toLowerCase()]) {
+        wali = waliMap[DEFAULT_KELAS_DATA[i].nama.toLowerCase()];
+      }
+      sheet.appendRow([
+        DEFAULT_KELAS_DATA[i].nama,
+        DEFAULT_KELAS_DATA[i].tingkat,
+        DEFAULT_KELAS_DATA[i].jurusan,
+        wali,
+        DEFAULT_KELAS_DATA[i].kapasitas
+      ]);
+      list.push({ ...DEFAULT_KELAS_DATA[i], wali_kelas: wali });
+    }
+  }
+  
+  return jsonResponse('success', 'Data Master Kelas berhasil ditarik', list);
+}
+
+function handleSaveKelas(nama, tingkat, jurusan, wali_kelas, kapasitas, old_nama) {
+  if (!nama) return jsonResponse('error', 'Nama Kelas wajib diisi!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateKelasSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  
+  let foundRow = -1;
+  const targetNamaSearch = String(old_nama || nama).trim().toLowerCase();
+  const cleanWali = String(wali_kelas || '-').trim();
+
+  // Deduplicate Wali Kelas: Ensure 1 Teacher is not assigned to multiple classes simultaneously
+  if (cleanWali !== '-') {
+    for (let i = 1; i < data.length; i++) {
+      const rowNama = String(data[i][0] || '').trim().toLowerCase();
+      const rowWali = String(data[i][3] || '').trim().toLowerCase();
+      if (rowWali === cleanWali.toLowerCase() && rowNama !== targetNamaSearch) {
+        sheet.getRange(i + 1, 4).setValue('-'); // Clear previous assignment
+      }
+    }
+  }
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  
+  const cleanTingkat = tingkat || (nama.toUpperCase().startsWith('XII') ? 'XII' : nama.toUpperCase().startsWith('XI') ? 'XI' : 'X');
+  
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, 5).setValues([[nama, cleanTingkat, jurusan || '-', cleanWali, kapasitas || '36']]);
+    return jsonResponse('success', `Data Kelas '${nama}' berhasil diperbarui!`);
+  } else {
+    sheet.appendRow([nama, cleanTingkat, jurusan || '-', cleanWali, kapasitas || '36']);
+    return jsonResponse('success', `Data Kelas '${nama}' berhasil ditambahkan!`);
+  }
+}
+
+function handleDeleteKelas(nama) {
+  if (!nama) return jsonResponse('error', 'Nama Kelas tidak valid!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateKelasSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  const targetNamaSearch = String(nama).trim().toLowerCase();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse('success', `Data Kelas '${nama}' berhasil dihapus!`);
+    }
+  }
+  
+  return jsonResponse('error', `Data Kelas '${nama}' tidak ditemukan.`);
+}
+
+function handleSeedDefaultKelas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_KELAS);
+  if (sheet) {
+    ss.deleteSheet(sheet);
+  }
+  sheet = ss.insertSheet(SHEET_KELAS);
+  sheet.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+  
+  for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+    sheet.appendRow([
+      DEFAULT_KELAS_DATA[i].nama,
+      DEFAULT_KELAS_DATA[i].tingkat,
+      DEFAULT_KELAS_DATA[i].jurusan,
+      DEFAULT_KELAS_DATA[i].wali_kelas,
+      DEFAULT_KELAS_DATA[i].kapasitas
+    ]);
+  }
+  
+  return jsonResponse('success', '13 Data Master Kelas Bawaan berhasil disetup ulang!', DEFAULT_KELAS_DATA);
+}
+
+// ==========================================
+// OTOMATIS BERSIHKAN & PERBAIKI SELURUH DATABASE
+// ==========================================
+function handleCleanupAndRepairData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
+
+  const log = [];
+
+  // 1. Perbaiki & Standarkan DataKelas
+  let sheetKelas = ss.getSheetByName(SHEET_KELAS);
+  if (!sheetKelas) {
+    sheetKelas = ss.insertSheet(SHEET_KELAS);
+    sheetKelas.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+    log.push('Tabel DataKelas baru saja dibuat.');
+  }
+
+  const kData = sheetKelas.getDataRange().getValues();
+  const existingWaliMap = {};
+  if (kData.length > 1) {
+    for (let i = 1; i < kData.length; i++) {
+      const namaK = String(kData[i][0] || '').trim();
+      const waliK = String(kData[i][3] || '-').trim();
+      if (namaK) {
+        existingWaliMap[namaK.toLowerCase()] = waliK;
+      }
+    }
+  }
+
+  // Bersihkan dan susun ulang 13 rombel preset bawaan dengan Peminatan untuk XI & XII
+  sheetKelas.clear();
+  sheetKelas.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+
+  for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+    const item = DEFAULT_KELAS_DATA[i];
+    const prevWali = existingWaliMap[item.nama.toLowerCase()] || '-';
+    sheetKelas.appendRow([
+      item.nama,
+      item.tingkat,
+      item.jurusan,
+      prevWali,
+      item.kapasitas
+    ]);
+  }
+  log.push('13 Rombel DataKelas disinkronkan & diperbaiki (XI & XII Peminatan).');
+
+  // 2. Sinkronkan & Perbaiki Tabel Users (Single Source of Truth)
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers) {
+    const uData = sheetUsers.getDataRange().getValues();
+    if (uData.length > 1) {
+      // Peta Wali Kelas dari DataKelas
+      const classWaliMap = {};
+      const newKData = sheetKelas.getDataRange().getValues();
+      for (let k = 1; k < newKData.length; k++) {
+        const nK = String(newKData[k][0] || '').trim();
+        const wG = String(newKData[k][3] || '').trim();
+        if (nK && wG && wG !== '-') {
+          classWaliMap[wG.toLowerCase()] = nK;
+        }
+      }
+
+      // Perbarui kolom Wali_Kelas (kolom H / index 8) di sheet Users
+      for (let i = 1; i < uData.length; i++) {
+        const username = String(uData[i][1] || '').trim();
+        const namaGuru = String(uData[i][4] || username).trim();
+        if (!username) continue;
+
+        let derivedWali = classWaliMap[namaGuru.toLowerCase()] || classWaliMap[username.toLowerCase()] || '-';
+        sheetUsers.getRange(i + 1, 8).setValue(derivedWali);
+      }
+      log.push('Penugasan Wali Kelas di tabel Users berhasil disinkronkan dari DataKelas.');
+    }
+  }
+
+  return jsonResponse('success', '✅ Database berhasil dibersihkan & diperbaiki secara menyeluruh!', {
+    log: log
   });
 }

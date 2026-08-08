@@ -22,6 +22,14 @@
         var storedConfig = {};
         try { storedConfig = JSON.parse(localStorage.getItem('smart_absen_config') || '{}'); } catch(e){}
         var SCRIPT_URL = storedConfig.urlScript || storedConfig.url_script || DEFAULT_SCRIPT_URL;
+
+        // Apply saved theme immediately to prevent flashing
+        (function() {
+            var savedTheme = localStorage.getItem('smart_absen_theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
     </script>
 </head>
 
@@ -35,6 +43,13 @@
     <!-- VIEW: LOGIN PAGE                             -->
     <!-- ============================================ -->
     <div id="view-login" class="view-section active">
+        <!-- Tombol Theme Toggle (Light/Dark Mode) -->
+        <div style="position: absolute; top: 20px; right: 20px; z-index: 10;">
+            <button type="button" class="btn-toggle-sidebar btn-theme-toggle" title="Ubah Mode Terang / Gelap" style="width: 42px; height: 42px; border-radius: 12px;">
+                <i class="fa-solid fa-moon theme-icon-toggle" style="color: #38bdf8; font-size: 1.1rem;"></i>
+            </button>
+        </div>
+
         <div class="login-container glass-card">
             <div class="header">
                 <h1 id="loginSchoolTitle">Smart <span>School</span></h1>
@@ -83,9 +98,14 @@
                     <h2 id="sidebarSchoolName">SMART<span>APP</span></h2>
                     <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">TP <span class="app-tp-text">2026-2027</span></p>
                 </div>
-                <button type="button" id="btnToggleSidebar" class="btn-toggle-sidebar" title="Buka / Tutup Sidebar">
-                    <i class="fa-solid fa-bars-staggered"></i>
-                </button>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <button type="button" class="btn-toggle-sidebar btn-theme-toggle" title="Ubah Mode Terang / Gelap">
+                        <i class="fa-solid fa-moon theme-icon-toggle" style="color: #38bdf8;"></i>
+                    </button>
+                    <button type="button" id="btnToggleSidebar" class="btn-toggle-sidebar" title="Buka / Tutup Sidebar">
+                        <i class="fa-solid fa-bars-staggered"></i>
+                    </button>
+                </div>
             </div>
             <div class="user-info">
                 <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
@@ -806,128 +826,26 @@
 
             <!-- PANEL 3: ADMIN KELOLA GURU & PENGATURAN SEKOLAH -->
             <section id="panel-admin" class="panel" style="display:none;">
-                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                    <div>
-                        <h2>Manajemen Pengguna & Sekolah</h2>
-                        <p>Kelola data akun Guru, Admin, dan Identitas Sekolah</p>
-                    </div>
-                    <button id="btnInitialSetup" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 8px; border-color: rgba(59, 130, 246, 0.4); color: #93c5fd;">
-                        <span><i class="fa-solid fa-database"></i> Setup Database Otomatis</span>
-                    </button>
-                </div>
-
-                <!-- CARD PENGATURAN SEKOLAH & TAHUN PELAJARAN -->
-                <div class="glass-card panel-body" style="margin-top: 20px; padding: 25px;">
-                    <h3 style="margin-bottom: 15px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                        <span><i class="fa-solid fa-school"></i></span> Pengaturan Sekolah, Tahun Pelajaran & Server Database
-                    </h3>
-                    <form id="formConfigSekolah" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; align-items: end;">
-                        <div>
-                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Sekolah:</label>
-                            <input type="text" id="inputNamaSekolah" required placeholder="Contoh: SMA Negeri Barunawati" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
-                        </div>
-                        <div>
-                            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Tahun Pelajaran:</label>
-                            <input type="text" id="inputTahunPelajaran" required placeholder="Contoh: 2025/2026" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
-                        </div>
-                        <div style="grid-column: 1 / -1;">
-                            <label style="font-size: 0.85rem; color: #93c5fd; display: block; margin-bottom: 6px;">
-                                <i class="fa-solid fa-link"></i> URL Web App Google Apps Script (Deployment Production):
-                            </label>
-                            <input type="url" id="inputUrlScript" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
-                        </div>
-                        <div style="grid-column: 1 / -1;">
-                            <label style="font-size: 0.85rem; color: #38bdf8; display: block; margin-bottom: 6px;">
-                                <i class="fa-brands fa-telegram"></i> Token Bot Telegram Sekolah (Notifikasi Real-time Presensi Mesin Wajah):
-                            </label>
-                            <input type="text" id="inputTelegramBotToken" placeholder="Contoh: 7123456789:AAFx-xxxxxxxxxxxxxxxxxx" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
-                            <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">Dapatkan Token dari <strong>@BotFather</strong> di Telegram. Kosongkan jika tidak memakai bot Telegram.</small>
-                        </div>
-                        <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
-                            <button type="button" id="btnActivateAutoReply" class="btn-secondary" style="padding: 10px 18px; border-color: rgba(168, 85, 247, 0.4); color: #c084fc;" title="Aktifkan agar Bot Sekolah otomatis membalas nomor ID Telegram saat ada user yang chat /start">
-                                <span><i class="fa-solid fa-robot"></i> Aktifkan Auto-Reply ID Bot</span>
-                            </button>
-                            <button type="button" id="btnTestTelegram" class="btn-secondary" style="padding: 10px 18px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
-                                <span><i class="fa-brands fa-telegram"></i> Tes Kirim Pesan Telegram</span>
-                            </button>
-                            <button type="submit" id="btnSaveConfig" class="btn-primary" style="padding: 10px 24px;">
-                                <span><i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan & Server URL</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- CARD PENGATURAN HARI LIBUR NASIONAL & CUTI BERSAMA -->
-                <div class="glass-card panel-body" style="margin-top: 25px; padding: 25px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
-                        <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                            <span><i class="fa-solid fa-umbrella-beach" style="color: #f59e0b;"></i></span> Kelola Hari Libur Nasional & Cuti Bersama
-                        </h3>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button type="button" id="btnSyncHolidaysSheet" class="btn-primary" style="padding: 6px 14px; font-size: 0.82rem; background: #059669; border-color: #10b981;" title="Generate & Simpan seluruh data libur setahun ke Google Sheet">
-                                <i class="fa-solid fa-cloud-arrow-up"></i> Sync ke Google Sheet
-                            </button>
-                            <button type="button" id="btnFetchHolidaysSheet" class="btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;" title="Tarik data libur dari Google Sheet">
-                                <i class="fa-solid fa-cloud-arrow-down"></i> Tarik dari Sheet
-                            </button>
-                            <button type="button" id="btnResetHolidays" class="btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;" title="Kembalikan daftar libur nasional ke preset 2026">
-                                <i class="fa-solid fa-rotate-left"></i> Reset Presets
-                            </button>
-                        </div>
-                    </div>
-
-                    <form id="formAddHoliday" style="display: grid; grid-template-columns: 160px 140px 1fr auto; gap: 12px; align-items: end; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
-                        <div>
-                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Tanggal Libur:</label>
-                            <input type="date" id="inputHolidayDate" required style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
-                        </div>
-                        <div>
-                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Kategori:</label>
-                            <select id="selectHolidayCategory" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
-                                <option value="Libur Sekolah">Libur Sekolah</option>
-                                <option value="Libur Nasional">Libur Nasional</option>
-                                <option value="Cuti Bersama">Cuti Bersama</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Nama / Keterangan Libur:</label>
-                            <input type="text" id="inputHolidayDesc" required placeholder="Contoh: Libur Sekolah Tambahan / Idul Fitri" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
-                        </div>
-                        <div>
-                            <button type="submit" class="btn-primary" style="padding: 8px 18px; font-size: 0.88rem;">
-                                <i class="fa-solid fa-plus"></i> Tambah Libur
-                            </button>
-                        </div>
-                    </form>
-
-                    <div style="max-height: 280px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
-                        <table class="data-table" style="width: 100%; margin: 0;">
-                            <thead style="position: sticky; top: 0; background: rgba(15, 23, 42, 0.95); z-index: 10;">
-                                <tr>
-                                    <th style="width: 40px; text-align: center;">No</th>
-                                    <th style="width: 120px;">Tanggal</th>
-                                    <th style="width: 180px;">Hari</th>
-                                    <th style="width: 140px;">Kategori</th>
-                                    <th>Keterangan Hari Libur</th>
-                                    <th style="width: 70px; text-align: center;">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBodyHolidays">
-                                <!-- Populated dynamically by JS -->
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-users-gear" style="color: #38bdf8; margin-right: 8px;"></i> Kelola Data Pengguna & Guru</h2>
+                    <p>Kelola daftar akun Guru, Admin, Wali Kelas, Guru Piket, dan Hak Akses Pengguna</p>
                 </div>
 
                 <!-- CARD MANAJEMEN GURU -->
-                <div class="glass-card panel-body" style="margin-top: 25px; padding: 20px; overflow-x: auto;">
+                <div class="glass-card panel-body" style="margin-top: 20px; padding: 20px; overflow-x: auto;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                         <h3 style="font-size: 1.1rem; margin: 0; display: flex; align-items: center; gap: 8px;">
                             <span><i class="fa-solid fa-users"></i></span> Daftar Pengguna & Guru
                         </h3>
-                        <button id="btnTambahUser" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 8px 16px;">
-                            <span><i class="fa-solid fa-user-plus"></i> Tambah Pengguna Baru</span>
-                        </button>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <div style="position: relative; min-width: 260px;">
+                                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                                <input type="text" id="inputSearchUser" placeholder="Cari nama, username, role, wali kelas..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 8px 12px 8px 34px; border-radius: 8px; font-size: 0.85rem;">
+                            </div>
+                            <button id="btnTambahUser" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 8px 16px;">
+                                <span><i class="fa-solid fa-user-plus"></i> Tambah Pengguna Baru</span>
+                            </button>
+                        </div>
                     </div>
 
                     <table class="data-table">
@@ -939,12 +857,14 @@
                                 <th style="text-align: center;">ID Mesin</th>
                                 <th style="text-align: center;">ID Telegram</th>
                                 <th style="text-align: center;">Role</th>
+                                <th style="text-align: center;">Wali Kelas</th>
+                                <th style="text-align: center;">Tugas Piket</th>
                                 <th style="text-align: center; width: 140px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="tableBodyUsers">
                             <tr>
-                                <td colspan="7" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td>
+                                <td colspan="9" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1613,6 +1533,305 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- KOTAK PENGATURAN SEKOLAH, TAHUN PELAJARAN & LIBUR (KHUSUS ADMIN) -->
+                <div id="adminOnlySettingsBox" style="display: none; margin-top: 30px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <h3 style="display: flex; align-items: center; gap: 10px; font-size: 1.3rem; margin: 0; color: #f8fafc;">
+                                <i class="fa-solid fa-sliders" style="color: #38bdf8;"></i> Pengaturan Sekolah & Server Database
+                            </h3>
+                            <p style="margin-top: 4px; font-size: 0.88rem; color: var(--text-muted);">
+                                Kelola identitas sekolah, tahun pelajaran, koneksi server database, dan kalender libur nasional.
+                            </p>
+                        </div>
+                        <button id="btnInitialSetup" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 8px; border-color: rgba(59, 130, 246, 0.4); color: #93c5fd;">
+                            <span><i class="fa-solid fa-database"></i> Setup Database Otomatis</span>
+                        </button>
+                    </div>
+
+                    <!-- CARD PENGATURAN SEKOLAH & TAHUN PELAJARAN -->
+                    <div class="glass-card panel-body" style="padding: 25px; margin-bottom: 25px;">
+                        <h4 style="margin-bottom: 15px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; color: #38bdf8;">
+                            <span><i class="fa-solid fa-school"></i></span> Identitas Sekolah, Tahun Pelajaran & Integration Key
+                        </h4>
+                        <form id="formConfigSekolah" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; align-items: end;">
+                            <div>
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Sekolah:</label>
+                                <input type="text" id="inputNamaSekolah" required placeholder="Contoh: SMA Negeri Barunawati" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Tahun Pelajaran:</label>
+                                <input type="text" id="inputTahunPelajaran" required placeholder="Contoh: 2025/2026" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <label style="font-size: 0.85rem; color: #93c5fd; display: block; margin-bottom: 6px;">
+                                    <i class="fa-solid fa-link"></i> URL Web App Google Apps Script (Deployment Production):
+                                </label>
+                                <input type="url" id="inputUrlScript" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <label style="font-size: 0.85rem; color: #38bdf8; display: block; margin-bottom: 6px;">
+                                    <i class="fa-brands fa-telegram"></i> Token Bot Telegram Sekolah (Notifikasi Real-time Presensi Mesin Wajah):
+                                </label>
+                                <input type="text" id="inputTelegramBotToken" placeholder="Contoh: 7123456789:AAFx-xxxxxxxxxxxxxxxxxx" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+                                <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">Dapatkan Token dari <strong>@BotFather</strong> di Telegram. Kosongkan jika tidak memakai bot Telegram.</small>
+                            </div>
+                            <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+                                <button type="button" id="btnCleanupDatabase" class="btn-secondary" style="padding: 10px 18px; border-color: rgba(234, 179, 8, 0.5); color: #facc15;" title="Bersihkan & Perbaiki Struktur Database Google Sheets Secara Otomatis">
+                                    <span><i class="fa-solid fa-broom"></i> Perbaiki & Bersihkan Database</span>
+                                </button>
+                                <button type="button" id="btnActivateAutoReply" class="btn-secondary" style="padding: 10px 18px; border-color: rgba(168, 85, 247, 0.4); color: #c084fc;" title="Aktifkan agar Bot Sekolah otomatis membalas nomor ID Telegram saat ada user yang chat /start">
+                                    <span><i class="fa-solid fa-robot"></i> Aktifkan Auto-Reply ID Bot</span>
+                                </button>
+                                <button type="button" id="btnTestTelegram" class="btn-secondary" style="padding: 10px 18px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+                                    <span><i class="fa-brands fa-telegram"></i> Tes Kirim Pesan Telegram</span>
+                                </button>
+                                <button type="submit" id="btnSaveConfig" class="btn-primary" style="padding: 10px 24px;">
+                                    <span><i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan & Server URL</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- CARD MANAJEMEN MASTER DATA KELAS & WALI KELAS -->
+                    <div class="glass-card panel-body" style="padding: 25px; margin-bottom: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+                            <div>
+                                <h4 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; color: #93c5fd;">
+                                    <span><i class="fa-solid fa-school-flag" style="color: #3b82f6;"></i></span> Kelola Master Data Kelas & Rombel Sekolah
+                                </h4>
+                                <p style="margin-top: 4px; font-size: 0.83rem; color: var(--text-muted);">
+                                    Daftar struktur kelas, tingkat (X, XI, XII), jurusan/kelompok, wali kelas, dan kapasitas siswa.
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <span class="badge" id="badgeTotalKelas" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 6px 14px; border-radius: 20px; font-size: 0.82rem;">0 Rombel Kelas</span>
+                                <button type="button" id="btnSeedKelasDefault" class="btn-secondary" style="padding: 8px 16px; border-color: rgba(59, 130, 246, 0.4); color: #60a5fa; font-size: 0.85rem;" title="Setup 13 Preset Rombel Kelas Bawaan">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Setup Preset Kelas Bawaan
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- FORM TAMBAH / EDIT KELAS -->
+                        <form id="formKelas" style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); padding: 18px; border-radius: 12px; margin-bottom: 20px;">
+                            <div style="display: grid; grid-template-columns: 1.2fr 1fr 1.2fr 1.5fr 1fr auto; gap: 12px; align-items: end;">
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Kelas:</label>
+                                    <input type="text" id="inputNamaKelas" required placeholder="Contoh: X-1, XI-1, XII-5..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Tingkat:</label>
+                                    <select id="selectTingkatKelas" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                        <option value="X">Kelas X</option>
+                                        <option value="XI">Kelas XI</option>
+                                        <option value="XII">Kelas XII</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Jurusan / Kelompok:</label>
+                                    <input type="text" id="inputJurusanKelas" placeholder="Umum, IPA, IPS..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Wali Kelas:</label>
+                                    <select id="selectWaliKelas" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                        <option value="-">-- Pilih Wali Kelas (Opsional) --</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Kapasitas:</label>
+                                    <input type="number" id="inputKapasitasKelas" placeholder="36" value="36" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" id="btnCancelEditKelas" class="btn-secondary" style="display: none; padding: 9px 14px; font-size: 0.88rem;">Batal</button>
+                                    <button type="submit" id="btnSubmitKelas" class="btn-primary" style="padding: 9px 18px; font-size: 0.88rem; background: #2563eb; border-color: #3b82f6;">
+                                        <span><i class="fa-solid fa-plus"></i> Tambah Kelas</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- PENCARIAN & TABEL KELAS -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <div style="position: relative; min-width: 260px;">
+                                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                                <input type="text" id="inputSearchKelas" placeholder="Cari nama kelas, jurusan, wali kelas..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 7px 12px 7px 34px; border-radius: 8px; font-size: 0.83rem;">
+                            </div>
+                        </div>
+
+                        <div class="modern-table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">No</th>
+                                        <th style="width: 130px;">Nama Kelas</th>
+                                        <th style="text-align: center; width: 120px;">Tingkat</th>
+                                        <th>Jurusan / Kelompok</th>
+                                        <th>Wali Kelas</th>
+                                        <th style="text-align: center; width: 100px;">Kapasitas</th>
+                                        <th style="text-align: center; width: 120px;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodyKelas">
+                                    <tr>
+                                        <td colspan="7" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat Master Data Kelas...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- CARD MANAJEMEN DATA MATA PELAJARAN (MAPEL) & TARGET KELAS -->
+                    <div class="glass-card panel-body" style="padding: 25px; margin-bottom: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+                            <div>
+                                <h4 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; color: #a7f3d0;">
+                                    <span><i class="fa-solid fa-book-open" style="color: #10b981;"></i></span> Kelola Data Mata Pelajaran (Mapel) & Target Kelas
+                                </h4>
+                                <p style="margin-top: 4px; font-size: 0.83rem; color: var(--text-muted);">
+                                    Daftar mata pelajaran beserta target kelas pengajaran yang terhubung dengan data siswa dan kurikulum sekolah.
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <span class="badge" id="badgeTotalMapel" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 14px; border-radius: 20px; font-size: 0.82rem;">0 Mata Pelajaran</span>
+                                <button type="button" id="btnSeedMapelDefault" class="btn-secondary" style="padding: 8px 16px; border-color: rgba(16, 185, 129, 0.4); color: #34d399; font-size: 0.85rem;" title="Setup 18 Mata Pelajaran Bawaan Otomatis">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Setup Preset Mapel Bawaan
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- FORM TAMBAH / EDIT MAPEL -->
+                        <form id="formMapel" style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); padding: 18px; border-radius: 12px; margin-bottom: 20px;">
+                            <div style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 14px; align-items: end;">
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Mata Pelajaran:</label>
+                                    <input type="text" id="inputNamaMapel" required placeholder="Contoh: Informatika, Biologi..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Target Kelas Pengajaran:</label>
+                                    <!-- Multi-Select Class Dropdown Component -->
+                                    <div style="position: relative;" id="wrapperTargetKelasDropdown">
+                                        <button type="button" id="btnToggleClassDropdown" class="styled-input" style="width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; min-height: 40px;">
+                                            <span id="selectedClassesText" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #94a3b8;">-- Pilih Target Kelas --</span>
+                                            <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted); margin-left: 8px;"></i>
+                                        </button>
+                                        
+                                        <!-- Dropdown Menu Body -->
+                                        <div id="dropdownTargetKelasMenu" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0f172a; border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 10px; z-index: 9999; padding: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 260px; overflow-y: auto;">
+                                            <!-- Quick Action Buttons -->
+                                            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                                <button type="button" class="btn-secondary" onclick="quickSelectMapelClass('ALL')" style="padding: 3px 8px; font-size: 0.72rem;">Pilih Semua</button>
+                                                <button type="button" class="btn-secondary" onclick="quickSelectMapelClass('X')" style="padding: 3px 8px; font-size: 0.72rem;">Kelas X</button>
+                                                <button type="button" class="btn-secondary" onclick="quickSelectMapelClass('XI')" style="padding: 3px 8px; font-size: 0.72rem;">Kelas XI</button>
+                                                <button type="button" class="btn-secondary" onclick="quickSelectMapelClass('XII')" style="padding: 3px 8px; font-size: 0.72rem;">Kelas XII</button>
+                                                <button type="button" class="btn-secondary" onclick="quickSelectMapelClass('NONE')" style="padding: 3px 8px; font-size: 0.72rem; color: #fca5a5; border-color: rgba(239,68,68,0.3);">Kosongkan</button>
+                                            </div>
+                                            <!-- Checkbox List Container -->
+                                            <div id="containerMapelClassCheckboxes" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 8px;">
+                                                <!-- Rendered dynamically by js/mapel.js -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="inputTargetKelasMapel">
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" id="btnCancelEditMapel" class="btn-secondary" style="display: none; padding: 9px 14px; font-size: 0.88rem;">Batal</button>
+                                    <button type="submit" id="btnSubmitMapel" class="btn-primary" style="padding: 9px 18px; font-size: 0.88rem; background: #059669; border-color: #10b981;">
+                                        <span><i class="fa-solid fa-plus"></i> Tambah Mapel</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- PENCARIAN & TABEL MAPEL -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <div style="position: relative; min-width: 260px;">
+                                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                                <input type="text" id="inputSearchMapel" placeholder="Cari nama mapel atau target kelas..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 7px 12px 7px 34px; border-radius: 8px; font-size: 0.83rem;">
+                            </div>
+                        </div>
+
+                        <div class="modern-table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align: center;">No</th>
+                                        <th style="width: 240px;">Nama Mata Pelajaran</th>
+                                        <th>Target Kelas</th>
+                                        <th style="text-align: center; width: 120px;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodyMapel">
+                                    <tr>
+                                        <td colspan="4" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat data Mata Pelajaran...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- CARD PENGATURAN HARI LIBUR NASIONAL & CUTI BERSAMA -->
+                    <div class="glass-card panel-body" style="padding: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                            <h4 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; color: #fbbf24;">
+                                <span><i class="fa-solid fa-umbrella-beach"></i></span> Kelola Hari Libur Nasional & Cuti Bersama
+                            </h4>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button type="button" id="btnSyncHolidaysSheet" class="btn-primary" style="padding: 6px 14px; font-size: 0.82rem; background: #059669; border-color: #10b981;" title="Generate & Simpan seluruh data libur setahun ke Google Sheet">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Sync ke Google Sheet
+                                </button>
+                                <button type="button" id="btnFetchHolidaysSheet" class="btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;" title="Tarik data libur dari Google Sheet">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> Tarik dari Sheet
+                                </button>
+                                <button type="button" id="btnResetHolidays" class="btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;" title="Kembalikan daftar libur nasional ke preset 2026">
+                                    <i class="fa-solid fa-rotate-left"></i> Reset Presets
+                                </button>
+                            </div>
+                        </div>
+
+                        <form id="formAddHoliday" style="display: grid; grid-template-columns: 160px 140px 1fr auto; gap: 12px; align-items: end; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                            <div>
+                                <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Tanggal Libur:</label>
+                                <input type="date" id="inputHolidayDate" required style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Kategori:</label>
+                                <select id="selectHolidayCategory" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
+                                    <option value="Libur Sekolah">Libur Sekolah</option>
+                                    <option value="Libur Nasional">Libur Nasional</option>
+                                    <option value="Cuti Bersama">Cuti Bersama</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Nama / Keterangan Libur:</label>
+                                <input type="text" id="inputHolidayDesc" required placeholder="Contoh: Libur Sekolah Tambahan / Idul Fitri" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
+                            </div>
+                            <div>
+                                <button type="submit" class="btn-primary" style="padding: 8px 18px; font-size: 0.88rem;">
+                                    <i class="fa-solid fa-plus"></i> Tambah Libur
+                                </button>
+                            </div>
+                        </form>
+
+                        <div style="max-height: 280px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                            <table class="data-table" style="width: 100%; margin: 0;">
+                                <thead style="position: sticky; top: 0; background: rgba(15, 23, 42, 0.95); z-index: 10;">
+                                    <tr>
+                                        <th style="width: 40px; text-align: center;">No</th>
+                                        <th style="width: 120px;">Tanggal</th>
+                                        <th style="width: 180px;">Hari</th>
+                                        <th style="width: 140px;">Kategori</th>
+                                        <th>Keterangan Hari Libur</th>
+                                        <th style="width: 70px; text-align: center;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodyHolidays">
+                                    <!-- Populated dynamically by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- MODAL CUSTOM GLASSMORPHISM ALERT & DIALOG BROADCAST TELEGRAM -->
@@ -1670,7 +1889,7 @@
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Password:</label>
                             <input type="password" id="modalPassword" placeholder="Ketik password baru..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                         </div>
-                        <div class="modal-form-group" style="margin-bottom: 25px;">
+                        <div class="modal-form-group" style="margin-bottom: 15px;">
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Role / Hak Akses:</label>
                             <select id="modalRole" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                                 <option value="Guru">Guru</option>
@@ -1678,6 +1897,26 @@
                                 <option value="Kepala Sekolah">Kepala Sekolah</option>
                                 <option value="Admin">Admin</option>
                             </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px;">
+                            <div>
+                                <label style="font-size: 0.85rem; color: #a7f3d0; display: block; margin-bottom: 5px;"><i class="fa-solid fa-chalkboard-user"></i> Wali Kelas:</label>
+                                <select id="modalWaliKelas" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                                    <option value="-">Bukan Wali Kelas / -</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; color: #fbbf24; display: block; margin-bottom: 5px;"><i class="fa-solid fa-user-shield"></i> Tugas Piket:</label>
+                                <select id="modalTugasPiket" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                                    <option value="-">Tidak Ada / -</option>
+                                    <option value="Guru Piket">Ya - Guru Piket</option>
+                                    <option value="Piket Senin">Piket Senin</option>
+                                    <option value="Piket Selasa">Piket Selasa</option>
+                                    <option value="Piket Rabu">Piket Rabu</option>
+                                    <option value="Piket Kamis">Piket Kamis</option>
+                                    <option value="Piket Jumat">Piket Jumat</option>
+                                </select>
+                            </div>
                         </div>
                         <div style="display: flex; justify-content: flex-end; gap: 10px;">
                             <button type="button" id="btnCancelModalUser" class="btn-secondary" style="padding: 8px 18px;">Batal</button>
@@ -1854,6 +2093,8 @@
     <script src="js/dashboard.js"></script>
     <script src="js/holidays.js"></script>
     <script src="js/users.js"></script>
+    <script src="js/kelas.js?v=1.0"></script>
+    <script src="js/mapel.js?v=1.0"></script>
     <script src="js/rekap_matrix.js"></script>
     <script src="js/pelanggaran.js?v=7.0"></script>
     <script src="js/absen_guru.js?v=1.0"></script>

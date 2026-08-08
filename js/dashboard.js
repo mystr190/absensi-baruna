@@ -362,7 +362,13 @@ function updateStatsAndChart(dataArray) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'right', labels: { color: '#f8fafc' } }
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: document.documentElement.getAttribute('data-theme') === 'light' ? '#0f172a' : '#f8fafc',
+                        font: { family: 'Outfit', size: 12 }
+                    }
+                }
             }
         }
     });

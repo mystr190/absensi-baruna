@@ -9,10 +9,69 @@ const btnLogout = document.getElementById('btnLogout');
 const connectionStatus = document.getElementById('connectionStatus');
 const statusText = document.getElementById('statusText');
 
-// Cek Sesi Saat Halaman Dimuat
+// Cek Sesi & Inisialisasi Tema Saat Halaman Dimuat
 window.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     checkSession();
 });
+
+// ==========================================
+// TEMA TAMPILAN (LIGHT MODE & DARK MODE)
+// ==========================================
+function initTheme() {
+    const savedTheme = localStorage.getItem('smart_absen_theme') || 'dark';
+    applyTheme(savedTheme, false);
+
+    document.querySelectorAll('.btn-theme-toggle').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleTheme();
+        });
+    });
+}
+
+function applyTheme(theme, notify = false) {
+    if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.body.classList.add('light-mode');
+        updateThemeIcons(true);
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        document.body.classList.remove('light-mode');
+        updateThemeIcons(false);
+    }
+    localStorage.setItem('smart_absen_theme', theme);
+
+    if (notify && typeof showToast === 'function') {
+        showToast(theme === 'light' ? '☀️ Mode Terang (Light Mode) Aktif' : '🌙 Mode Gelap (Dark Mode) Aktif', 'info');
+    }
+
+    if (typeof loadLocalOverviewStats === 'function') {
+        loadLocalOverviewStats();
+    }
+    if (typeof updateStatsAndChart === 'function' && typeof rawReportData !== 'undefined' && rawReportData.length > 0) {
+        updateStatsAndChart(rawReportData);
+    }
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(newTheme, true);
+}
+
+function updateThemeIcons(isLight) {
+    const icons = document.querySelectorAll('.theme-icon-toggle');
+    icons.forEach(icon => {
+        if (isLight) {
+            icon.className = 'fa-solid fa-sun theme-icon-toggle';
+            icon.style.color = '#f59e0b';
+        } else {
+            icon.className = 'fa-solid fa-moon theme-icon-toggle';
+            icon.style.color = '#38bdf8';
+        }
+    });
+}
 
 function checkSession() {
     const userSession = localStorage.getItem('smart_absen_user');
@@ -155,11 +214,27 @@ function showApp(user) {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         if (navUserMesin) navUserMesin.style.display = 'flex';
-    } else if (user.role === 'Tata Usaha') {
+    } else if (uRole === 'siswa') {
+        if (navScan) navScan.style.display = 'none';
+        if (navRekap) navRekap.style.display = 'none';
+        if (navMatrix) navMatrix.style.display = 'none';
+        if (navPelanggaran) navPelanggaran.style.display = 'none';
+        if (navIzinGuru) navIzinGuru.style.display = 'none';
+        if (navAdmin) navAdmin.style.display = 'none';
+        if (navKelolaSiswa) navKelolaSiswa.style.display = 'none';
+        if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'none';
+        if (navUserMesin) navUserMesin.style.display = 'none';
+        if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'none';
+        if (navApprovalKepsek) navApprovalKepsek.style.display = 'none';
+
+        setTimeout(() => {
+            const navOverview = document.getElementById('nav-overview') || document.querySelector('.sidebar-nav .nav-item[data-target="panel-overview"]');
+            if (navOverview) navOverview.click();
+        }, 100);
+    } else if (uRole === 'tata usaha' || user.role === 'Tata Usaha') {
         if (navKelolaSiswa) navKelolaSiswa.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         if (navUserMesin) navUserMesin.style.display = 'flex';
-        // Role Tata Usaha memiliki akses ke Izin Guru dan Kelola Data Siswa
         if (navScan) navScan.style.display = 'none';
         if (navRekap) navRekap.style.display = 'none';
         if (navMatrix) navMatrix.style.display = 'none';
@@ -322,12 +397,21 @@ async function renderSelfProfilePanel() {
     const idMesinInput = document.getElementById('selfIdMesin');
     const idTelegramInput = document.getElementById('selfIdTelegram');
 
+    const uRole = String(user.role || '').trim().toLowerCase();
+    const isSiswa = uRole === 'siswa';
+    const isAdmin = uRole === 'admin';
+
+    const adminSettingsBox = document.getElementById('adminOnlySettingsBox');
+    if (adminSettingsBox) {
+        adminSettingsBox.style.display = isAdmin ? 'block' : 'none';
+    }
+
     if (!isUserTyping) {
         if (oldUsernameInput) oldUsernameInput.value = user.username || '';
-        if (usernameInput) usernameInput.value = user.username || '';
-        if (namaInput) namaInput.value = user.nama || '';
-        if (roleInput) roleInput.value = user.role || '';
-        if (idMesinInput) idMesinInput.value = user.id_mesin || '';
+        if (usernameInput) { usernameInput.value = user.username || ''; usernameInput.disabled = isSiswa; }
+        if (namaInput) { namaInput.value = user.nama || ''; namaInput.disabled = isSiswa; }
+        if (roleInput) { roleInput.value = user.role || ''; roleInput.disabled = isSiswa; }
+        if (idMesinInput) { idMesinInput.value = user.id_mesin || ''; idMesinInput.disabled = isSiswa; }
         if (idTelegramInput) idTelegramInput.value = user.id_telegram || '';
     }
 
