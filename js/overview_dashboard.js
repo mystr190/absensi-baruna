@@ -6,6 +6,7 @@ let chartGender = null;
 let chartStudentAbsen = null;
 let chartViolations = null;
 let chartTeacherAbsen = null;
+let chartStudentPersonalTimeline = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const navOverview = document.getElementById('nav-overview');
@@ -113,50 +114,261 @@ function loadLocalOverviewStats() {
 function updateOverviewUI(data) {
     if (!data) return;
 
-    // Update KPI Card Metric Elements
-    const ovTotalSiswa = document.getElementById('ovTotalSiswa');
-    const ovTotalKelas = document.getElementById('ovTotalKelas');
-    const ovGenderText = document.getElementById('ovGenderText');
-    const ovPresensiHadir = document.getElementById('ovPresensiHadir');
-    const ovPresensiIzinSakit = document.getElementById('ovPresensiIzinSakit');
-    const ovPresensiAlpa = document.getElementById('ovPresensiAlpa');
-    const ovGuruHadir = document.getElementById('ovGuruHadir');
-    const ovGuruIzin = document.getElementById('ovGuruIzin');
-    const ovGuruAlpa = document.getElementById('ovGuruAlpa');
+    let loggedUser = null;
+    try {
+        const rawUser = localStorage.getItem('smart_absen_user');
+        if (rawUser) loggedUser = JSON.parse(rawUser);
+    } catch(e){}
 
-    if (ovTotalSiswa) ovTotalSiswa.innerText = `${data.totalSiswa || 0} Siswa`;
-    if (ovTotalKelas) ovTotalKelas.innerText = `${data.totalKelas || 0}`;
-    if (ovGenderText) ovGenderText.innerText = `${data.totalLaki || 0} L / ${data.totalPerempuan || 0} P`;
+    const userRole = String(loggedUser && loggedUser.role ? loggedUser.role : '').trim().toLowerCase();
+    const isSiswa = userRole === 'siswa';
 
-    const sSummary = data.studentAbsenSummary || { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
-    if (ovPresensiHadir) ovPresensiHadir.innerText = `${sSummary.Hadir || 0} Hadir`;
-    if (ovPresensiIzinSakit) ovPresensiIzinSakit.innerText = `${(sSummary.Izin || 0) + (sSummary.Sakit || 0)} Izin/Sakit`;
-    if (ovPresensiAlpa) ovPresensiAlpa.innerText = `${sSummary.Alpa || 0} Alpa`;
+    const kpiGrid = document.getElementById('overviewKpiGrid');
+    const chartsRow1 = document.getElementById('overviewChartsRow1');
+    const chartsRow2 = document.getElementById('overviewChartsRow2');
+    const siswaOverviewContainer = document.getElementById('siswaOverviewContainer');
 
-    const gSummary = data.guruAbsenSummary || { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
-    if (ovGuruHadir) ovGuruHadir.innerText = `${gSummary.Hadir || 0} Hadir`;
-    if (ovGuruIzin) ovGuruIzin.innerText = `${(gSummary.Izin || 0) + (gSummary.Sakit || 0)} Izin`;
-    if (ovGuruAlpa) ovGuruAlpa.innerText = `${gSummary.Alpa || 0} Alpa`;
+    const panelTitle = document.getElementById('overviewPanelTitle');
+    const panelSubtitle = document.getElementById('overviewPanelSubtitle');
 
-    // Render Chart 1: Gender Doughnut
-    renderChartGender(data.totalLaki || 0, data.totalPerempuan || 0);
+    if (isSiswa) {
+        if (panelTitle) panelTitle.innerHTML = `<i class="fa-solid fa-graduation-cap" style="color: #10b981;"></i> Dashboard Siswa`;
+        if (panelSubtitle) panelSubtitle.innerText = `Ringkasan Presensi, Catatan Kehadiran Saya & Informasi Guru Bertugas Hari Ini`;
 
-    // Render Chart 2: Presensi Siswa Bar Chart
-    renderChartStudentAbsen(sSummary);
+        if (kpiGrid) kpiGrid.style.display = 'none';
+        if (chartsRow1) chartsRow1.style.display = 'none';
+        if (chartsRow2) chartsRow2.style.display = 'none';
+        if (siswaOverviewContainer) siswaOverviewContainer.style.display = 'block';
 
-    // Render Chart 3: Violations Breakdown Bar Chart
-    renderChartViolations(data.violationSummary || {});
+        renderStudentPersonalDashboard(data.studentLogs || null, loggedUser);
+    } else {
+        if (panelTitle) panelTitle.innerHTML = `<i class="fa-solid fa-chart-pie" style="color: #6366f1;"></i> Overview Dashboard`;
+        if (panelSubtitle) panelSubtitle.innerText = `Ringkasan Analitik Real-Time Presensi, Siswa, Guru & Catatan Pelanggaran Sekolah`;
 
-    // Render Chart 4: Presensi Guru Pie Chart
-    renderChartTeacherAbsen(gSummary);
+        if (kpiGrid) kpiGrid.style.display = 'grid';
+        if (chartsRow1) chartsRow1.style.display = 'grid';
+        if (chartsRow2) chartsRow2.style.display = 'grid';
+        if (siswaOverviewContainer) siswaOverviewContainer.style.display = 'none';
 
-    // Render List 5: Guru & Staf Belum Absen
-    renderUnabsenGuruList(data.unabsenGuruList || []);
+        // Update KPI Card Metric Elements
+        const ovTotalSiswa = document.getElementById('ovTotalSiswa');
+        const ovTotalKelas = document.getElementById('ovTotalKelas');
+        const ovGenderText = document.getElementById('ovGenderText');
+        const ovPresensiHadir = document.getElementById('ovPresensiHadir');
+        const ovPresensiIzinSakit = document.getElementById('ovPresensiIzinSakit');
+        const ovPresensiAlpa = document.getElementById('ovPresensiAlpa');
+        const ovGuruHadir = document.getElementById('ovGuruHadir');
+        const ovGuruIzin = document.getElementById('ovGuruIzin');
+        const ovGuruAlpa = document.getElementById('ovGuruAlpa');
+
+        if (ovTotalSiswa) ovTotalSiswa.innerText = `${data.totalSiswa || 0} Siswa`;
+        if (ovTotalKelas) ovTotalKelas.innerText = `${data.totalKelas || 0}`;
+        if (ovGenderText) ovGenderText.innerText = `${data.totalLaki || 0} L / ${data.totalPerempuan || 0} P`;
+
+        const sSummary = data.studentAbsenSummary || { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
+        if (ovPresensiHadir) ovPresensiHadir.innerText = `${sSummary.Hadir || 0} Hadir`;
+        if (ovPresensiIzinSakit) ovPresensiIzinSakit.innerText = `${(sSummary.Izin || 0) + (sSummary.Sakit || 0)} Izin/Sakit`;
+        if (ovPresensiAlpa) ovPresensiAlpa.innerText = `${sSummary.Alpa || 0} Alpa`;
+
+        const gSummary = data.guruAbsenSummary || { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
+        if (ovGuruHadir) ovGuruHadir.innerText = `${gSummary.Hadir || 0} Hadir`;
+        if (ovGuruIzin) ovGuruIzin.innerText = `${(gSummary.Izin || 0) + (gSummary.Sakit || 0)} Izin`;
+        if (ovGuruAlpa) ovGuruAlpa.innerText = `${gSummary.Alpa || 0} Alpa`;
+
+        // Render Chart 1: Gender Doughnut
+        renderChartGender(data.totalLaki || 0, data.totalPerempuan || 0);
+
+        // Render Chart 2: Presensi Siswa Bar Chart
+        renderChartStudentAbsen(sSummary);
+
+        // Render Chart 3: Violations Breakdown Bar Chart
+        renderChartViolations(data.violationSummary || {});
+
+        // Render Chart 4: Presensi Guru Pie Chart
+        renderChartTeacherAbsen(gSummary);
+
+        // Render List 5: Guru & Staf Belum Absen
+        renderUnabsenGuruList(data.unabsenGuruList || []);
+    }
 
     // Render Widget: Informasi Guru & Staf Yang Bertugas / Tidak Hadir Hari Ini
     if (typeof renderWidgetGuruTidakHadirHariIni === 'function') {
         renderWidgetGuruTidakHadirHariIni();
     }
+}
+
+function renderStudentPersonalDashboard(serverLogs, loggedUser) {
+    let allLogs = [];
+    if (Array.isArray(serverLogs) && serverLogs.length > 0) {
+        allLogs = serverLogs;
+    } else {
+        try {
+            const rawRecent = localStorage.getItem('smart_absen_recent_logs');
+            if (rawRecent) allLogs = JSON.parse(rawRecent);
+        } catch(e){}
+    }
+
+    const uName = String(loggedUser ? loggedUser.username || '' : '').trim().toLowerCase();
+    const uNama = String(loggedUser ? loggedUser.nama || '' : '').trim().toLowerCase();
+
+    const myLogs = allLogs.filter(l => {
+        const nisn = String(l.nisn || '').trim().toLowerCase();
+        const nis = String(l.nis || '').trim().toLowerCase();
+        const nama = String(l.nama || '').trim().toLowerCase();
+
+        if (uName && (nisn === uName || nis === uName)) return true;
+        if (uNama && nama && (nama === uNama || nama.includes(uNama) || uNama.includes(nama))) return true;
+        return false;
+    });
+
+    // Urutkan kronologis dari awal masuk s/d sekarang
+    myLogs.sort((a, b) => new Date(a.tanggal || 0) - new Date(b.tanggal || 0));
+
+    let totalHadir = 0;
+    let totalTelat = 0;
+    let totalIzinSakit = 0;
+    let totalAlpa = 0;
+
+    myLogs.forEach(l => {
+        const st = String(l.status || '').trim().toUpperCase();
+        if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') {
+            totalTelat++;
+        } else if (st.includes('HADIR') || st === 'H') {
+            totalHadir++;
+        } else if (st.includes('SAKIT') || st === 'S' || st.includes('IZIN') || st === 'I') {
+            totalIzinSakit++;
+        } else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') {
+            totalAlpa++;
+        } else {
+            totalHadir++;
+        }
+    });
+
+    const totalDays = myLogs.length;
+    const percentage = totalDays > 0 ? Math.round(((totalHadir + totalTelat) / totalDays) * 100) : 0;
+
+    const elHadir = document.getElementById('studentMyHadir');
+    const elTelat = document.getElementById('studentMyTelat');
+    const elIzinSakit = document.getElementById('studentMyIzinSakit');
+    const elAlpa = document.getElementById('studentMyAlpa');
+    const elPerc = document.getElementById('studentMyPercentage');
+    const elBadgeRange = document.getElementById('studentDateRangeBadge');
+
+    if (elHadir) elHadir.innerText = totalHadir;
+    if (elTelat) elTelat.innerText = totalTelat;
+    if (elIzinSakit) elIzinSakit.innerText = totalIzinSakit;
+    if (elAlpa) elAlpa.innerText = totalAlpa;
+    if (elPerc) elPerc.innerText = percentage + '%';
+
+    if (elBadgeRange) {
+        if (myLogs.length > 0) {
+            const startDate = myLogs[0].tanggal || '-';
+            const endDate = myLogs[myLogs.length - 1].tanggal || '-';
+            elBadgeRange.innerText = `Periode: ${startDate} s/d ${endDate}`;
+        } else {
+            elBadgeRange.innerText = `Periode: Belum Ada Data Presensi`;
+        }
+    }
+
+    renderChartStudentPersonalTimeline(myLogs);
+}
+
+function renderChartStudentPersonalTimeline(myLogs) {
+    const ctx = document.getElementById('chartStudentPersonalTimeline');
+    if (!ctx) return;
+
+    if (chartStudentPersonalTimeline) chartStudentPersonalTimeline.destroy();
+
+    const labels = [];
+    const dataValues = [];
+    const pointColors = [];
+
+    if (!myLogs || myLogs.length === 0) {
+        labels.push('Belum Ada Data');
+        dataValues.push(0);
+        pointColors.push('#94a3b8');
+    } else {
+        myLogs.forEach(l => {
+            labels.push(l.tanggal || 'Tanggal');
+            const st = String(l.status || '').trim().toUpperCase();
+            if (st.includes('HADIR') || st === 'H') {
+                dataValues.push(100);
+                pointColors.push('#10b981');
+            } else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') {
+                dataValues.push(75);
+                pointColors.push('#f59e0b');
+            } else if (st.includes('SAKIT') || st === 'S' || st.includes('IZIN') || st === 'I') {
+                dataValues.push(50);
+                pointColors.push('#3b82f6');
+            } else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') {
+                dataValues.push(25);
+                pointColors.push('#ef4444');
+            } else {
+                dataValues.push(100);
+                pointColors.push('#10b981');
+            }
+        });
+    }
+
+    chartStudentPersonalTimeline = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Status Kehadiran Saya',
+                data: dataValues,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                pointBackgroundColor: pointColors,
+                pointBorderColor: pointColors,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.raw;
+                            if (val === 100) return ' Status: HADIR (Tepat Waktu)';
+                            if (val === 75) return ' Status: TERLAMBAT';
+                            if (val === 50) return ' Status: IZIN / SAKIT';
+                            if (val === 25) return ' Status: ALPA (Tanpa Keterangan)';
+                            return ' Status: Belum Ada Data';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: getChartSubTextColor() },
+                    grid: { color: getChartGridColor() }
+                },
+                y: {
+                    min: 0,
+                    max: 110,
+                    ticks: {
+                        color: getChartSubTextColor(),
+                        stepSize: 25,
+                        callback: function(value) {
+                            if (value === 100) return 'Hadir (100%)';
+                            if (value === 75) return 'Telat (75%)';
+                            if (value === 50) return 'Izin/Sakit (50%)';
+                            if (value === 25) return 'Alpa (0%)';
+                            return '';
+                        }
+                    },
+                    grid: { color: getChartGridColor() }
+                }
+            }
+        }
+    });
 }
 
 function renderUnabsenGuruList(list) {

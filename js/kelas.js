@@ -60,7 +60,15 @@ if (btnCleanupDatabase) {
 }
 
 async function triggerCleanupDatabase() {
-    if (!confirm("Apakah Anda yakin ingin memproses Pembersihan & Perbaikan Database?\n\nSistem akan merapikan data kelas (termasuk preset XI & XII Peminatan) dan menguji sinkronisasi Wali Kelas pada database.")) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Pembersihan & Perbaikan Database',
+        message: 'Apakah Anda yakin ingin memproses Pembersihan & Perbaikan Database?\n\nSistem akan merapikan data kelas (termasuk preset XI & XII Peminatan) dan menguji sinkronisasi Wali Kelas pada database.',
+        icon: 'info',
+        confirmText: 'Ya, Bersihkan & Perbaiki',
+        cancelText: 'Batal',
+        danger: false
+    });
+    if (!confirmed) return;
 
     if (btnCleanupDatabase) btnCleanupDatabase.disabled = true;
     showToast("⏳ Sedang membersihkan & memperbaiki struktur database...", "info");
@@ -320,7 +328,15 @@ function resetKelasForm() {
 }
 
 async function deleteKelasItem(namaItem) {
-    if (!confirm(`Apakah Anda yakin ingin menghapus Rombel Kelas '${namaItem}'?`)) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Master Kelas',
+        message: `Apakah Anda yakin ingin menghapus Rombel Kelas '${namaItem}'?`,
+        icon: 'danger',
+        confirmText: 'Ya, Hapus Kelas',
+        cancelText: 'Batal',
+        danger: true
+    });
+    if (!confirmed) return;
 
     try {
         const formData = new FormData();
@@ -352,7 +368,15 @@ async function deleteKelasItem(namaItem) {
 }
 
 async function seedKelasDefault() {
-    if (!confirm("Apakah Anda yakin ingin menyetel ulang Master Data Kelas ke 13 Rombel Bawaan? Data custom akan diperbarui.")) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Reset Preset Master Kelas',
+        message: 'Apakah Anda yakin ingin menyetel ulang Master Data Kelas ke 13 Rombel Bawaan? Data custom akan diperbarui.',
+        icon: 'warning',
+        confirmText: 'Ya, Reset 13 Preset',
+        cancelText: 'Batal',
+        danger: true
+    });
+    if (!confirmed) return;
 
     if (btnSeedKelasDefault) btnSeedKelasDefault.disabled = true;
     showToast("⏳ Menyiapkan 13 Preset Master Kelas Bawaan...", "info");

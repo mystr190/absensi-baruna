@@ -16,6 +16,7 @@ const SHEET_HOLIDAYS = 'HariLibur';
 const SHEET_USER_MESIN = 'User_Mesin';
 const SHEET_MAPEL = 'Mapel';
 const SHEET_KELAS = 'DataKelas';
+const SHEET_IZIN_SISWA = 'LogIzinSiswa';
 const TIMEZONE = 'Asia/Jakarta'; // Menggunakan Timezone WIB Indonesia
 
 // === DUKUNGAN GET (Tarik Data Cepat & Real-Time) ===
@@ -133,6 +134,9 @@ function doGet(e) {
     }
     else if (action === 'get_overview_stats') {
       return handleGetOverviewStats();
+    }
+    else if (action === 'get_izin_siswa') {
+      return handleGetIzinSiswa();
     }
     else if (action === 'device_scan' || action === 'solution_scan') {
       return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status, e.parameter.nama_mesin || e.parameter.name);
@@ -268,6 +272,28 @@ function doPost(e) {
     }
     else if (action === 'send_telegram_broadcast') {
       return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
+    }
+    else if (action === 'get_izin_siswa') {
+      return handleGetIzinSiswa();
+    }
+    else if (action === 'add_pengajuan_izin_siswa') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { dataObj = JSON.parse(e.postData.contents); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) {
+        dataObj = e.parameter;
+      }
+      return handleAddPengajuanIzinSiswa(dataObj);
+    }
+    else if (action === 'approve_izin_siswa') {
+      return handleApproveIzinSiswa(e.parameter.id, e.parameter.approver_name, e.parameter.approver_role);
+    }
+    else if (action === 'reject_izin_siswa') {
+      return handleRejectIzinSiswa(e.parameter.id, e.parameter.approver_name, e.parameter.approver_role);
     }
     else if (action === 'update_self_profile') {
       return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
@@ -444,6 +470,11 @@ function ensureDatabaseSetup() {
     if (!headers[7] || headers[7].toString().trim() === '') sheetSiswa.getRange(1, 8).setValue('Password');
   }
 
+  // 3. Ensure SHEET_IZIN_SISWA ('LogIzinSiswa')
+  if (typeof getOrCreateIzinSiswaSheet === 'function') {
+    getOrCreateIzinSiswaSheet(ss);
+  }
+
   return true;
 }
 
@@ -471,7 +502,10 @@ function getUsersFromCacheOrSheet() {
       const namaKelas = String(kData[k][0] || '').trim();
       const waliGuru = String(kData[k][3] || '').trim();
       if (namaKelas && waliGuru && waliGuru !== '-') {
-        classWaliMap[waliGuru.toLowerCase()] = namaKelas;
+        const wLower = waliGuru.toLowerCase();
+        classWaliMap[wLower] = namaKelas;
+        const cleanName = wLower.replace(/[^a-z0-9]/g, '');
+        if (cleanName) classWaliMap[cleanName] = namaKelas;
       }
     }
   }
@@ -480,16 +514,37 @@ function getUsersFromCacheOrSheet() {
   let users = [];
 
   for (let i = 1; i < data.length; i++) {
+    const idUser = String(data[i][0] || '').trim();
     const u = String(data[i][1] || '').trim();
     if (!u) continue;
+    const pwd = String(data[i][2] || '').trim();
+    const role = String(data[i][3] || '').trim();
     const namaGuru = String(data[i][4] || u).trim();
+    const idMesin = String(data[i][5] || '').trim();
+    const idTg = String(data[i][6] || '').trim();
 
     // Auto-resolve Wali Kelas from DataKelas single source of truth
     let waliK = '-';
-    if (classWaliMap[namaGuru.toLowerCase()]) {
-      waliK = classWaliMap[namaGuru.toLowerCase()];
-    } else if (classWaliMap[u.toLowerCase()]) {
-      waliK = classWaliMap[u.toLowerCase()];
+    const namaLower = namaGuru.toLowerCase();
+    const uLower = u.toLowerCase();
+    const cleanNamaLower = namaLower.replace(/[^a-z0-9]/g, '');
+    const cleanULower = uLower.replace(/[^a-z0-9]/g, '');
+
+    if (classWaliMap[namaLower]) {
+      waliK = classWaliMap[namaLower];
+    } else if (classWaliMap[uLower]) {
+      waliK = classWaliMap[uLower];
+    } else if (cleanNamaLower && classWaliMap[cleanNamaLower]) {
+      waliK = classWaliMap[cleanNamaLower];
+    } else if (cleanULower && classWaliMap[cleanULower]) {
+      waliK = classWaliMap[cleanULower];
+    } else {
+      for (const [wKey, kName] of Object.entries(classWaliMap)) {
+        if (wKey.length >= 3 && (namaLower.includes(wKey) || wKey.includes(namaLower))) {
+          waliK = kName;
+          break;
+        }
+      }
     }
 
     // Determine Tugas_Piket (If legacy 9-column sheet, col 9 [index 8], else col 8 [index 7])
@@ -501,13 +556,14 @@ function getUsersFromCacheOrSheet() {
     }
 
     users.push({
-      nis: String(data[i][0] || ''),
+      id: idUser || String(i),
+      nis: idUser || String(i),
       username: u,
-      password: String(data[i][2] || '').trim(),
-      role: String(data[i][3] || ''),
+      password: pwd,
+      role: role,
       nama: namaGuru,
-      id_mesin: String(data[i][5] || '').trim(),
-      id_telegram: String(data[i][6] || '').trim(),
+      id_mesin: idMesin,
+      id_telegram: idTg,
       wali_kelas: waliK,
       tugas_piket: tugasPiket
     });
@@ -527,21 +583,18 @@ function handleLogin(username, password) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureDatabaseSetup();
 
-  // 1. Cek di Sheet Users (Admin, Guru, Kepsek, TU, Siswa terdaftar)
   const users = getUsersFromCacheOrSheet();
   for (let i = 0; i < users.length; i++) {
-    const userU = String(users[i].username || '').trim();
-    const userP = String(users[i].password || '').trim();
-
-    if (userU.toLowerCase() === u.toLowerCase() && userP === p) {
-      return jsonResponse('success', 'Berhasil login', {
+    if (users[i].username.toLowerCase() === u.toLowerCase() && users[i].password === p) {
+      return jsonResponse('success', 'Login berhasil!', {
+        nis: users[i].nis,
         username: users[i].username,
         role: users[i].role,
         nama: users[i].nama,
-        id_mesin: users[i].id_mesin || '',
-        id_telegram: users[i].id_telegram || '',
-        wali_kelas: users[i].wali_kelas || '-',
-        tugas_piket: users[i].tugas_piket || '-'
+        id_mesin: users[i].id_mesin,
+        id_telegram: users[i].id_telegram,
+        wali_kelas: users[i].wali_kelas,
+        tugas_piket: users[i].tugas_piket
       });
     }
   }
@@ -3569,6 +3622,25 @@ function handleGetOverviewStats() {
     }
   }
 
+  // 6. Data Seluruh Log Presensi Siswa (Untuk Riwayat & Tren Personal Siswa)
+  const studentLogs = [];
+  if (sheetLog && sheetLog.getLastRow() > 1) {
+    const allLogData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
+    for (let i = 0; i < allLogData.length; i++) {
+      const rawWaktu = allLogData[i][0];
+      if (!rawWaktu) continue;
+      const tglStr = getFormattedDate(rawWaktu);
+      studentLogs.push({
+        tanggal: tglStr,
+        nisn: String(allLogData[i][1] || '').trim(),
+        nis: String(allLogData[i][2] || '').trim(),
+        nama: String(allLogData[i][3] || '').trim(),
+        kelas: String(allLogData[i][4] || '').trim(),
+        status: String(allLogData[i][5] || '').trim()
+      });
+    }
+  }
+
   return jsonResponse('success', 'Data overview berhasil ditarik', {
     totalSiswa: totalSiswa,
     totalLaki: totalLaki,
@@ -3580,7 +3652,8 @@ function handleGetOverviewStats() {
     violationSummary: violationSummary,
     totalGuruLog: totalGuruLog,
     guruAbsenSummary: guruAbsenSummary,
-    unabsenGuruList: unabsenGuruList
+    unabsenGuruList: unabsenGuruList,
+    studentLogs: studentLogs
   });
 }
 
@@ -3968,4 +4041,338 @@ function handleCleanupAndRepairData() {
   return jsonResponse('success', '✅ Database berhasil dibersihkan, kolom Wali_Kelas di sheet Users dihapus, & disinkronkan!', {
     log: log
   });
+}
+
+// ==========================================
+// MODUL PENGAJUAN IZIN SISWA & APPROVAL WALI KELAS
+// ==========================================
+
+function getOrCreateIzinSiswaSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_IZIN_SISWA);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_IZIN_SISWA);
+    const headers = [
+      'ID', 'Waktu', 'Tanggal', 'NISN', 'NIS', 'Nama', 
+      'Kelas', 'WaliKelas', 'Kategori', 'Keterangan', 
+      'FotoUrl', 'Status', 'DisetujuiOleh', 'WaktuPersetujuan'
+    ];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold')
+      .setBackground('#1e293b')
+      .setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getWaliKelasForClass(ss, namaKelas) {
+  if (!namaKelas) return '-';
+  const targetKls = String(namaKelas).trim().toLowerCase();
+  
+  const sheetKls = ss.getSheetByName(SHEET_KELAS);
+  if (sheetKls && sheetKls.getLastRow() > 1) {
+    const data = sheetKls.getRange(2, 1, sheetKls.getLastRow() - 1, 6).getValues();
+    for (let i = 0; i < data.length; i++) {
+      const klsName = String(data[i][0] || '').trim().toLowerCase();
+      if (klsName === targetKls) {
+        return String(data[i][3] || '-').trim();
+      }
+    }
+  }
+  return '-';
+}
+
+function handleGetIzinSiswa() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+    const data = [];
+    
+    if (sheet.getLastRow() > 1) {
+      const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+      for (let i = rows.length - 1; i >= 0; i--) { // Reverse for newest first
+        const r = rows[i];
+        if (!r[0]) continue;
+        data.push({
+          id: String(r[0]),
+          waktu: String(r[1] || ''),
+          tanggal: getFormattedDate(r[2]),
+          nisn: String(r[3] || ''),
+          nis: String(r[4] || ''),
+          nama: String(r[5] || ''),
+          kelas: String(r[6] || ''),
+          waliKelas: String(r[7] || ''),
+          kategori: String(r[8] || ''),
+          keterangan: String(r[9] || ''),
+          fotoUrl: String(r[10] || ''),
+          status: String(r[11] || 'Pending'),
+          disetujuiOleh: String(r[12] || ''),
+          waktuPersetujuan: String(r[13] || '')
+        });
+      }
+    }
+    
+    return jsonResponse('success', 'Berhasil mengambil log izin siswa', data);
+  } catch (err) {
+    return jsonResponse('error', 'Gagal mengambil log izin siswa: ' + err.toString());
+  }
+}
+
+function handleAddPengajuanIzinSiswa(dataObj) {
+  try {
+    if (!dataObj) return jsonResponse('error', 'Data pengajuan kosong');
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+
+    const id = 'IZIN-SISWA-' + Date.now();
+    const waktu = new Date().toLocaleString('id-ID');
+    const tanggal = dataObj.tanggal || getFormattedDate(new Date());
+    const nisn = String(dataObj.nisn || '').trim();
+    const nis = String(dataObj.nis || '').trim();
+    const nama = String(dataObj.nama || '').trim();
+    const kelas = String(dataObj.kelas || '').trim();
+    const kategori = String(dataObj.kategori || 'Izin').trim();
+    const keterangan = String(dataObj.keterangan || '').trim();
+    const fotoUrl = String(dataObj.fotoUrl || dataObj.foto || '').trim();
+
+    const waliKelas = getWaliKelasForClass(ss, kelas);
+
+    const newRow = [
+      id, waktu, tanggal, nisn, nis, nama,
+      kelas, waliKelas, kategori, keterangan,
+      fotoUrl, 'Pending', '', ''
+    ];
+
+    sheet.appendRow(newRow);
+
+    // 1. Send Telegram Notification to Student (if id_telegram available)
+    let studentTgId = String(dataObj.id_telegram || '').trim();
+    if (!studentTgId) {
+      const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+      if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+        const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
+        for (let i = 0; i < sData.length; i++) {
+          const sNisn = String(sData[i][0] || '').trim();
+          const sNis = String(sData[i][1] || '').trim();
+          if ((nisn && sNisn === nisn) || (nis && sNis === nis)) {
+            studentTgId = String(sData[i][7] || sData[i][6] || '').trim();
+            break;
+          }
+        }
+      }
+    }
+
+    if (studentTgId) {
+      const msgSiswa = `📩 <b>Pengajuan Izin Berhasil Dikirim!</b>\n\n` +
+        `👤 Nama: <b>${nama}</b>\n` +
+        `🏫 Kelas: <b>${kelas}</b>\n` +
+        `📅 Tanggal: <b>${tanggal}</b>\n` +
+        `📝 Kategori: <b>${kategori}</b>\n` +
+        `👨‍🏫 Wali Kelas: <b>${waliKelas}</b>\n` +
+        `💬 Ket: <i>${keterangan || '-'}</i>\n\n` +
+        `⏳ Status: <b>Menunggu Persetujuan Wali Kelas</b>`;
+      sendTelegramNotification(studentTgId, msgSiswa);
+    }
+
+    // 2. Send Telegram Notification to Wali Kelas (if id_telegram available)
+    let walasTgId = '';
+    if (waliKelas && waliKelas !== '-') {
+      const sheetUsers = ss.getSheetByName(SHEET_USERS);
+      if (sheetUsers && sheetUsers.getLastRow() > 1) {
+        const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+        const walasLower = waliKelas.toLowerCase();
+        for (let i = 0; i < uData.length; i++) {
+          const uNama = String(uData[i][4] || uData[i][1] || '').trim().toLowerCase();
+          if (uNama && (uNama === walasLower || uNama.includes(walasLower) || walasLower.includes(uNama))) {
+            walasTgId = String(uData[i][6] || '').trim();
+            break;
+          }
+        }
+      }
+    }
+
+    if (walasTgId) {
+      const msgWalas = `🔔 <b>PERMOHONAN IZIN SISWA BARU</b>\n\n` +
+        `👤 Nama Siswa: <b>${nama}</b> (${kelas})\n` +
+        `📅 Tanggal Izin: <b>${tanggal}</b>\n` +
+        `📌 Kategori: <b>${kategori}</b>\n` +
+        `💬 Keterangan: <i>${keterangan || '-'}</i>\n\n` +
+        `Silakan buka aplikasi Smart Absen untuk menyetujui / menolak permohonan ini.`;
+      sendTelegramNotification(walasTgId, msgWalas);
+    }
+
+    return jsonResponse('success', 'Pengajuan izin siswa berhasil disimpan & notifikasi dikirim', {
+      id: id,
+      waliKelas: waliKelas,
+      status: 'Pending'
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyimpan pengajuan izin siswa: ' + err.toString());
+  }
+}
+
+function handleApproveIzinSiswa(id, approverName, approverRole) {
+  try {
+    if (!id) return jsonResponse('error', 'ID Izin tidak valid');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+
+    if (sheet.getLastRow() <= 1) return jsonResponse('error', 'Data izin kosong');
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+    let rowIndex = -1;
+    let targetRowData = null;
+
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        rowIndex = i + 2;
+        targetRowData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) return jsonResponse('error', 'Data permohonan izin tidak ditemukan');
+
+    const timeNowStr = new Date().toLocaleString('id-ID');
+    const nameStr = approverName || 'Wali Kelas';
+
+    sheet.getRange(rowIndex, 12).setValue('Disetujui');
+    sheet.getRange(rowIndex, 13).setValue(nameStr);
+    sheet.getRange(rowIndex, 14).setValue(timeNowStr);
+
+    const tanggal = getFormattedDate(targetRowData[2]);
+    const nisn = String(targetRowData[3] || '');
+    const nis = String(targetRowData[4] || '');
+    const nama = String(targetRowData[5] || '');
+    const kelas = String(targetRowData[6] || '');
+    const kategori = String(targetRowData[8] || 'Izin').toUpperCase();
+
+    // 1. AUTO-FILL PRESENSI (LogAbsen / SHEET_LOG)
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog) {
+      let statusAbsen = 'IZIN';
+      if (kategori.includes('SAKIT')) statusAbsen = 'SAKIT';
+      else if (kategori.includes('IZIN')) statusAbsen = 'IZIN';
+
+      let existingLogIndex = -1;
+      if (sheetLog.getLastRow() > 1) {
+        const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
+        for (let i = 0; i < logData.length; i++) {
+          const lTgl = getFormattedDate(logData[i][0]);
+          const lNisn = String(logData[i][1] || '').trim();
+          const lNis = String(logData[i][2] || '').trim();
+          const lNama = String(logData[i][3] || '').trim();
+
+          if (lTgl === tanggal && ((nisn && lNisn === nisn) || (nis && lNis === nis) || (nama && lNama.toLowerCase() === nama.toLowerCase()))) {
+            existingLogIndex = i + 2;
+            break;
+          }
+        }
+      }
+
+      if (existingLogIndex !== -1) {
+        sheetLog.getRange(existingLogIndex, 6).setValue(statusAbsen);
+      } else {
+        sheetLog.appendRow([timeNowStr, nisn, nis, nama, kelas, statusAbsen]);
+      }
+    }
+
+    // 2. Send Telegram Notification to Student
+    let studentTgId = '';
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const sNisn = String(sData[i][0] || '').trim();
+        const sNis = String(sData[i][1] || '').trim();
+        if ((nisn && sNisn === nisn) || (nis && sNis === nis)) {
+          studentTgId = String(sData[i][7] || sData[i][6] || '').trim();
+          break;
+        }
+      }
+    }
+
+    if (studentTgId) {
+      const msgSiswa = `✅ <b>PENGAJUAN IZIN DISETUJUI!</b>\n\n` +
+        `Pengajuan izin Anda untuk tanggal <b>${tanggal}</b> (Kategori: <b>${targetRowData[8]}</b>) telah <b>DISETUJUI</b> oleh Wali Kelas/Petugas <b>${nameStr}</b>.\n\n` +
+        `Status presensi Anda pada tanggal tersebut otomatis dicatat sebagai <b>${targetRowData[8]}</b>.`;
+      sendTelegramNotification(studentTgId, msgSiswa);
+    }
+
+    return jsonResponse('success', `Berhasil menyetujui izin ${nama} & presensi terisi otomatis`, {
+      id: id,
+      status: 'Disetujui',
+      disetujuiOleh: nameStr
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyetujui izin siswa: ' + err.toString());
+  }
+}
+
+function handleRejectIzinSiswa(id, approverName, approverRole) {
+  try {
+    if (!id) return jsonResponse('error', 'ID Izin tidak valid');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+
+    if (sheet.getLastRow() <= 1) return jsonResponse('error', 'Data izin kosong');
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+    let rowIndex = -1;
+    let targetRowData = null;
+
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        rowIndex = i + 2;
+        targetRowData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) return jsonResponse('error', 'Data permohonan izin tidak ditemukan');
+
+    const timeNowStr = new Date().toLocaleString('id-ID');
+    const nameStr = approverName || 'Wali Kelas';
+
+    sheet.getRange(rowIndex, 12).setValue('Ditolak');
+    sheet.getRange(rowIndex, 13).setValue(nameStr);
+    sheet.getRange(rowIndex, 14).setValue(timeNowStr);
+
+    const tanggal = getFormattedDate(targetRowData[2]);
+    const nisn = String(targetRowData[3] || '');
+    const nis = String(targetRowData[4] || '');
+    const nama = String(targetRowData[5] || '');
+
+    // Send Telegram Notification to Student
+    let studentTgId = '';
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const sNisn = String(sData[i][0] || '').trim();
+        const sNis = String(sData[i][1] || '').trim();
+        if ((nisn && sNisn === nisn) || (nis && sNis === nis)) {
+          studentTgId = String(sData[i][7] || sData[i][6] || '').trim();
+          break;
+        }
+      }
+    }
+
+    if (studentTgId) {
+      const msgSiswa = `❌ <b>PENGAJUAN IZIN DITOLAK</b>\n\n` +
+        `Pengajuan izin Anda untuk tanggal <b>${tanggal}</b> telah <b>DITOLAK</b> oleh Wali Kelas/Petugas <b>${nameStr}</b>.\n\n` +
+        `Silakan hubungi Wali Kelas Anda untuk informasi lebih lanjut.`;
+      sendTelegramNotification(studentTgId, msgSiswa);
+    }
+
+    return jsonResponse('success', `Pengajuan izin ${nama} ditolak`, {
+      id: id,
+      status: 'Ditolak',
+      disetujuiOleh: nameStr
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menolak izin siswa: ' + err.toString());
+  }
 }

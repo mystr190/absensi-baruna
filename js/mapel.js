@@ -325,14 +325,23 @@ function resetMapelForm() {
 }
 
 async function deleteMapelItem(namaItem) {
-    if (!confirm(`Apakah Anda yakin ingin menghapus Mata Pelajaran '${namaItem}'?`)) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Mata Pelajaran',
+        message: `Apakah Anda yakin ingin menghapus Mata Pelajaran '${namaItem}'?`,
+        icon: 'danger',
+        confirmText: 'Ya, Hapus Mapel',
+        cancelText: 'Batal',
+        danger: true
+    });
+    if (!confirmed) return;
 
     try {
         const formData = new FormData();
         formData.append('action', 'delete_mapel');
         formData.append('nama', namaItem);
 
-        const result = await fetchWithRetry(SCRIPT_URL, {
+        const requestUrlDel = SCRIPT_URL.includes('?') ? `${SCRIPT_URL}&action=delete_mapel` : `${SCRIPT_URL}?action=delete_mapel`;
+        const result = await fetchWithRetry(requestUrlDel, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams(formData).toString()
@@ -350,7 +359,15 @@ async function deleteMapelItem(namaItem) {
 }
 
 async function seedMapelDefault() {
-    if (!confirm("Apakah Anda yakin ingin menyetel ulang Data Mata Pelajaran ke 18 Mapel Bawaan? Data perubahan custom akan diperbarui.")) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Reset Preset Mata Pelajaran',
+        message: 'Apakah Anda yakin ingin menyetel ulang Data Mata Pelajaran ke 18 Mapel Bawaan? Data perubahan custom akan diperbarui.',
+        icon: 'warning',
+        confirmText: 'Ya, Reset 18 Mapel',
+        cancelText: 'Batal',
+        danger: true
+    });
+    if (!confirmed) return;
 
     if (btnSeedMapelDefault) btnSeedMapelDefault.disabled = true;
     showToast("⏳ Menyiapkan 18 Preset Mata Pelajaran Bawaan...", "info");

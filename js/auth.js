@@ -139,13 +139,14 @@ function showApp(user) {
     // Update UI Sidebar & Mobile Header dengan data User
     const currentNameElem = document.getElementById('currentUserName');
     const currentRoleElem = document.getElementById('currentUserRole');
-    if (currentNameElem) currentNameElem.innerText = user.nama;
-    if (currentRoleElem) currentRoleElem.innerText = user.role;
+    const roleText = (String(user.role).toLowerCase() === 'siswa' && user.kelas) ? `Siswa (${user.kelas})` : user.role;
+    if (currentNameElem) currentNameElem.innerText = user.nama || user.username || 'User';
+    if (currentRoleElem) currentRoleElem.innerText = roleText;
 
     const mobileNameElem = document.getElementById('mobileCurrentUserName');
     const mobileRoleElem = document.getElementById('mobileCurrentUserRole');
-    if (mobileNameElem) mobileNameElem.innerText = user.nama;
-    if (mobileRoleElem) mobileRoleElem.innerText = user.role;
+    if (mobileNameElem) mobileNameElem.innerText = user.nama || user.username || 'User';
+    if (mobileRoleElem) mobileRoleElem.innerText = roleText;
     
     // Update Badge Verified / Unverified Telegram di Sidebar bawah profil
     const badgeTgSidebar = document.getElementById('currentUserTelegramBadge');
@@ -177,6 +178,8 @@ function showApp(user) {
     const navAbsenGuruAdmin = document.getElementById('nav-absen-guru-admin');
     const navApprovalKepsek = document.getElementById('nav-approval-kepsek');
     const navIzinGuru = document.getElementById('nav-izin-guru');
+    const navIzinSiswa = document.getElementById('nav-izin-siswa');
+    const navApprovalIzinSiswa = document.getElementById('nav-approval-izin-siswa');
 
     const navScan = document.querySelector('.sidebar-nav .nav-item[data-target="panel-scan"]');
     const navRekap = document.querySelector('.sidebar-nav .nav-item[data-target="panel-dashboard"]');
@@ -193,6 +196,8 @@ function showApp(user) {
     if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'none';
     if (navApprovalKepsek) navApprovalKepsek.style.display = 'none';
     if (navIzinGuru) navIzinGuru.style.display = 'flex';
+    if (navIzinSiswa) navIzinSiswa.style.display = 'none';
+    if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex'; // Default for Guru
 
     if (navScan) navScan.style.display = 'flex';
     if (navRekap) navRekap.style.display = 'flex';
@@ -210,10 +215,14 @@ function showApp(user) {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (btnManageJenis) btnManageJenis.style.display = 'inline-flex';
         if (navIzinGuru) navIzinGuru.style.display = 'none';
+        if (navIzinSiswa) navIzinSiswa.style.display = 'none';
+        if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex';
     } else if (user.role === 'Kepala Sekolah') {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         if (navUserMesin) navUserMesin.style.display = 'flex';
+        if (navIzinSiswa) navIzinSiswa.style.display = 'none';
+        if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex';
     } else if (uRole === 'siswa') {
         if (navScan) navScan.style.display = 'none';
         if (navRekap) navRekap.style.display = 'none';
@@ -226,6 +235,8 @@ function showApp(user) {
         if (navUserMesin) navUserMesin.style.display = 'none';
         if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'none';
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'none';
+        if (navIzinSiswa) navIzinSiswa.style.display = 'flex';
+        if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'none';
 
         setTimeout(() => {
             const navOverview = document.getElementById('nav-overview') || document.querySelector('.sidebar-nav .nav-item[data-target="panel-overview"]');
