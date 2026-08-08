@@ -179,7 +179,7 @@
                     <!-- Card 3: Presensi Siswa -->
                     <div class="glass-card" style="padding: 20px; border-left: 4px solid #10b981; display: flex; align-items: center; justify-content: space-between;">
                         <div>
-                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Presensi Siswa</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Presensi Siswa (Hari Ini)</span>
                             <h3 id="ovPresensiHadir" style="font-size: 1.8rem; font-weight: 700; color: #34d399; margin: 4px 0;">0 Hadir</h3>
                             <span style="font-size: 0.83rem; color: var(--text-muted);"><span id="ovPresensiIzinSakit" style="color:#fbbf24;">0 Izin/Sakit</span> | <span id="ovPresensiAlpa" style="color:#f87171;">0 Alpa</span></span>
                         </div>
@@ -191,7 +191,7 @@
                     <!-- Card 4: Presensi Guru & Staf -->
                     <div class="glass-card" style="padding: 20px; border-left: 4px solid #38bdf8; display: flex; align-items: center; justify-content: space-between;">
                         <div>
-                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Presensi Guru & Staf</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Presensi Guru & Staf (Hari Ini)</span>
                             <h3 id="ovGuruHadir" style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; margin: 4px 0;">0 Hadir</h3>
                             <span style="font-size: 0.83rem; color: var(--text-muted);"><span id="ovGuruIzin" style="color:#fde047;">0 Izin</span> | <span id="ovGuruAlpa" style="color:#fca5a5;">0 Alpa</span></span>
                         </div>
@@ -216,7 +216,7 @@
                     <!-- Chart 2: Student Attendance Status -->
                     <div class="glass-card" style="padding: 22px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-chart-bar" style="color: #10b981;"></i> Rekapitulasi Presensi Siswa</h3>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-chart-bar" style="color: #10b981;"></i> Rekapitulasi Presensi Siswa (Hari Ini)</h3>
                         </div>
                         <div style="position: relative; height: 260px;">
                             <canvas id="chartStudentAttendance"></canvas>
@@ -239,34 +239,11 @@
                     <!-- Chart 4: Presensi Guru & Karyawan -->
                     <div class="glass-card" style="padding: 22px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-id-badge" style="color: #38bdf8;"></i> Presensi Guru & Staf Karyawan</h3>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-id-badge" style="color: #38bdf8;"></i> Presensi Guru & Staf (Hari Ini)</h3>
                         </div>
                         <div style="position: relative; height: 260px; display: flex; justify-content: center;">
                             <canvas id="chartTeacherAttendance"></canvas>
                         </div>
-                    </div>
-                </div>
-
-                <!-- TABLE: REKAP KELAS SUMMARY -->
-                <div class="glass-card" style="padding: 22px; margin-bottom: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-table-cells" style="color: #a855f7;"></i> Rincian Distribusi Jumlah Siswa Per Kelas</h3>
-                    </div>
-                    <div class="modern-table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 50px; text-align: center;">No</th>
-                                    <th>Nama Kelas</th>
-                                    <th style="text-align: center;">Laki-Laki (L)</th>
-                                    <th style="text-align: center;">Perempuan (P)</th>
-                                    <th style="text-align: center;">Total Siswa</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbodyOverviewKelas">
-                                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data overview...</td></tr>
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             </section>

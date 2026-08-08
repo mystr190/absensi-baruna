@@ -3060,19 +3060,26 @@ function handleGetOverviewStats() {
     }
   }
 
-  // 2. Data Absensi Siswa
+  const todayFormatted = getFormattedDate(new Date());
+
+  // 2. Data Absensi Siswa (Hari Ini / Hari Berjalan)
   let studentAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   if (sheetLog && sheetLog.getLastRow() > 1) {
-    const logData = sheetLog.getRange(2, 6, sheetLog.getLastRow() - 1, 1).getValues();
+    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
     for (let i = 0; i < logData.length; i++) {
-      const st = String(logData[i][0] || '').trim();
+      const rawDate = logData[i][0];
+      if (!rawDate) continue;
+      const logDateFormatted = getFormattedDate(rawDate);
+      if (logDateFormatted !== todayFormatted) continue;
+
+      const st = String(logData[i][5] || '').trim().toUpperCase();
       if (!st) continue;
-      if (st.includes('Hadir')) studentAbsenSummary.Hadir++;
-      else if (st.includes('Sakit')) studentAbsenSummary.Sakit++;
-      else if (st.includes('Izin')) studentAbsenSummary.Izin++;
-      else if (st.includes('Alpa')) studentAbsenSummary.Alpa++;
-      else if (st.includes('Terlambat') || st.includes('Telat')) studentAbsenSummary.Terlambat++;
+      if (st.includes('HADIR') || st === 'H') studentAbsenSummary.Hadir++;
+      else if (st.includes('SAKIT') || st === 'S') studentAbsenSummary.Sakit++;
+      else if (st.includes('IZIN') || st === 'I') studentAbsenSummary.Izin++;
+      else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') studentAbsenSummary.Alpa++;
+      else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') studentAbsenSummary.Terlambat++;
       else studentAbsenSummary.Hadir++;
     }
   }
@@ -3091,21 +3098,26 @@ function handleGetOverviewStats() {
     }
   }
 
-  // 4. Data Absensi Guru & Staf
+  // 4. Data Absensi Guru & Staf (Hari Ini / Hari Berjalan)
   let guruAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
   let totalGuruLog = 0;
   const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
   if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
-    const gData = sheetLogGuru.getRange(2, 6, sheetLogGuru.getLastRow() - 1, 1).getValues();
+    const gData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 6).getValues();
     for (let i = 0; i < gData.length; i++) {
-      const st = String(gData[i][0] || '').trim();
+      const rawDate = gData[i][2]; // Tanggal di Kolom C (index 2)
+      if (!rawDate) continue;
+      const logDateFormatted = getFormattedDate(rawDate);
+      if (logDateFormatted !== todayFormatted) continue;
+
+      const st = String(gData[i][5] || '').trim().toUpperCase(); // Status di Kolom F (index 5)
       if (!st) continue;
       totalGuruLog++;
-      if (st.includes('Hadir')) guruAbsenSummary.Hadir++;
-      else if (st.includes('Sakit')) guruAbsenSummary.Sakit++;
-      else if (st.includes('Izin')) guruAbsenSummary.Izin++;
-      else if (st.includes('Alpa')) guruAbsenSummary.Alpa++;
-      else if (st.includes('Dinas')) guruAbsenSummary.DinasLuar++;
+      if (st.includes('HADIR') || st === 'H') guruAbsenSummary.Hadir++;
+      else if (st.includes('SAKIT') || st === 'S') guruAbsenSummary.Sakit++;
+      else if (st.includes('IZIN') || st === 'I') guruAbsenSummary.Izin++;
+      else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') guruAbsenSummary.Alpa++;
+      else if (st.includes('DINAS')) guruAbsenSummary.DinasLuar++;
       else guruAbsenSummary.Hadir++;
     }
   }

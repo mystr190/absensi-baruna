@@ -69,13 +69,35 @@ function loadLocalOverviewStats() {
             else if (g === 'P' || g === 'PEREMPUAN') kelasMap[kls].P++;
         });
 
+        // Hitung presensi siswa lokal jika tersedia (Hari Ini saja)
+        let studentAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
+        const rawRecent = localStorage.getItem('smart_absen_recent_logs');
+        const todayStr = typeof getTodayYYYYMMDD === 'function' ? getTodayYYYYMMDD() : new Date().toISOString().substring(0, 10);
+        if (rawRecent) {
+            try {
+                const logs = JSON.parse(rawRecent);
+                logs.forEach(l => {
+                    const logDate = String(l.tanggal || '').trim();
+                    if (logDate && !logDate.includes(todayStr)) return;
+
+                    const st = String(l.status || '').trim().toUpperCase();
+                    if (!st) return;
+                    if (st.includes('HADIR') || st === 'H') studentAbsenSummary.Hadir++;
+                    else if (st.includes('SAKIT') || st === 'S') studentAbsenSummary.Sakit++;
+                    else if (st.includes('IZIN') || st === 'I') studentAbsenSummary.Izin++;
+                    else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') studentAbsenSummary.Alpa++;
+                    else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') studentAbsenSummary.Terlambat++;
+                });
+            } catch(e){}
+        }
+
         const initialData = {
             totalSiswa: totalSiswa,
             totalLaki: totalLaki,
             totalPerempuan: totalPerempuan,
             totalKelas: Object.keys(kelasMap).length,
             kelasMap: kelasMap,
-            studentAbsenSummary: { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 },
+            studentAbsenSummary: studentAbsenSummary,
             totalViolations: 0,
             violationSummary: {},
             totalGuruLog: 0,
@@ -116,9 +138,6 @@ function updateOverviewUI(data) {
     if (ovGuruIzin) ovGuruIzin.innerText = `${(gSummary.Izin || 0) + (gSummary.Sakit || 0)} Izin`;
     if (ovGuruAlpa) ovGuruAlpa.innerText = `${gSummary.Alpa || 0} Alpa`;
 
-    // Render Table Kelas
-    renderTableOverviewKelas(data.kelasMap);
-
     // Render Chart 1: Gender Doughnut
     renderChartGender(data.totalLaki || 0, data.totalPerempuan || 0);
 
@@ -130,33 +149,6 @@ function updateOverviewUI(data) {
 
     // Render Chart 4: Presensi Guru Pie Chart
     renderChartTeacherAbsen(gSummary);
-}
-
-function renderTableOverviewKelas(kelasMap) {
-    const tbody = document.getElementById('tbodyOverviewKelas');
-    if (!tbody) return;
-
-    if (!kelasMap || Object.keys(kelasMap).length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Belum ada data kelas terdaftar.</td></tr>`;
-        return;
-    }
-
-    const keys = Object.keys(kelasMap).sort();
-    let html = '';
-    keys.forEach((kls, idx) => {
-        const item = kelasMap[kls];
-        html += `
-            <tr>
-                <td style="text-align: center; font-weight: 600;">${idx + 1}</td>
-                <td><strong style="color: #38bdf8;">Kelas ${item.kls}</strong></td>
-                <td style="text-align: center; color: #60a5fa; font-weight: 600;">${item.L}</td>
-                <td style="text-align: center; color: #f472b6; font-weight: 600;">${item.P}</td>
-                <td style="text-align: center; font-weight: 700; color: #f8fafc;">${item.total} Siswa</td>
-            </tr>
-        `;
-    });
-
-    tbody.innerHTML = html;
 }
 
 // ==========================================
