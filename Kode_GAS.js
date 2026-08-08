@@ -312,10 +312,10 @@ function doPost(e) {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
     }
     else if (action === 'add_user') {
-      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.wali_kelas, e.parameter.tugas_piket);
+      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket);
     }
     else if (action === 'update_user') {
-      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.wali_kelas, e.parameter.tugas_piket);
+      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket);
     }
     else if (action === 'delete_user') {
       return handleDeleteUser(e.parameter.username);
@@ -416,13 +416,13 @@ function ensureUserColumns() {
 function ensureDatabaseSetup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. Ensure SHEET_USERS
+  // 1. Ensure SHEET_USERS (8 Columns layout - Wali_Kelas is fully handled by DataKelas)
   let sheetUsers = ss.getSheetByName(SHEET_USERS);
   if (!sheetUsers) {
     sheetUsers = ss.insertSheet(SHEET_USERS);
-    sheetUsers.appendRow(['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram', 'Wali_Kelas', 'Tugas_Piket']);
+    sheetUsers.appendRow(['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram', 'Tugas_Piket']);
   } else {
-    const lastCol = Math.max(9, sheetUsers.getLastColumn());
+    const lastCol = Math.max(8, sheetUsers.getLastColumn());
     const headers = sheetUsers.getRange(1, 1, 1, lastCol).getValues()[0];
     if (!headers[0] || headers[0].toString().trim() === '') sheetUsers.getRange(1, 1).setValue('ID');
     if (!headers[1] || headers[1].toString().trim() === '') sheetUsers.getRange(1, 2).setValue('Username');
@@ -431,8 +431,7 @@ function ensureDatabaseSetup() {
     if (!headers[4] || headers[4].toString().trim() === '') sheetUsers.getRange(1, 5).setValue('NamaLengkap');
     if (!headers[5] || headers[5].toString().trim() === '') sheetUsers.getRange(1, 6).setValue('ID_Mesin');
     if (!headers[6] || headers[6].toString().trim() === '') sheetUsers.getRange(1, 7).setValue('ID_Telegram');
-    if (!headers[7] || headers[7].toString().trim() === '') sheetUsers.getRange(1, 8).setValue('Wali_Kelas');
-    if (!headers[8] || headers[8].toString().trim() === '') sheetUsers.getRange(1, 9).setValue('Tugas_Piket');
+    if (!headers[7] || headers[7].toString().trim() === '') sheetUsers.getRange(1, 8).setValue('Tugas_Piket');
   }
 
   // 2. Ensure SHEET_SISWA
@@ -463,7 +462,7 @@ function getUsersFromCacheOrSheet() {
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return [];
 
-  // Build Wali Kelas lookup from DataKelas (Single Source of Truth)
+  // Build Wali Kelas lookup dynamically from DataKelas (Single Source of Truth)
   const classWaliMap = {};
   const sheetKelas = ss.getSheetByName(SHEET_KELAS);
   if (sheetKelas) {
@@ -484,13 +483,21 @@ function getUsersFromCacheOrSheet() {
     const u = String(data[i][1] || '').trim();
     if (!u) continue;
     const namaGuru = String(data[i][4] || u).trim();
-    let waliK = String(data[i][7] || '-').trim();
 
     // Auto-resolve Wali Kelas from DataKelas single source of truth
+    let waliK = '-';
     if (classWaliMap[namaGuru.toLowerCase()]) {
       waliK = classWaliMap[namaGuru.toLowerCase()];
     } else if (classWaliMap[u.toLowerCase()]) {
       waliK = classWaliMap[u.toLowerCase()];
+    }
+
+    // Determine Tugas_Piket (If legacy 9-column sheet, col 9 [index 8], else col 8 [index 7])
+    let tugasPiket = '-';
+    if (data[i].length >= 9) {
+      tugasPiket = String(data[i][8] || '-').trim();
+    } else if (data[i].length >= 8) {
+      tugasPiket = String(data[i][7] || '-').trim();
     }
 
     users.push({
@@ -502,7 +509,7 @@ function getUsersFromCacheOrSheet() {
       id_mesin: String(data[i][5] || '').trim(),
       id_telegram: String(data[i][6] || '').trim(),
       wali_kelas: waliK,
-      tugas_piket: String(data[i][8] || '-').trim()
+      tugas_piket: tugasPiket
     });
   }
 
@@ -610,7 +617,7 @@ function handleGetUsers() {
   return jsonResponse('success', 'Daftar Pengguna', fetchUsersList(ss));
 }
 
-function handleAddUser(username, password, role, nama, id_mesin, id_telegram, wali_kelas, tugas_piket) {
+function handleAddUser(username, password, role, nama, id_mesin, id_telegram, tugas_piket) {
   if (!username || !password || !nama) {
     return jsonResponse('error', 'Username, Password, dan Nama Lengkap wajib diisi.');
   }
@@ -639,14 +646,13 @@ function handleAddUser(username, password, role, nama, id_mesin, id_telegram, wa
     nama.trim(), 
     String(id_mesin || '').trim(), 
     String(id_telegram || '').trim(),
-    String(wali_kelas || '-').trim(),
     String(tugas_piket || '-').trim()
   ]);
 
   return jsonResponse('success', `Pengguna "${nama}" berhasil ditambahkan.`);
 }
 
-function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram, wali_kelas, tugas_piket) {
+function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram, tugas_piket) {
   if (!oldUsername || !username || !nama) {
     return jsonResponse('error', 'Data pengguna tidak lengkap.');
   }
@@ -670,8 +676,7 @@ function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin,
         sheet.getRange(rowIndex, 5).setValue(nama.trim()); // NamaLengkap
         sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
         sheet.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram
-        sheet.getRange(rowIndex, 8).setValue(String(wali_kelas || '-').trim()); // Wali_Kelas
-        sheet.getRange(rowIndex, 9).setValue(String(tugas_piket || '-').trim()); // Tugas_Piket
+        sheet.getRange(rowIndex, 8).setValue(String(tugas_piket || '-').trim()); // Tugas_Piket
 
         return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
       }
@@ -3921,36 +3926,46 @@ function handleCleanupAndRepairData() {
   }
   log.push('13 Rombel DataKelas disinkronkan & diperbaiki (XI & XII Peminatan).');
 
-  // 2. Sinkronkan & Perbaiki Tabel Users (Single Source of Truth)
+  // 2. Format ulang & bersihkan Tabel Users (Hapus kolom legacy Wali_Kelas dari Sheet Users)
   const sheetUsers = ss.getSheetByName(SHEET_USERS);
   if (sheetUsers) {
     const uData = sheetUsers.getDataRange().getValues();
-    if (uData.length > 1) {
-      // Peta Wali Kelas dari DataKelas
-      const classWaliMap = {};
-      const newKData = sheetKelas.getDataRange().getValues();
-      for (let k = 1; k < newKData.length; k++) {
-        const nK = String(newKData[k][0] || '').trim();
-        const wG = String(newKData[k][3] || '').trim();
-        if (nK && wG && wG !== '-') {
-          classWaliMap[wG.toLowerCase()] = nK;
-        }
-      }
+    if (uData.length > 0) {
+      const cleanUsersData = [
+        ['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram', 'Tugas_Piket']
+      ];
 
-      // Perbarui kolom Wali_Kelas (kolom H / index 8) di sheet Users
       for (let i = 1; i < uData.length; i++) {
-        const username = String(uData[i][1] || '').trim();
-        const namaGuru = String(uData[i][4] || username).trim();
-        if (!username) continue;
+        const u = String(uData[i][1] || '').trim();
+        if (!u) continue;
+        const idUser = String(uData[i][0] || i);
+        const pwd = String(uData[i][2] || '').trim();
+        const role = String(uData[i][3] || 'Guru').trim();
+        const nama = String(uData[i][4] || u).trim();
+        const idMesin = String(uData[i][5] || '').trim();
+        const idTg = String(uData[i][6] || '').trim();
 
-        let derivedWali = classWaliMap[namaGuru.toLowerCase()] || classWaliMap[username.toLowerCase()] || '-';
-        sheetUsers.getRange(i + 1, 8).setValue(derivedWali);
+        // Determine Tugas_Piket (If legacy 9-column format, col 9 [index 8], else col 8 [index 7])
+        let tugasPiket = '-';
+        if (uData[i].length >= 9) {
+          tugasPiket = String(uData[i][8] || '-').trim();
+        } else if (uData[i].length >= 8) {
+          const val8 = String(uData[i][7] || '-').trim();
+          if (!val8.toUpperCase().startsWith('X') && !val8.toUpperCase().startsWith('XI') && !val8.toUpperCase().startsWith('XII')) {
+            tugasPiket = val8;
+          }
+        }
+
+        cleanUsersData.push([idUser, u, pwd, role, nama, idMesin, idTg, tugasPiket]);
       }
-      log.push('Penugasan Wali Kelas di tabel Users berhasil disinkronkan dari DataKelas.');
+
+      sheetUsers.clear();
+      sheetUsers.getRange(1, 1, cleanUsersData.length, 8).setValues(cleanUsersData);
+      log.push('Kolom Wali_Kelas berhasil dihapus dari sheet Users. Penugasan Wali Kelas 100% dipusatkan ke DataKelas.');
     }
   }
 
-  return jsonResponse('success', '✅ Database berhasil dibersihkan & diperbaiki secara menyeluruh!', {
+  return jsonResponse('success', '✅ Database berhasil dibersihkan, kolom Wali_Kelas di sheet Users dihapus, & disinkronkan!', {
     log: log
   });
 }

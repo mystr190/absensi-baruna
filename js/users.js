@@ -268,7 +268,6 @@ if (formUserModal) {
         const password = modalPassword ? modalPassword.value.trim() : '';
         const nama = modalNama ? modalNama.value.trim() : '';
         const role = modalRole ? modalRole.value : 'Guru';
-        const wali_kelas = modalWaliKelas ? modalWaliKelas.value.trim() : '-';
         const tugas_piket = modalTugasPiket ? modalTugasPiket.value : '-';
 
         if (!username || !nama) {
@@ -295,7 +294,6 @@ if (formUserModal) {
             if (password) formData.append('password', password);
             formData.append('nama', nama);
             formData.append('role', role);
-            formData.append('wali_kelas', wali_kelas);
             formData.append('tugas_piket', tugas_piket);
 
             const result = await fetchWithRetry(SCRIPT_URL, {
