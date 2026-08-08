@@ -745,8 +745,57 @@ function updateCurrentYearElements() {
     });
 }
 
+// ----------------------------------------------------
+// SIDEBAR COLLAPSE & TOGGLE MANAGEMENT
+// ----------------------------------------------------
+function initSidebarToggle() {
+    const btnToggle = document.getElementById('btnToggleSidebar');
+    const btnFloatingToggle = document.getElementById('btnFloatingSidebarToggle');
+    const overlay = document.getElementById('sidebarOverlay');
+    const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+
+    // Restore saved desktop preference
+    const isCollapsedSaved = localStorage.getItem('smart_absen_sidebar_collapsed') === 'true';
+    if (isCollapsedSaved && window.innerWidth > 768) {
+        document.body.classList.add('sidebar-collapsed');
+    }
+
+    const toggleSidebarAction = (e) => {
+        if (e) e.stopPropagation();
+        if (window.innerWidth <= 768) {
+            document.body.classList.toggle('sidebar-mobile-open');
+        } else {
+            document.body.classList.toggle('sidebar-collapsed');
+            const isNowCollapsed = document.body.classList.contains('sidebar-collapsed');
+            localStorage.setItem('smart_absen_sidebar_collapsed', isNowCollapsed);
+        }
+    };
+
+    if (btnToggle) btnToggle.addEventListener('click', toggleSidebarAction);
+    if (btnFloatingToggle) btnFloatingToggle.addEventListener('click', toggleSidebarAction);
+
+    if (overlay) {
+        overlay.addEventListener('click', () => {
+            document.body.classList.remove('sidebar-mobile-open');
+        });
+    }
+
+    // Auto close sidebar on mobile when nav item is clicked
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                document.body.classList.remove('sidebar-mobile-open');
+            }
+        });
+    });
+}
+
 if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', updateCurrentYearElements);
+    window.addEventListener('DOMContentLoaded', () => {
+        updateCurrentYearElements();
+        initSidebarToggle();
+    });
 } else {
     updateCurrentYearElements();
+    initSidebarToggle();
 }

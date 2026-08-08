@@ -73,11 +73,19 @@
     <!-- ============================================ -->
     <div id="view-app" class="view-section" style="display: none;">
 
+        <!-- Sidebar Backdrop Overlay (Mobile) -->
+        <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
         <!-- SIDEBAR NAVIGATION -->
         <aside class="sidebar glass-card">
             <div class="sidebar-brand">
-                <h2 id="sidebarSchoolName">SMART<span>APP</span></h2>
-                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">TP <span class="app-tp-text">2026-2027</span></p>
+                <div class="brand-text">
+                    <h2 id="sidebarSchoolName">SMART<span>APP</span></h2>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">TP <span class="app-tp-text">2026-2027</span></p>
+                </div>
+                <button type="button" id="btnToggleSidebar" class="btn-toggle-sidebar" title="Buka / Tutup Sidebar">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                </button>
             </div>
             <div class="user-info">
                 <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
@@ -92,55 +100,60 @@
             </div>
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-target="panel-overview" id="nav-overview">
-                    <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span> Overview Dashboard
+                    <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span> <span class="nav-label">Overview Dashboard</span>
                 </button>
                 <button class="nav-item" data-target="panel-scan">
-                    <span class="nav-icon"><i class="fa-solid fa-clipboard-user"></i></span> Absen Per Kelas
+                    <span class="nav-icon"><i class="fa-solid fa-clipboard-user"></i></span> <span class="nav-label">Absen Per Kelas</span>
                 </button>
                 <button class="nav-item" data-target="panel-dashboard">
-                    <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span> Rekap Absensi
+                    <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span> <span class="nav-label">Rekap Absensi</span>
                 </button>
                 <button class="nav-item" data-target="panel-matrix-rekap">
-                    <span class="nav-icon"><i class="fa-solid fa-table-list"></i></span> Rekap Kehadiran Siswa
+                    <span class="nav-icon"><i class="fa-solid fa-table-list"></i></span> <span class="nav-label">Rekap Kehadiran Siswa</span>
                 </button>
                 <button class="nav-item" data-target="panel-pelanggaran">
-                    <span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Catatan Pelanggaran
+                    <span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> <span class="nav-label">Catatan Pelanggaran</span>
                 </button>
                 <!-- Menu Pengajuan Izin (Guru, Staff, TU, Kepsek, Admin) -->
                 <button class="nav-item" data-target="panel-izin-guru" id="nav-izin-guru">
-                    <span class="nav-icon"><i class="fa-solid fa-envelope-open-text"></i></span> Pengajuan Izin Guru & Staf
+                    <span class="nav-icon"><i class="fa-solid fa-envelope-open-text"></i></span> <span class="nav-label">Pengajuan Izin Guru & Staf</span>
                 </button>
                 <!-- Menu Kepsek / Admin Only -->
                 <button class="nav-item" data-target="panel-approval-kepsek" id="nav-approval-kepsek" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-file-circle-check"></i></span> Persetujuan Izin (Kepsek)
+                    <span class="nav-icon"><i class="fa-solid fa-file-circle-check"></i></span> <span class="nav-label">Persetujuan Izin (Kepsek)</span>
                 </button>
                 <!-- Menu Admin Only -->
                 <button class="nav-item" data-target="panel-absen-guru-admin" id="nav-absen-guru-admin" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-clipboard-check"></i></span> Absen Guru Manual & Rekap
+                    <span class="nav-icon"><i class="fa-solid fa-clipboard-check"></i></span> <span class="nav-label">Absen Guru Manual & Rekap</span>
                 </button>
                 <button class="nav-item" data-target="panel-admin" id="nav-admin" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-user-gear"></i></span> Kelola Guru
+                    <span class="nav-icon"><i class="fa-solid fa-user-gear"></i></span> <span class="nav-label">Kelola Guru</span>
                 </button>
                 <button class="nav-item" data-target="panel-kelola-siswa" id="nav-kelola-siswa" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-users-gear"></i></span> Kelola Data Siswa
+                    <span class="nav-icon"><i class="fa-solid fa-users-gear"></i></span> <span class="nav-label">Kelola Data Siswa</span>
                 </button>
                 <button class="nav-item" data-target="panel-broadcast-telegram" id="nav-broadcast-telegram" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span> Broadcast Telegram
+                    <span class="nav-icon"><i class="fa-solid fa-paper-plane"></i></span> <span class="nav-label">Broadcast Telegram</span>
                 </button>
                 <button class="nav-item" data-target="panel-user-mesin" id="nav-user-mesin" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-fingerprint"></i></span> Data User Mesin
+                    <span class="nav-icon"><i class="fa-solid fa-fingerprint"></i></span> <span class="nav-label">Data User Mesin</span>
                 </button>
                 <button class="nav-item" data-target="panel-profile" id="nav-profile">
-                    <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> Profil & Pengaturan Akun
+                    <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> <span class="nav-label">Profil & Pengaturan Akun</span>
                 </button>
             </nav>
             <div class="sidebar-footer">
-                <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)</button>
+                <button id="btnLogout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> <span class="btn-logout-text">Keluar (Logout)</span></button>
             </div>
         </aside>
 
         <!-- MAIN CONTENT AREA -->
         <main class="main-content">
+
+            <!-- Sidebar Floating Toggle Button -->
+            <button type="button" id="btnFloatingSidebarToggle" class="btn-floating-sidebar-toggle" title="Buka Sidebar">
+                <i class="fa-solid fa-bars"></i>
+            </button>
 
             <!-- PANEL 0: OVERVIEW DASHBOARD ANALITIK -->
             <section id="panel-overview" class="panel active">
