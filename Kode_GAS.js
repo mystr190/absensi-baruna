@@ -419,7 +419,16 @@ function doPost(e) {
       return handleDeleteUser(e.parameter.username);
     }
     else if (action === 'save_config') {
-      return handleSaveConfig(e.parameter.nama_sekolah, e.parameter.tahun_pelajaran, e.parameter.telegram_bot_token);
+      return handleSaveConfig(
+        e.parameter.nama_sekolah,
+        e.parameter.tahun_pelajaran,
+        e.parameter.telegram_bot_token,
+        e.parameter.kop_yayasan,
+        e.parameter.kop_sekolah,
+        e.parameter.kop_alamat,
+        e.parameter.kop_logo,
+        e.parameter.kop_logo_size
+      );
     }
     else if (action === 'setup_database' || action === 'initial_setup' || action === 'cleanup_and_repair_data' || action === 'fix_database') {
       return handleCleanupAndRepairData();
@@ -1498,7 +1507,12 @@ function getConfigObject(ss) {
   let config = {
     namaSekolah: 'SMA 1 BARUNAWATI',
     tahunPelajaran: '2026-2027',
-    telegramBotToken: ''
+    telegramBotToken: '',
+    kopYayasan: 'YAYASAN SEKAR LAUT PELNI',
+    kopSekolah: 'SMA 1 BARUNAWATI',
+    kopAlamat: 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083',
+    kopLogo: '',
+    kopLogoSize: '85'
   };
 
   try {
@@ -1511,6 +1525,11 @@ function getConfigObject(ss) {
     sheetConfig.appendRow(['NamaSekolah', config.namaSekolah]);
     sheetConfig.appendRow(['TahunPelajaran', config.tahunPelajaran]);
     sheetConfig.appendRow(['TelegramBotToken', config.telegramBotToken]);
+    sheetConfig.appendRow(['KopYayasan', config.kopYayasan]);
+    sheetConfig.appendRow(['KopSekolah', config.kopSekolah]);
+    sheetConfig.appendRow(['KopAlamat', config.kopAlamat]);
+    sheetConfig.appendRow(['KopLogo', config.kopLogo]);
+    sheetConfig.appendRow(['KopLogoSize', config.kopLogoSize]);
     sheetConfig.getRange("A1:B1").setFontWeight("bold").setBackground("#d9ead3");
   } else {
     const data = sheetConfig.getDataRange().getValues();
@@ -1519,14 +1538,29 @@ function getConfigObject(ss) {
       const val = String(data[i][1] || '').trim();
       const normKey = rawKey.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      if (normKey.includes('sekolah') || normKey.includes('nama')) {
+      if (normKey === 'namasekolah' || normKey === 'sekolah') {
         if (val) config.namaSekolah = val;
       }
-      if (normKey.includes('tahun') || normKey.includes('ajaran') || normKey.includes('pelajaran') || normKey === 'tp' || normKey === 'ta') {
+      if (normKey === 'tahunpelajaran' || normKey === 'tahunajaran' || normKey === 'tp' || normKey === 'ta') {
         if (val) config.tahunPelajaran = val;
       }
       if (normKey.includes('telegram') || normKey.includes('bot') || normKey.includes('token')) {
         if (val) config.telegramBotToken = val;
+      }
+      if (normKey === 'kopyayasan' || normKey === 'yayasan') {
+        if (val) config.kopYayasan = val;
+      }
+      if (normKey === 'kopsekolah') {
+        if (val) config.kopSekolah = val;
+      }
+      if (normKey === 'kopalamat' || normKey === 'alamat') {
+        if (val) config.kopAlamat = val;
+      }
+      if (normKey === 'koplogo' || normKey === 'logo') {
+        if (val) config.kopLogo = val;
+      }
+      if (normKey === 'koplogosize' || normKey === 'logosize') {
+        if (val) config.kopLogoSize = val;
       }
     }
   }
@@ -1538,7 +1572,7 @@ function handleGetConfig() {
   return jsonResponse('success', 'Config Loaded', getConfigObject(ss));
 }
 
-function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
+function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoSize) {
   if (!namaSekolah || !tahunPelajaran) {
     return jsonResponse('error', 'Nama Sekolah dan Tahun Pelajaran wajib diisi.');
   }
@@ -1546,6 +1580,12 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheetConfig = ss.getSheetByName(SHEET_CONFIG);
   const cleanToken = String(telegramBotToken || '').trim();
+
+  const cYayasan = String(kopYayasan || '').trim();
+  const cSekolah = String(kopSekolah || namaSekolah || '').trim();
+  const cAlamat = String(kopAlamat || '').trim();
+  const cLogo = String(kopLogo || '').trim();
+  const cLogoSize = String(kopLogoSize || '85').trim();
 
   // Simpan ke Script Properties
   try {
@@ -1560,11 +1600,21 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
     sheetConfig.appendRow(['NamaSekolah', namaSekolah.trim()]);
     sheetConfig.appendRow(['TahunPelajaran', tahunPelajaran.trim()]);
     sheetConfig.appendRow(['TelegramBotToken', cleanToken]);
+    sheetConfig.appendRow(['KopYayasan', cYayasan]);
+    sheetConfig.appendRow(['KopSekolah', cSekolah]);
+    sheetConfig.appendRow(['KopAlamat', cAlamat]);
+    sheetConfig.appendRow(['KopLogo', cLogo]);
+    sheetConfig.appendRow(['KopLogoSize', cLogoSize]);
   } else {
     const data = sheetConfig.getDataRange().getValues();
     let foundNama = false;
     let foundTahun = false;
     let foundToken = false;
+    let foundYayasan = false;
+    let foundKopSekolah = false;
+    let foundAlamat = false;
+    let foundLogo = false;
+    let foundLogoSize = false;
 
     for (let i = 1; i < data.length; i++) {
       const rawKey = String(data[i][0] || '').trim();
@@ -1582,14 +1632,39 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
         sheetConfig.getRange(i + 1, 2).setValue(cleanToken);
         foundToken = true;
       }
+      if (normKey === 'kopyayasan' || normKey === 'yayasan') {
+        sheetConfig.getRange(i + 1, 2).setValue(cYayasan);
+        foundYayasan = true;
+      }
+      if (normKey === 'kopsekolah') {
+        sheetConfig.getRange(i + 1, 2).setValue(cSekolah);
+        foundKopSekolah = true;
+      }
+      if (normKey === 'kopalamat' || normKey === 'alamat') {
+        sheetConfig.getRange(i + 1, 2).setValue(cAlamat);
+        foundAlamat = true;
+      }
+      if (normKey === 'koplogo' || normKey === 'logo') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogo);
+        foundLogo = true;
+      }
+      if (normKey === 'koplogosize' || normKey === 'logosize') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogoSize);
+        foundLogoSize = true;
+      }
     }
 
     if (!foundNama) sheetConfig.appendRow(['NamaSekolah', namaSekolah.trim()]);
     if (!foundTahun) sheetConfig.appendRow(['TahunPelajaran', tahunPelajaran.trim()]);
     if (!foundToken) sheetConfig.appendRow(['TelegramBotToken', cleanToken]);
+    if (!foundYayasan) sheetConfig.appendRow(['KopYayasan', cYayasan]);
+    if (!foundKopSekolah) sheetConfig.appendRow(['KopSekolah', cSekolah]);
+    if (!foundAlamat) sheetConfig.appendRow(['KopAlamat', cAlamat]);
+    if (!foundLogo) sheetConfig.appendRow(['KopLogo', cLogo]);
+    if (!foundLogoSize) sheetConfig.appendRow(['KopLogoSize', cLogoSize]);
   }
 
-  return jsonResponse('success', 'Pengaturan sekolah, tahun pelajaran & Bot Telegram berhasil diperbarui.');
+  return jsonResponse('success', 'Pengaturan sekolah & Kop Surat berhasil diperbarui.');
 }
 
 // === HANDLER ABSEN BULK (FAST, DEDUPLICATED & EDIT SUPPORT) ===
@@ -5363,15 +5438,77 @@ function generateEduIzinPDF(rowData) {
   const idIzin = rowData[0];
   const nama = rowData[2];
   const props = PropertiesService.getScriptProperties();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfg = getConfigObject(ss);
   
   const doc = DocumentApp.create('Temp_Izin_' + nama);
   const body = doc.getBody();
 
-  body.setMarginTop(40).setMarginBottom(40).setMarginLeft(50).setMarginRight(50);
-  
-  const header = body.appendParagraph('SURAT BUKTI IZIN SISWA');
-  header.setFontFamily('Arial').setFontSize(16).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  body.setMarginTop(30).setMarginBottom(40).setMarginLeft(45).setMarginRight(45);
+
+  const kopYayasan = String(cfg.kopYayasan || 'YAYASAN SEKAR LAUT PELNI').trim();
+  const kopSekolah = String(cfg.kopSekolah || cfg.namaSekolah || 'SMA 1 BARUNAWATI').trim();
+  const kopAlamat = String(cfg.kopAlamat || 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083').trim();
+  const kopLogo = String(cfg.kopLogo || '').trim();
+  const kopLogoSize = parseInt(cfg.kopLogoSize || '85', 10) || 85;
+
+  // HEADING KOP SURAT RESMI
+  if (kopLogo) {
+    try {
+      const logoBlob = UrlFetchApp.fetch(kopLogo).getBlob();
+      const kopTable = body.appendTable();
+      kopTable.setBorderWidth(0);
+      const kopRow = kopTable.appendTableRow();
+      
+      const cellLogo = kopRow.appendTableCell();
+      cellLogo.setWidth(kopLogoSize + 10);
+      const pImg = cellLogo.appendParagraph('');
+      pImg.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      const inlineLogo = pImg.appendInlineImage(logoBlob);
+      inlineLogo.setWidth(kopLogoSize).setHeight(kopLogoSize);
+
+      const cellText = kopRow.appendTableCell();
+      if (kopYayasan) {
+        const pYys = cellText.appendParagraph(kopYayasan.toUpperCase());
+        pYys.setFontFamily('Arial').setFontSize(10.5).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      }
+      const pSek = cellText.appendParagraph(kopSekolah.toUpperCase());
+      pSek.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      
+      if (kopAlamat) {
+        const pAlm = cellText.appendParagraph(kopAlamat);
+        pAlm.setFontFamily('Arial').setFontSize(8.5).setItalic(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      }
+    } catch(e) {
+      if (kopYayasan) {
+        const pYys = body.appendParagraph(kopYayasan.toUpperCase());
+        pYys.setFontFamily('Arial').setFontSize(10.5).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      }
+      const pSek = body.appendParagraph(kopSekolah.toUpperCase());
+      pSek.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      if (kopAlamat) {
+        const pAlm = body.appendParagraph(kopAlamat);
+        pAlm.setFontFamily('Arial').setFontSize(8.5).setItalic(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      }
+    }
+  } else {
+    if (kopYayasan) {
+      const pYys = body.appendParagraph(kopYayasan.toUpperCase());
+      pYys.setFontFamily('Arial').setFontSize(10.5).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    }
+    const pSek = body.appendParagraph(kopSekolah.toUpperCase());
+    pSek.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    if (kopAlamat) {
+      const pAlm = body.appendParagraph(kopAlamat);
+      pAlm.setFontFamily('Arial').setFontSize(8.5).setItalic(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    }
+  }
+
   body.appendHorizontalRule();
+  body.appendParagraph('');
+
+  const header = body.appendParagraph('SURAT BUKTI IZIN SISWA');
+  header.setFontFamily('Arial').setFontSize(13).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
   body.appendParagraph('');
 
   let tglAju = '-';

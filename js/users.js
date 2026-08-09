@@ -365,11 +365,22 @@ function updateAppSchoolConfigUI(config) {
     const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
     const inputUrlScript = document.getElementById('inputUrlScript');
     const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
+    const inputKopYayasan = document.getElementById('inputKopYayasan');
+    const inputKopSekolah = document.getElementById('inputKopSekolah');
+    const inputKopAlamat = document.getElementById('inputKopAlamat');
+    const inputKopLogo = document.getElementById('inputKopLogo');
+    const inputKopLogoSize = document.getElementById('inputKopLogoSize');
 
     if (inputNamaSekolah) inputNamaSekolah.value = schoolName;
     if (inputTahunPelajaran) inputTahunPelajaran.value = tahunPelajaran;
     if (inputUrlScript) inputUrlScript.value = mergedConfig.urlScript || mergedConfig.url_script || window.SCRIPT_URL || '';
     if (inputTelegramBotToken && !inputTelegramBotToken.value) inputTelegramBotToken.value = mergedConfig.telegramBotToken || mergedConfig.telegram_bot_token || '';
+
+    if (inputKopYayasan && mergedConfig.kopYayasan !== undefined) inputKopYayasan.value = mergedConfig.kopYayasan;
+    if (inputKopSekolah && mergedConfig.kopSekolah !== undefined) inputKopSekolah.value = mergedConfig.kopSekolah || schoolName;
+    if (inputKopAlamat && mergedConfig.kopAlamat !== undefined) inputKopAlamat.value = mergedConfig.kopAlamat;
+    if (inputKopLogo && mergedConfig.kopLogo !== undefined) inputKopLogo.value = mergedConfig.kopLogo;
+    if (inputKopLogoSize && mergedConfig.kopLogoSize !== undefined) inputKopLogoSize.value = mergedConfig.kopLogoSize || '85';
 
     // Update elemen nama sekolah di seluruh aplikasi
     if (schoolName) {
@@ -388,6 +399,83 @@ function updateAppSchoolConfigUI(config) {
     if (typeof updatePrintTitles === 'function') {
         updatePrintTitles();
     }
+
+    updateKopSuratPreview();
+}
+
+function updateKopSuratPreview() {
+    const inputKopYayasan = document.getElementById('inputKopYayasan');
+    const inputKopSekolah = document.getElementById('inputKopSekolah');
+    const inputKopAlamat = document.getElementById('inputKopAlamat');
+    const inputKopLogo = document.getElementById('inputKopLogo');
+    const inputKopLogoSize = document.getElementById('inputKopLogoSize');
+    const inputNamaSekolah = document.getElementById('inputNamaSekolah');
+
+    const previewYayasan = document.getElementById('kopPreviewYayasan');
+    const previewSekolah = document.getElementById('kopPreviewSekolah');
+    const previewAlamat = document.getElementById('kopPreviewAlamat');
+    const previewLogoImg = document.getElementById('kopPreviewLogoImg');
+    const previewLogoFallback = document.getElementById('kopPreviewLogoFallback');
+    const logoContainer = document.getElementById('kopPreviewLogoContainer');
+
+    const yayasanVal = inputKopYayasan ? inputKopYayasan.value.trim() : '';
+    const sekolahVal = inputKopSekolah ? inputKopSekolah.value.trim() : (inputNamaSekolah ? inputNamaSekolah.value.trim() : '');
+    const alamatVal = inputKopAlamat ? inputKopAlamat.value.trim() : '';
+    const logoVal = inputKopLogo ? inputKopLogo.value.trim() : '';
+    const logoSizeVal = inputKopLogoSize ? (parseInt(inputKopLogoSize.value, 10) || 85) : 85;
+
+    if (logoContainer) {
+        logoContainer.style.width = logoSizeVal + 'px';
+        logoContainer.style.height = logoSizeVal + 'px';
+    }
+
+    if (previewYayasan) {
+        previewYayasan.innerText = (yayasanVal || 'YAYASAN SEKAR LAUT PELNI').toUpperCase();
+    }
+    if (previewSekolah) {
+        previewSekolah.innerText = (sekolahVal || 'SMA 1 BARUNAWATI').toUpperCase();
+    }
+    if (previewAlamat) {
+        previewAlamat.innerText = alamatVal || 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083';
+    }
+
+    if (logoVal && previewLogoImg && previewLogoFallback) {
+        previewLogoImg.src = logoVal;
+        previewLogoImg.style.display = 'block';
+        previewLogoFallback.style.display = 'none';
+        
+        previewLogoImg.onerror = function() {
+            previewLogoImg.style.display = 'none';
+            previewLogoFallback.style.display = 'block';
+        };
+    } else if (previewLogoImg && previewLogoFallback) {
+        previewLogoImg.style.display = 'none';
+        previewLogoFallback.style.display = 'block';
+    }
+}
+
+// Bind Live Preview Events
+const previewInputIds = ['inputKopYayasan', 'inputKopSekolah', 'inputKopAlamat', 'inputKopLogo', 'inputKopLogoSize', 'inputNamaSekolah'];
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => {
+        previewInputIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', updateKopSuratPreview);
+                el.addEventListener('change', updateKopSuratPreview);
+            }
+        });
+        updateKopSuratPreview();
+    });
+} else {
+    previewInputIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', updateKopSuratPreview);
+            el.addEventListener('change', updateKopSuratPreview);
+        }
+    });
+    updateKopSuratPreview();
 }
 
 applyCachedSchoolConfig();
@@ -406,11 +494,22 @@ if (formConfigSekolah) {
         const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
         const inputUrlScript = document.getElementById('inputUrlScript');
         const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
+        const inputKopYayasan = document.getElementById('inputKopYayasan');
+        const inputKopSekolah = document.getElementById('inputKopSekolah');
+        const inputKopAlamat = document.getElementById('inputKopAlamat');
+        const inputKopLogo = document.getElementById('inputKopLogo');
+        const inputKopLogoSize = document.getElementById('inputKopLogoSize');
 
         const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : '';
         const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '';
         const urlScript = inputUrlScript ? inputUrlScript.value.trim() : '';
         const telegramBotToken = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
+
+        const kopYayasan = inputKopYayasan ? inputKopYayasan.value.trim() : '';
+        const kopSekolah = inputKopSekolah ? inputKopSekolah.value.trim() : '';
+        const kopAlamat = inputKopAlamat ? inputKopAlamat.value.trim() : '';
+        const kopLogo = inputKopLogo ? inputKopLogo.value.trim() : '';
+        const kopLogoSize = inputKopLogoSize ? inputKopLogoSize.value.trim() : '85';
 
         if (!namaSekolah || !tahunPelajaran) {
             showToast("Nama Sekolah dan Tahun Pelajaran wajib diisi.", "warning");
@@ -430,6 +529,11 @@ if (formConfigSekolah) {
             formData.append('nama_sekolah', namaSekolah);
             formData.append('tahun_pelajaran', tahunPelajaran);
             formData.append('telegram_bot_token', telegramBotToken);
+            formData.append('kop_yayasan', kopYayasan);
+            formData.append('kop_sekolah', kopSekolah);
+            formData.append('kop_alamat', kopAlamat);
+            formData.append('kop_logo', kopLogo);
+            formData.append('kop_logo_size', kopLogoSize);
 
             const activeUrl = urlScript || SCRIPT_URL;
             const result = await fetchWithRetry(activeUrl, {
@@ -438,12 +542,70 @@ if (formConfigSekolah) {
                 body: new URLSearchParams(formData).toString()
             }, 0);
 
-            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken };
+            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoSize };
             updateAppSchoolConfigUI(newConfig);
-            showToast("✅ Identitas sekolah, Token Telegram Bot & Web Server URL berhasil diperbarui!", "success");
+            showToast("✅ Identitas sekolah, Token Telegram Bot & Server URL berhasil diperbarui!", "success");
         } catch (err) {
             console.error(err);
             showToast("❌ Gagal menyimpan pengaturan.", "error");
+        } finally {
+            if (btnSave) btnSave.disabled = false;
+        }
+    });
+}
+
+// Handle Form Simpan Kop Surat Secara Spesifik
+const formKopSurat = document.getElementById('formKopSurat');
+if (formKopSurat) {
+    formKopSurat.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const inputNamaSekolah = document.getElementById('inputNamaSekolah');
+        const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
+        const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
+        const inputKopYayasan = document.getElementById('inputKopYayasan');
+        const inputKopSekolah = document.getElementById('inputKopSekolah');
+        const inputKopAlamat = document.getElementById('inputKopAlamat');
+        const inputKopLogo = document.getElementById('inputKopLogo');
+        const inputKopLogoSize = document.getElementById('inputKopLogoSize');
+
+        const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : 'Sekolah';
+        const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '2026/2027';
+        const telegramBotToken = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
+
+        const kopYayasan = inputKopYayasan ? inputKopYayasan.value.trim() : '';
+        const kopSekolah = inputKopSekolah ? inputKopSekolah.value.trim() : '';
+        const kopAlamat = inputKopAlamat ? inputKopAlamat.value.trim() : '';
+        const kopLogo = inputKopLogo ? inputKopLogo.value.trim() : '';
+        const kopLogoSize = inputKopLogoSize ? inputKopLogoSize.value.trim() : '85';
+
+        const btnSave = document.getElementById('btnSaveKopSurat');
+        if (btnSave) btnSave.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'save_config');
+            formData.append('nama_sekolah', namaSekolah);
+            formData.append('tahun_pelajaran', tahunPelajaran);
+            formData.append('telegram_bot_token', telegramBotToken);
+            formData.append('kop_yayasan', kopYayasan);
+            formData.append('kop_sekolah', kopSekolah);
+            formData.append('kop_alamat', kopAlamat);
+            formData.append('kop_logo', kopLogo);
+            formData.append('kop_logo_size', kopLogoSize);
+
+            const result = await fetchWithRetry(SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(formData).toString()
+            }, 0);
+
+            const newConfig = { namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoSize };
+            updateAppSchoolConfigUI(newConfig);
+            showToast("✅ Pengaturan Kop Surat Resmi PDF berhasil disimpan!", "success");
+        } catch (err) {
+            console.error(err);
+            showToast("❌ Gagal menyimpan Kop Surat.", "error");
         } finally {
             if (btnSave) btnSave.disabled = false;
         }

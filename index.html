@@ -1630,6 +1630,84 @@
                         </form>
                     </div>
 
+                    <!-- CARD PENGATURAN KOP SURAT SEKOLAH (PDF) -->
+                    <div class="glass-card panel-body" style="padding: 25px; margin-bottom: 25px;">
+                        <h4 style="margin-bottom: 15px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; color: #c084fc;">
+                            <span><i class="fa-solid fa-file-signature"></i></span> Pengaturan Kop Surat Resmi (Cetak Dokumen PDF)
+                        </h4>
+                        <p style="margin-top: -8px; margin-bottom: 18px; font-size: 0.85rem; color: var(--text-muted);">
+                            Kelola nama yayasan, nama lembaga/sekolah, logo, dan alamat resmi yang akan tercetak otomatis sebagai Kop Surat pada Surat Bukti Izin PDF.
+                        </p>
+                        
+                        <!-- LIVE PREVIEW CONTAINER -->
+                        <div style="margin-bottom: 22px; background: #ffffff; color: #1e293b; border-radius: 12px; padding: 22px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 2px dashed rgba(168, 85, 247, 0.5); position: relative;">
+                            <div style="position: absolute; top: 10px; right: 14px; background: #a855f7; color: white; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px;">
+                                <i class="fa-solid fa-eye"></i> LIVE PREVIEW KOP DOKUMEN PDF
+                            </div>
+
+                            <!-- KOP SURAT CONTENT PREVIEW -->
+                            <div id="kopPreviewBox" style="display: flex; align-items: center; gap: 20px; text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 14px; margin-top: 10px;">
+                                <div id="kopPreviewLogoContainer" style="width: 95px; height: 95px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; overflow: hidden;">
+                                    <i id="kopPreviewLogoFallback" class="fa-solid fa-school" style="font-size: 2.8rem; color: #64748b;"></i>
+                                    <img id="kopPreviewLogoImg" src="" alt="Logo Sekolah" style="width: 100%; height: 100%; object-fit: contain; display: none;">
+                                </div>
+                                <div style="flex: 1; text-align: center; padding-right: 20px;">
+                                    <div id="kopPreviewYayasan" style="font-family: Arial, sans-serif; font-size: 0.95rem; font-weight: bold; text-transform: uppercase; color: #334155; margin-bottom: 2px; letter-spacing: 0.5px;">
+                                        YAYASAN SEKAR LAUT PELNI
+                                    </div>
+                                    <div id="kopPreviewSekolah" style="font-family: Arial, sans-serif; font-size: 1.35rem; font-weight: 800; text-transform: uppercase; color: #0f172a; margin-bottom: 4px; letter-spacing: 0.8px;">
+                                        SMA 1 BARUNAWATI
+                                    </div>
+                                    <div id="kopPreviewAlamat" style="font-family: Arial, sans-serif; font-size: 0.8rem; font-style: italic; color: #475569; line-height: 1.3;">
+                                        Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PREVIEW SURAT HEADER TITLE -->
+                            <div style="text-align: center; margin-top: 14px;">
+                                <h5 style="font-family: Arial, sans-serif; font-size: 1.05rem; font-weight: bold; margin: 0; color: #0f172a; text-transform: uppercase; text-decoration: underline;">SURAT BUKTI IZIN SISWA</h5>
+                                <p style="font-family: Arial, sans-serif; font-size: 0.78rem; color: #64748b; margin-top: 4px; margin-bottom: 0; font-style: italic;">
+                                    (Contoh dokumen hasil cetakan PDF yang diterbitkan oleh sistem)
+                                </p>
+                            </div>
+                        </div>
+
+                        <form id="formKopSurat" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; align-items: end;">
+                            <div>
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Yayasan / Instansi Pembina:</label>
+                                <input type="text" id="inputKopYayasan" placeholder="Contoh: YAYASAN SEKAR LAUT PELNI" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Sekolah (Judul Kop Surat):</label>
+                                <input type="text" id="inputKopSekolah" placeholder="Contoh: SMA 1 BARUNAWATI" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Alamat Lengkap & Kontak Sekolah:</label>
+                                <input type="text" id="inputKopAlamat" placeholder="Contoh: Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            </div>
+                            <div style="grid-column: 1 / -1; display: grid; grid-template-columns: 3fr 1fr; gap: 15px;">
+                                <div>
+                                    <label style="font-size: 0.85rem; color: #c084fc; display: block; margin-bottom: 6px;">
+                                        <i class="fa-solid fa-image"></i> URL Gambar Logo Sekolah (Direct Link Image / Drive Image URL):
+                                    </label>
+                                    <input type="url" id="inputKopLogo" placeholder="https://example.com/logo-sekolah.png (Opsional, kosongkan jika tidak ada logo)" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.85rem; color: #c084fc; display: block; margin-bottom: 6px;">
+                                        <i class="fa-solid fa-up-right-and-down-left-from-center"></i> Ukuran Logo (px):
+                                    </label>
+                                    <input type="number" id="inputKopLogoSize" min="40" max="160" value="85" placeholder="85" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; text-align: center;">
+                                </div>
+                            </div>
+                            <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end;">
+                                <button type="submit" id="btnSaveKopSurat" class="btn-primary" style="padding: 10px 24px; background: linear-gradient(135deg, #a855f7, #7e22ce); border: none;">
+                                    <span><i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan Kop Surat</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
                     <!-- CARD MANAJEMEN MASTER DATA KELAS & WALI KELAS -->
                     <div class="glass-card panel-body" style="padding: 25px; margin-bottom: 25px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
