@@ -371,7 +371,18 @@ select option { background: var(--bg-color); color: var(--text-main); }
 .btn-secondary:hover { background: rgba(255,255,255,0.2); }
 
 .loader { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid white; width: 20px; height: 20px; animation: spin 1s linear infinite; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+@keyframes fa-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.fa-spin, .spin-icon {
+    animation: spin 0.75s linear infinite !important;
+    display: inline-block !important;
+}
 
 /* Tabs (Scanner) */
 .tabs { display: flex; background: rgba(0, 0, 0, 0.2); border-radius: 12px; padding: 5px; margin-bottom: 25px; }

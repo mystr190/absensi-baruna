@@ -69,12 +69,7 @@ function initAbsenGuruEventListeners() {
         btnTidakHadir.addEventListener('click', () => setSemuaStatusAbsenGuru('TIDAK HADIR'));
     }
 
-    const btnRefresh = document.getElementById('btnRefreshAbsenGuru');
-    if (btnRefresh) {
-        btnRefresh.addEventListener('click', () => {
-            syncAbsenGuruDataFromServer();
-        });
-    }
+
 
     const btnPrintGuru = document.getElementById('btnPrintRekapGuru');
     if (btnPrintGuru) {
@@ -1088,11 +1083,37 @@ function renderTableLogAbsenGuru() {
 // ----------------------------------------------------
 // 4. SYNC DATA SINKRONISASI DARI SERVER (GAS)
 // ----------------------------------------------------
-async function syncAbsenGuruDataFromServer() {
-    const btnRefresh = document.getElementById('btnRefreshAbsenGuru');
-    const iconBtn = btnRefresh ? btnRefresh.querySelector('i') : null;
-    if (iconBtn) iconBtn.classList.add('fa-spin');
-    if (btnRefresh) btnRefresh.disabled = true;
+let isSyncingAbsenGuruData = false;
+
+async function syncAbsenGuruDataFromServer(clickedBtn) {
+    if (isSyncingAbsenGuruData) return;
+    isSyncingAbsenGuruData = true;
+
+    if (clickedBtn && clickedBtn.currentTarget) clickedBtn = clickedBtn.currentTarget;
+    if (clickedBtn && clickedBtn.target) clickedBtn = clickedBtn.target.closest('button');
+
+    const refreshBtnIds = [
+        'btnRefreshAbsenGuru',
+        'btnRefreshIzinGuru',
+        'btnRefreshApprovalKepsek'
+    ];
+    
+    const btns = refreshBtnIds.map(id => document.getElementById(id)).filter(Boolean);
+    if (clickedBtn && clickedBtn.nodeType === 1 && !btns.includes(clickedBtn)) {
+        btns.push(clickedBtn);
+    }
+
+    const originalHtmlMap = new Map();
+    btns.forEach(btn => {
+        const curHtml = btn.innerHTML;
+        if (!curHtml.includes('fa-spin') && !curHtml.includes('Memuat')) {
+            originalHtmlMap.set(btn, curHtml);
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin spin-icon" style="margin-right: 6px;"></i> Memuat...';
+    });
+
+    const startTime = Date.now();
 
     try {
         const [resGuru, resIzin] = await Promise.all([
@@ -1118,8 +1139,20 @@ async function syncAbsenGuruDataFromServer() {
     } catch (e) {
         console.warn("Sync Absen Guru / Izin failed, using cached data.");
     } finally {
-        if (iconBtn) iconBtn.classList.remove('fa-spin');
-        if (btnRefresh) btnRefresh.disabled = false;
+        const elapsedTime = Date.now() - startTime;
+        const remainingDelay = Math.max(0, 600 - elapsedTime);
+
+        setTimeout(() => {
+            btns.forEach(btn => {
+                btn.disabled = false;
+                let orig = originalHtmlMap.get(btn);
+                if (!orig || orig.includes('fa-spin') || orig.includes('Memuat')) {
+                    orig = '<i class="fa-solid fa-arrows-rotate"></i> Refresh';
+                }
+                btn.innerHTML = orig;
+            });
+            isSyncingAbsenGuruData = false;
+        }, remainingDelay);
     }
 }
 
@@ -1516,22 +1549,4 @@ window.updateAbsenGuruMasterData = function(absenGuru, pengajuanIzin) {
     applyCachedAbsenGuruData();
 };
 
-async function syncAbsenGuruDataFromServer() {
-    if (typeof fetchWithRetry !== 'function' || !SCRIPT_URL) return;
-    try {
-        const resG = await fetchWithRetry(`${SCRIPT_URL}?action=get_absen_guru`, { method: 'GET' }, 1, 1000);
-        if (resG && resG.status === 'success' && Array.isArray(resG.data)) {
-            localLogAbsenGuru = resG.data;
-            localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
-        }
-        const resI = await fetchWithRetry(`${SCRIPT_URL}?action=get_pengajuan_izin`, { method: 'GET' }, 1, 1000);
-        if (resI && resI.status === 'success' && Array.isArray(resI.data)) {
-            localPengajuanIzin = resI.data;
-            localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
-        }
-        applyCachedAbsenGuruData();
-        showToast("⚡ Data presensi & izin guru diperbarui dari server.", "info");
-    } catch(e) {
-        console.warn("Error syncing absen guru data:", e);
-    }
-}
+

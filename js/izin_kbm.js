@@ -193,22 +193,30 @@ function loadEduIzinData() {
         document.getElementById('btnRefreshApprovalIzinSiswa')
     ];
 
+    const originalHtmlMap = new Map();
     btns.forEach(b => {
         if (b) {
+            originalHtmlMap.set(b, b.innerHTML);
             b.disabled = true;
-            const icon = b.querySelector('i');
-            if (icon) icon.classList.add('fa-spin');
+            b.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin spin-icon" style="margin-right: 6px;"></i> Memuat...';
         }
     });
 
+    const startTime = Date.now();
+
     callGAS('get_edu_izin', null, (res) => {
-        btns.forEach(b => {
-            if (b) {
-                b.disabled = false;
-                const icon = b.querySelector('i');
-                if (icon) icon.classList.remove('fa-spin');
-            }
-        });
+        const elapsedTime = Date.now() - startTime;
+        const remainingDelay = Math.max(0, 500 - elapsedTime);
+
+        setTimeout(() => {
+            btns.forEach(b => {
+                if (b) {
+                    b.disabled = false;
+                    const orig = originalHtmlMap.get(b);
+                    b.innerHTML = orig || '<i class="fa-solid fa-arrows-rotate"></i> Refresh';
+                }
+            });
+        }, remainingDelay);
 
         if (res && res.status === 'success') {
             try { localStorage.setItem('smart_absen_edu_izin_cache', JSON.stringify(res.data || [])); } catch(e){}

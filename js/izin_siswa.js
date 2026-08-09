@@ -255,13 +255,16 @@ async function loadIzinSiswaData() {
         document.getElementById('btnRefreshApprovalIzinSiswa')
     ];
 
+    const originalHtmlMap = new Map();
     btns.forEach(b => {
         if (b) {
+            originalHtmlMap.set(b, b.innerHTML);
             b.disabled = true;
-            const icon = b.querySelector('i');
-            if (icon) icon.classList.add('fa-spin');
+            b.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin spin-icon" style="margin-right: 6px;"></i> Memuat...';
         }
     });
+
+    const startTime = Date.now();
 
     try {
         const url = `${SCRIPT_URL}?action=get_izin_siswa&_t=${Date.now()}`;
@@ -280,13 +283,18 @@ async function loadIzinSiswaData() {
     } catch (err) {
         console.error("Error loading izin siswa data:", err);
     } finally {
-        btns.forEach(b => {
-            if (b) {
-                b.disabled = false;
-                const icon = b.querySelector('i');
-                if (icon) icon.classList.remove('fa-spin');
-            }
-        });
+        const elapsedTime = Date.now() - startTime;
+        const remainingDelay = Math.max(0, 500 - elapsedTime);
+
+        setTimeout(() => {
+            btns.forEach(b => {
+                if (b) {
+                    b.disabled = false;
+                    const orig = originalHtmlMap.get(b);
+                    b.innerHTML = orig || '<i class="fa-solid fa-arrows-rotate"></i> Refresh';
+                }
+            });
+        }, remainingDelay);
     }
 }
 
