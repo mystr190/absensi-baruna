@@ -846,6 +846,67 @@ window.alert = function(msg) {
     }
 };
 
+function showCustomPrompt({ title = 'Input Data', message = 'Masukkan keterangan:', placeholder = 'Ketik di sini...', icon = 'info', confirmText = 'Kirim', cancelText = 'Batal' }) {
+    return new Promise((resolve) => {
+        let overlay = document.getElementById('customAlertOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'customAlertOverlay';
+            overlay.className = 'custom-alert-overlay';
+            document.body.appendChild(overlay);
+        }
+
+        let iconClass = 'fa-solid fa-pen-to-square';
+        let iconTypeClass = 'info';
+
+        overlay.innerHTML = `
+            <div class="custom-alert-box">
+                <div class="custom-alert-icon-wrap ${iconTypeClass}">
+                    <i class="${iconClass}"></i>
+                </div>
+                <div class="custom-alert-title">${title}</div>
+                <div class="custom-alert-message">${message}</div>
+                <div style="margin: 15px 0 20px 0;">
+                    <textarea id="customPromptInput" placeholder="${placeholder}" rows="3" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; resize: vertical; outline: none;"></textarea>
+                </div>
+                <div class="custom-alert-actions">
+                    <button type="button" class="custom-alert-btn custom-alert-btn-cancel" id="btnCustomPromptCancel">
+                        <i class="fa-solid fa-xmark"></i> ${cancelText}
+                    </button>
+                    <button type="button" class="custom-alert-btn custom-alert-btn-confirm" id="btnCustomPromptConfirm">
+                        <i class="fa-solid fa-paper-plane"></i> ${confirmText}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        void overlay.offsetWidth;
+        overlay.classList.add('active');
+
+        const inputEl = overlay.querySelector('#customPromptInput');
+        if (inputEl) inputEl.focus();
+
+        const btnCancel = overlay.querySelector('#btnCustomPromptCancel');
+        const btnConfirm = overlay.querySelector('#btnCustomPromptConfirm');
+
+        const closeDialog = (val) => {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                resolve(val);
+            }, 300);
+        };
+
+        btnCancel.onclick = () => closeDialog(null);
+        btnConfirm.onclick = () => {
+            const val = inputEl ? inputEl.value : '';
+            closeDialog(val);
+        };
+        overlay.onclick = (e) => {
+            if (e.target === overlay) closeDialog(null);
+        };
+    });
+}
+
 // ----------------------------------------------------
 // DYNAMIC FOOTER CURRENT YEAR UPDATER
 // ----------------------------------------------------
@@ -910,3 +971,27 @@ if (document.readyState === 'loading') {
     updateCurrentYearElements();
     initSidebarToggle();
 }
+
+// Global Password Eye Toggle Handler
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-toggle-password');
+    if (!btn) return;
+    
+    const targetId = btn.getAttribute('data-target');
+    let input = targetId ? document.getElementById(targetId) : null;
+    if (!input) input = btn.parentElement.querySelector('input');
+    
+    if (input) {
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.classList.remove('fa-eye');
+            btn.classList.add('fa-eye-slash');
+            btn.style.color = '#38bdf8';
+        } else {
+            input.type = 'password';
+            btn.classList.remove('fa-eye-slash');
+            btn.classList.add('fa-eye');
+            btn.style.color = 'var(--text-muted)';
+        }
+    }
+});

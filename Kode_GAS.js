@@ -17,7 +17,19 @@ const SHEET_USER_MESIN = 'User_Mesin';
 const SHEET_MAPEL = 'Mapel';
 const SHEET_KELAS = 'DataKelas';
 const SHEET_IZIN_SISWA = 'LogIzinSiswa';
+const SHEET_DATA_IZIN = 'DataIzin';
 const TIMEZONE = 'Asia/Jakarta'; // Menggunakan Timezone WIB Indonesia
+
+/**
+ * JALANKAN FUNGSI INI 1X DI EDITOR GOOGLE APPS SCRIPT
+ * Untuk memberikan otorisasi izin pembuatan Surat PDF (DocumentApp & DriveApp)
+ */
+function setupAuthorization() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const doc = DocumentApp.create('Temp_Auth_Check');
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+  Logger.log('Otorisasi Google Docs, Sheets, & Drive Berhasil!');
+}
 
 // === DUKUNGAN GET (Tarik Data Cepat & Real-Time) ===
 function doGet(e) {
@@ -162,6 +174,13 @@ function doGet(e) {
     else if (action === 'get_device_users') {
       return handleGetDeviceUsers();
     }
+    // === EDU-IZIN (IZIN KBM) DISPATCHER GET ===
+    else if (action === 'get_dropdown_edu_izin') {
+      return handleGetDropdownDataEduIzin();
+    }
+    else if (action === 'get_edu_izin') {
+      return handleGetEduIzinRequests();
+    }
     else if (action === 'sync_device_users') {
       return handleSyncDeviceUsers();
     }
@@ -294,6 +313,59 @@ function doPost(e) {
     }
     else if (action === 'reject_izin_siswa') {
       return handleRejectIzinSiswa(e.parameter.id, e.parameter.approver_name, e.parameter.approver_role);
+    }
+    // === EDU-IZIN (IZIN KBM) DISPATCHER POST ===
+    else if (action === 'submit_edu_izin') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { 
+            let p = JSON.parse(e.postData.contents); 
+            dataObj = p.data ? p.data : p;
+        } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) {
+        dataObj = e.parameter;
+      }
+      return handleSubmitEduIzin(dataObj);
+    }
+    else if (action === 'approve_edu_izin_guru') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleApproveEduIzinGuru(dataObj.id, dataObj.approver);
+    }
+    else if (action === 'approve_edu_izin_piket') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleApproveEduIzinPiket(dataObj.id, dataObj.approver);
+    }
+    else if (action === 'reject_edu_izin') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleRejectEduIzin(dataObj.id, dataObj.tipe, dataObj.alasan, dataObj.approver);
+    }
+    else if (action === 'recap_pdf_edu_izin') {
+      return generateEduIzinRecapPDF(e.parameter.selected_ids);
     }
     else if (action === 'update_self_profile') {
       return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
@@ -4940,4 +5012,537 @@ function handleRejectIzinSiswa(id, approverName, approverRole) {
   } catch (err) {
     return jsonResponse('error', 'Gagal menolak izin siswa: ' + err.toString());
   }
+}
+
+// ==========================================
+// FITUR EDU-IZIN (IZIN KBM) SISWA
+// ==========================================
+
+function getOrCreateDataIzinSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_DATA_IZIN);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_DATA_IZIN);
+    sheet.appendRow(['ID', 'Waktu', 'Nama Siswa', 'Kelas', 'Kategori', 'Alasan', 'Guru Pengajar', 'Petugas Piket', 'Status Guru', 'Status Piket', 'Link PDF', 'Keterangan Tolak']);
+    sheet.setFrozenRows(1);
+    sheet.getRange("A1:L1").setFontWeight("bold").setBackground("#c9daf8");
+  }
+  return sheet;
+}
+
+function findTelegramIdByNameOrUsername(ss, nameOrUsername) {
+  if (!nameOrUsername || nameOrUsername === '-' || nameOrUsername === 'Tidak ada guru') return '';
+  
+  const cleanStr = function(str) {
+    return String(str || '')
+      .toLowerCase()
+      .replace(/,?\s*(s\.pd|m\.pd|s\.kom|m\.kom|s\.si|m\.si|s\.t|m\.t|s\.ag|m\.ag|drs|dra|h|hj)\.?/gi, '')
+      .trim();
+  };
+
+  const searchRaw = String(nameOrUsername).trim().toLowerCase();
+  const searchClean = cleanStr(nameOrUsername);
+
+  // 1. Cari di Sheet Users (Guru/Piket/Admin)
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers && sheetUsers.getLastRow() > 1) {
+    const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+    for (let i = 0; i < uData.length; i++) {
+      const username = String(uData[i][1] || '').trim().toLowerCase();
+      const namaRaw = String(uData[i][4] || uData[i][0] || '').trim().toLowerCase();
+      const namaClean = cleanStr(uData[i][4] || uData[i][0]);
+      const tgId = String(uData[i][6] || uData[i][7] || '').trim();
+
+      if (tgId && tgId !== '-') {
+        if (username === searchRaw || namaRaw === searchRaw || namaClean === searchClean) return tgId;
+        if (searchClean.length >= 3 && (namaClean.includes(searchClean) || searchClean.includes(namaClean))) return tgId;
+      }
+    }
+  }
+
+  // 2. Cari di Sheet DataSiswa
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+    const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 7).getValues();
+    for (let i = 0; i < sData.length; i++) {
+      const nisn = String(sData[i][0] || '').trim().toLowerCase();
+      const nis = String(sData[i][1] || '').trim().toLowerCase();
+      const namaRaw = String(sData[i][2] || '').trim().toLowerCase();
+      const namaClean = cleanStr(sData[i][2]);
+      const tgId = String(sData[i][6] || '').trim();
+
+      if (tgId && tgId !== '-') {
+        if (nisn === searchRaw || nis === searchRaw || namaRaw === searchRaw || namaClean === searchClean) return tgId;
+        if (searchClean.length >= 3 && (namaClean.includes(searchClean) || searchClean.includes(namaClean))) return tgId;
+      }
+    }
+  }
+
+  return '';
+}
+
+function handleGetDropdownDataEduIzin() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  const gurus = [];
+  const pikets = [];
+
+  if (sheetUsers && sheetUsers.getLastRow() > 1) {
+    const data = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+    for (let i = 0; i < data.length; i++) {
+      const role = String(data[i][3] || '');
+      const nama = String(data[i][4] || data[i][0] || '').trim();
+      const tugasPiket = String(data[i][7] || '').toLowerCase().trim();
+      if (!nama) continue;
+      
+      const rLower = role.toLowerCase();
+      // Hanya yang role nya guru
+      if (rLower.includes('guru') || rLower.includes('walas')) {
+        if (!gurus.includes(nama)) gurus.push(nama);
+      }
+      // Hanya yang tugas_piket sebagai piket
+      if (tugasPiket.includes('piket') || rLower.includes('piket')) {
+        if (!pikets.includes(nama)) pikets.push(nama);
+      }
+    }
+  }
+  return jsonResponse('success', 'Dropdown EduIzin', { gurus: gurus, pikets: pikets });
+}
+
+function handleSubmitEduIzin(data) {
+  if (!data || !data.nama || !data.kategori || !data.piket) {
+    return jsonResponse('error', 'Semua data pengajuan wajib diisi!');
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  
+  const id = 'IZIN-' + new Date().getTime();
+  const waktu = new Date();
+  const statusGuru = (data.guru === 'Tidak ada guru' || !data.guru) ? 'Lewati' : 'Menunggu';
+  const statusPiket = 'Menunggu';
+  
+  sheet.appendRow([
+    id,
+    waktu,
+    data.nama,
+    data.kelas,
+    data.kategori,
+    data.alasan,
+    data.guru || 'Tidak ada guru',
+    data.piket,
+    statusGuru,
+    statusPiket,
+    '',
+    ''
+  ]);
+
+  const waktuFormatted = Utilities.formatDate(waktu, TIMEZONE, "dd/MM/yyyy HH:mm");
+  
+  // Notifikasi Telegram untuk SISWA (Konfirmasi Pengajuan Terkirim)
+  const siswaTgId = findTelegramIdByNameOrUsername(ss, data.nama);
+  if (siswaTgId) {
+    const msgSiswaSubmit = `⏳ <b>[PERMOHONAN IZIN KBM TERKIRIM]</b>\n\n` +
+      `Halo <b>${data.nama}</b>, permohonan izin <b>${data.kategori}</b> Anda telah diajukan ke sistem.\n` +
+      `📌 Guru Pengajar: <b>${data.guru || 'Tidak ada guru'}</b>\n` +
+      `👮‍♂️ Petugas Piket: <b>${data.piket}</b>\n\n` +
+      `<i>Status saat ini sedang diproses. Anda akan menerima notifikasi Telegram saat izin disetujui.</i>`;
+    sendTelegramNotification(siswaTgId, msgSiswaSubmit);
+  }
+
+  if (statusGuru === 'Menunggu') {
+    const guruTgId = findTelegramIdByNameOrUsername(ss, data.guru);
+    if (guruTgId) {
+      const msgGuru = `📩 <b>[PENGAJUAN IZIN KBM SISWA BARU]</b>\n\n` +
+        `👤 Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
+        `📌 Kategori: <b>${data.kategori}</b>\n` +
+        `📝 Alasan: <i>${data.alasan}</i>\n` +
+        `📅 Waktu: ${waktuFormatted} WIB\n` +
+        `👮‍♂️ Petugas Piket: ${data.piket}\n\n` +
+        `👉 <i>Mohon masuk ke Aplikasi SmartApp untuk menyetujui atau menolak permohonan ini.</i>`;
+      sendTelegramNotification(guruTgId, msgGuru);
+    }
+  } else {
+    const piketTgId = findTelegramIdByNameOrUsername(ss, data.piket);
+    if (piketTgId) {
+      const msgPiket = `📩 <b>[PENGAJUAN IZIN KBM - ANTREAN PIKET]</b>\n\n` +
+        `👤 Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
+        `📌 Kategori: <b>${data.kategori}</b>\n` +
+        `📝 Alasan: <i>${data.alasan}</i>\n` +
+        `ℹ️ Status Guru: <b>Dilewati (Jam Kosong)</b>\n` +
+        `📅 Waktu: ${waktuFormatted} WIB\n\n` +
+        `👉 <i>Mohon masuk ke Aplikasi SmartApp untuk memproses izin di Meja Piket & mencetak PDF.</i>`;
+      sendTelegramNotification(piketTgId, msgPiket);
+    }
+  }
+
+  return jsonResponse('success', 'Permohonan izin KBM berhasil diajukan!');
+}
+
+function handleGetEduIzinRequests() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse('success', 'Data Izin Kosong', []);
+
+  data.shift();
+  const list = data.map(function(row) {
+    let rawDate = row[1];
+    let waktuStr = '-';
+    if (rawDate) {
+      try {
+        waktuStr = Utilities.formatDate(new Date(rawDate), TIMEZONE, "dd/MM/yyyy HH:mm");
+      } catch (e) {
+        waktuStr = String(rawDate);
+      }
+    }
+    return {
+      id: String(row[0]),
+      waktu: waktuStr,
+      nama: String(row[2] || ''),
+      kelas: String(row[3] || ''),
+      kategori: String(row[4] || ''),
+      alasan: String(row[5] || ''),
+      guru: String(row[6] || ''),
+      piket: String(row[7] || ''),
+      statusGuru: String(row[8] || 'Menunggu'),
+      statusPiket: String(row[9] || 'Menunggu'),
+      linkPdf: String(row[10] || ''),
+      keteranganTolak: String(row[11] || '')
+    };
+  }).reverse();
+
+  return jsonResponse('success', 'Data Izin KBM', list);
+}
+
+function handleApproveEduIzinGuru(id, approver) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      sheet.getRange(i + 1, 9).setValue('Disetujui');
+
+      const namaSiswa = data[i][2];
+      const kelasSiswa = data[i][3];
+      const kategori = data[i][4];
+      const alasan = data[i][5];
+      const namaGuru = data[i][6];
+      const namaPiket = data[i][7];
+
+      const piketTgId = findTelegramIdByNameOrUsername(ss, namaPiket);
+      if (piketTgId) {
+        const msgPiket = `✅ <b>[IZIN KBM SISWA DISETUJUI GURU -> ANTREAN PIKET]</b>\n\n` +
+          `👤 Siswa: <b>${namaSiswa}</b> (${kelasSiswa})\n` +
+          `📌 Kategori: <b>${kategori}</b>\n` +
+          `👨‍🏫 Disetujui Guru: <b>${namaGuru}</b>\n` +
+          `📝 Alasan: <i>${alasan}</i>\n\n` +
+          `👉 <i>Mohon buka Meja Piket di sistem SmartApp untuk memproses izin & cetak PDF.</i>`;
+        sendTelegramNotification(piketTgId, msgPiket);
+      }
+
+      const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
+      if (siswaTgId) {
+        const msgSiswa = `✅ <b>[UPDATE PERMOHONAN IZIN KBM]</b>\n\n` +
+          `Guru Pengajar (<b>${namaGuru}</b>) telah <b>MENYETUJUI</b> izin ${kategori} Anda.\n` +
+          `Saat ini permohonan diteruskan ke Petugas Piket (<b>${namaPiket}</b>) untuk pengesahan & penerbitan PDF.`;
+        sendTelegramNotification(siswaTgId, msgSiswa);
+      }
+
+      return jsonResponse('success', 'Izin telah diverifikasi oleh Guru Pengajar!');
+    }
+  }
+
+  return jsonResponse('error', 'Data permohonan izin tidak ditemukan.');
+}
+
+function handleApproveEduIzinPiket(id, approver) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  let rowData = null;
+  let rowIndex = -1;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      rowData = data[i];
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  if (rowData) {
+    const pdfUrl = generateEduIzinPDF(rowData);
+    sheet.getRange(rowIndex, 10).setValue('Disetujui');
+    sheet.getRange(rowIndex, 11).setValue(pdfUrl);
+
+    const namaSiswa = rowData[2];
+    const kelasSiswa = rowData[3];
+    const kategori = rowData[4];
+    const namaGuru = rowData[6];
+    const namaPiket = rowData[7];
+
+    // 1. Notifikasi ke SISWA (Paling Utama: membawa link PDF Surat Izin)
+    const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
+    if (siswaTgId) {
+      const msgSiswa = `🎉 <b>[SURAT IZIN KBM RESMI DITERBITKAN]</b>\n\n` +
+        `Halo <b>${namaSiswa}</b>, permohonan izin <b>${kategori}</b> Anda telah DISAHKAN oleh Petugas Piket (<b>${namaPiket}</b>).\n\n` +
+        `📄 <b>Link Surat Bukti Izin (PDF):</b>\n${pdfUrl}\n\n` +
+        `<i>Tunjukkan Surat Izin PDF ini kepada Satpam atau Guru jika diminta.</i>`;
+      sendTelegramNotification(siswaTgId, msgSiswa);
+    }
+
+    // 2. Notifikasi ke GURU PENGAJAR (Baik yang disetujui Guru maupun yang dilewati karena jam kosong)
+    if (namaGuru && namaGuru !== 'Tidak ada guru') {
+      const guruTgId = findTelegramIdByNameOrUsername(ss, namaGuru);
+      if (guruTgId) {
+        const msgGuru = `ℹ️ <b>[INFORMASI IZIN KBM SELESAI]</b>\n\n` +
+          `Siswa <b>${namaSiswa}</b> (${kelasSiswa}) telah resmi diberikan izin <b>${kategori}</b> oleh Petugas Piket (<b>${namaPiket}</b>).\n` +
+          `📄 <b>Link Bukti PDF:</b> ${pdfUrl}`;
+        sendTelegramNotification(guruTgId, msgGuru);
+      }
+    }
+
+    return jsonResponse('success', 'Izin disahkan oleh Piket & PDF Surat Izin berhasil dibuat!');
+  }
+
+  return jsonResponse('error', 'Data permohonan izin tidak ditemukan.');
+}
+
+function handleRejectEduIzin(id, tipe, alasan, approver) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      const namaSiswa = data[i][2];
+      const kelasSiswa = data[i][3];
+      const kategori = data[i][4];
+      const namaGuru = data[i][6];
+      const penolak = (tipe === 'guru') ? data[i][6] : data[i][7];
+
+      if (tipe === 'guru') {
+        sheet.getRange(i + 1, 9).setValue('Ditolak');
+        sheet.getRange(i + 1, 10).setValue('Dibatalkan');
+        sheet.getRange(i + 1, 12).setValue(alasan || 'Tidak disetujui');
+      } else {
+        sheet.getRange(i + 1, 10).setValue('Ditolak');
+        sheet.getRange(i + 1, 12).setValue(alasan || 'Tidak disetujui');
+      }
+
+      // Notifikasi ke SISWA
+      const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
+      if (siswaTgId) {
+        const msgReject = `❌ <b>[PERMOHONAN IZIN KBM DITOLAK]</b>\n\n` +
+          `Halo <b>${namaSiswa}</b>, permohonan <b>${kategori}</b> Anda DITOLAK oleh ${tipe === 'guru' ? 'Guru Pengajar' : 'Petugas Piket'} (<b>${penolak}</b>).\n` +
+          `💬 <b>Alasan Penolakan:</b> <i>${alasan || '-'}</i>`;
+        sendTelegramNotification(siswaTgId, msgReject);
+      }
+
+      // Jika ditolak oleh Piket, beritahukan juga Guru Pengajarnya (jika ada)
+      if (tipe === 'piket' && namaGuru && namaGuru !== 'Tidak ada guru') {
+        const guruTgId = findTelegramIdByNameOrUsername(ss, namaGuru);
+        if (guruTgId) {
+          const msgGuruReject = `ℹ️ <b>[INFORMASI PENOLAKAN IZIN KBM]</b>\n\n` +
+            `Permohonan izin <b>${kategori}</b> untuk siswa <b>${namaSiswa}</b> (${kelasSiswa}) telah DITOLAK oleh Petugas Piket (<b>${penolak}</b>).\n` +
+            `💬 <b>Alasan:</b> <i>${alasan || '-'}</i>`;
+          sendTelegramNotification(guruTgId, msgGuruReject);
+        }
+      }
+
+      return jsonResponse('success', 'Permohonan izin berhasil ditolak!');
+    }
+  }
+
+  return jsonResponse('error', 'Data permohonan izin tidak ditemukan.');
+}
+
+function generateEduIzinPDF(rowData) {
+  const idIzin = rowData[0];
+  const nama = rowData[2];
+  const props = PropertiesService.getScriptProperties();
+  
+  const doc = DocumentApp.create('Temp_Izin_' + nama);
+  const body = doc.getBody();
+
+  body.setMarginTop(40).setMarginBottom(40).setMarginLeft(50).setMarginRight(50);
+  
+  const header = body.appendParagraph('SURAT BUKTI IZIN SISWA');
+  header.setFontFamily('Arial').setFontSize(16).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  body.appendHorizontalRule();
+  body.appendParagraph('');
+
+  let tglAju = '-';
+  let jamAju = '-';
+  try {
+    const rawDt = new Date(rowData[1]);
+    tglAju = Utilities.formatDate(rawDt, TIMEZONE, "dd MMMM yyyy");
+    jamAju = Utilities.formatDate(rawDt, TIMEZONE, "HH:mm");
+  } catch (e) {
+    tglAju = String(rowData[1]);
+  }
+
+  const pIntro = body.appendParagraph('Berdasarkan validasi dan persetujuan dari pihak sekolah pada tanggal ' + tglAju + ', dengan ini memberikan izin kepada siswa/i dengan rincian sebagai berikut:');
+  pIntro.setFontFamily('Arial').setFontSize(10.5);
+  body.appendParagraph('');
+
+  const table = body.appendTable();
+  table.setBorderWidth(0);
+
+  function addRow(label, value) {
+    const tr = table.appendTableRow();
+    tr.appendTableCell(label).setWidth(140).setFontFamily('Arial').setFontSize(10.5).setBold(true);
+    tr.appendTableCell(':  ' + value).setFontFamily('Arial').setFontSize(10.5);
+  }
+
+  addRow('Nomor Registrasi', idIzin);
+  addRow('Nama Lengkap', rowData[2]);
+  addRow('Kelas', rowData[3]);
+  addRow('Kategori Izin', rowData[4]);
+  addRow('Alasan', rowData[5]);
+  addRow('Waktu Pengajuan', jamAju + ' WIB');
+
+  body.appendParagraph('');
+  const pOutro = body.appendParagraph('Surat ini adalah dokumen resmi yang diterbitkan oleh sistem sekolah. Harap tunjukkan surat ini kepada petugas keamanan atau pihak terkait jika diminta.');
+  pOutro.setFontFamily('Arial').setFontSize(10).setItalic(true);
+  body.appendParagraph('');
+
+  // OTOMATIS GENERATE BARCODE / QR CODE VERIFIKASI DIGITAL
+  const namaSiswa = rowData[2] || '';
+  const kelasSiswa = rowData[3] || '';
+  const kategoriIzin = rowData[4] || '';
+  const namaPiket = rowData[7] || '';
+  const waktuLengkap = tglAju + ' ' + jamAju + ' WIB';
+
+  const qrContent = "VERIFIKASI SURAT IZIN SISWA\n" +
+    "ID: " + idIzin + "\n" +
+    "Nama: " + namaSiswa + " (" + kelasSiswa + ")\n" +
+    "Kategori: " + kategoriIzin + "\n" +
+    "Waktu: " + waktuLengkap + "\n" +
+    "Petugas Piket: " + namaPiket;
+
+  const qrApiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=0&data=" + encodeURIComponent(qrContent);
+
+  try {
+    const qrBlob = UrlFetchApp.fetch(qrApiUrl).getBlob();
+    
+    const qrTable = body.appendTable();
+    qrTable.setBorderWidth(0);
+    const qrRow = qrTable.appendTableRow();
+    
+    const cellImg = qrRow.appendTableCell();
+    cellImg.setWidth(160);
+    const imgPara = cellImg.appendParagraph('');
+    imgPara.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    imgPara.appendInlineImage(qrBlob);
+
+    const cellInfo = qrRow.appendTableCell();
+    const pValTitle = cellInfo.appendParagraph('BARCODE VERIFIKASI DIGITAL');
+    pValTitle.setFontFamily('Arial').setFontSize(11).setBold(true).setForegroundColor('#0f172a');
+    
+    const pValSub = cellInfo.appendParagraph(
+      'Dokumen ini disahkan secara resmi oleh Petugas Piket:\n' +
+      '• Nama Siswa: ' + namaSiswa + ' (' + kelasSiswa + ')\n' +
+      '• Tanggal/Waktu: ' + waktuLengkap + '\n' +
+      '• Petugas Piket Bertugas: ' + namaPiket + '\n' +
+      '• Status: SAH & TERVERIFIKASI SISTEM'
+    );
+    pValSub.setFontFamily('Arial').setFontSize(9.5).setForegroundColor('#334155');
+  } catch (e) {
+    Logger.log('Gagal mengunduh QR Code/Barcode: ' + e);
+  }
+
+  doc.saveAndClose();
+
+  let folderId = props.getProperty('FOLDER_ID');
+  if (!folderId) {
+    const folders = DriveApp.getFoldersByName('Surat_Izin_PDF');
+    const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder('Surat_Izin_PDF');
+    folderId = folder.getId();
+    props.setProperty('FOLDER_ID', folderId);
+  }
+
+  const folder = DriveApp.getFolderById(folderId);
+  const pdfBlob = doc.getAs('application/pdf');
+  const pdfFile = folder.createFile(pdfBlob).setName('Surat_Izin_' + nama + '_' + idIzin + '.pdf');
+  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+
+  return pdfFile.getUrl();
+}
+
+function generateEduIzinRecapPDF(selectedIds) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  const doc = DocumentApp.create('Temp_Rekap_Izin');
+  const body = doc.getBody();
+  body.setMarginTop(30).setMarginBottom(30).setMarginLeft(30).setMarginRight(30);
+
+  const header = body.appendParagraph("REKAPITULASI IZIN SISWA KBM\nSMARTAPP SEKOLAH");
+  header.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  body.appendParagraph('Dicetak pada: ' + Utilities.formatDate(new Date(), TIMEZONE, "dd/MM/yyyy HH:mm")).setAlignment(DocumentApp.HorizontalAlignment.CENTER).setFontSize(9.5).setFontFamily('Arial');
+  body.appendParagraph('');
+
+  const table = body.appendTable();
+  const tr = table.appendTableRow();
+  tr.appendTableCell('No').setBold(true).setWidth(25);
+  tr.appendTableCell('Tgl / Waktu').setBold(true).setWidth(95);
+  tr.appendTableCell('Nama Siswa').setBold(true);
+  tr.appendTableCell('Kelas').setBold(true).setWidth(65);
+  tr.appendTableCell('Kategori').setBold(true).setWidth(95);
+  tr.appendTableCell('Status').setBold(true).setWidth(70);
+
+  let targetIds = [];
+  if (selectedIds) {
+    if (typeof selectedIds === 'string') {
+      try { targetIds = JSON.parse(selectedIds); } catch(e) { targetIds = selectedIds.split(','); }
+    } else if (Array.isArray(selectedIds)) {
+      targetIds = selectedIds;
+    }
+  }
+
+  let no = 1;
+  for (let i = 1; i < data.length; i++) {
+    const rowId = String(data[i][0]);
+    if (!targetIds || targetIds.length === 0 || targetIds.indexOf(rowId) !== -1) {
+      const row = table.appendTableRow();
+      row.appendTableCell(no.toString()).setFontSize(9.5).setFontFamily('Arial');
+      let wStr = '-';
+      try { wStr = Utilities.formatDate(new Date(data[i][1]), TIMEZONE, "dd/MM/yy HH:mm"); } catch(e) { wStr = String(data[i][1]); }
+
+      row.appendTableCell(wStr).setFontSize(9.5).setFontFamily('Arial');
+      row.appendTableCell(String(data[i][2] || '')).setFontSize(9.5).setFontFamily('Arial');
+      row.appendTableCell(String(data[i][3] || '')).setFontSize(9.5).setFontFamily('Arial');
+      row.appendTableCell(String(data[i][4] || '')).setFontSize(9.5).setFontFamily('Arial');
+
+      let status = "Selesai";
+      if (data[i][8] === 'Ditolak' || data[i][9] === 'Ditolak') { status = "Ditolak"; }
+      else if (data[i][9] !== 'Disetujui') { status = "Proses"; }
+
+      row.appendTableCell(status).setFontSize(9.5).setFontFamily('Arial');
+      no++;
+    }
+  }
+
+  doc.saveAndClose();
+  const props = PropertiesService.getScriptProperties();
+  let folderId = props.getProperty('FOLDER_ID');
+  if (!folderId) {
+    const folders = DriveApp.getFoldersByName('Surat_Izin_PDF');
+    const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder('Surat_Izin_PDF');
+    folderId = folder.getId();
+    props.setProperty('FOLDER_ID', folderId);
+  }
+
+  const folder = DriveApp.getFolderById(folderId);
+  const pdfBlob = doc.getAs('application/pdf');
+  const pdfFile = folder.createFile(pdfBlob).setName('Rekap_Izin_KBM_' + new Date().getTime() + '.pdf');
+
+  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+  return pdfFile.getUrl();
 }

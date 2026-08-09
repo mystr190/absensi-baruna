@@ -65,8 +65,9 @@
                     <label>Username</label>
                 </div>
                 <div class="input-group">
-                    <input type="password" id="password" name="password" required placeholder=" ">
+                    <input type="password" id="password" name="password" required placeholder=" " style="padding-right: 42px;">
                     <label>Password</label>
+                    <i class="fa-solid fa-eye btn-toggle-password" data-target="password" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); z-index: 10; font-size: 1rem; padding: 4px;"></i>
                 </div>
                 <button type="submit" class="btn-primary" id="btnLogin">
                     <span class="btn-text">Masuk</span>
@@ -1539,7 +1540,10 @@
 
                         <div style="margin-bottom: 18px;">
                             <label style="font-size: 0.9rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 500;">Kata Sandi Baru (Kosongkan jika tidak diubah):</label>
-                            <input type="password" id="selfPassword" placeholder="Masukkan kata sandi baru (opsional)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 10px;">
+                            <div style="position: relative;">
+                                <input type="password" id="selfPassword" placeholder="Masukkan kata sandi baru (opsional)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 42px 10px 14px; border-radius: 10px;">
+                                <i class="fa-solid fa-eye btn-toggle-password" data-target="selfPassword" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); z-index: 10; font-size: 1rem; padding: 4px;"></i>
+                            </div>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
@@ -1919,7 +1923,10 @@
                         </div>
                         <div class="modal-form-group" style="margin-bottom: 15px;">
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Password:</label>
-                            <input type="password" id="modalPassword" placeholder="Ketik password baru..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                            <div style="position: relative;">
+                                <input type="password" id="modalPassword" placeholder="Ketik password baru..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 42px 10px 14px; border-radius: 8px;">
+                                <i class="fa-solid fa-eye btn-toggle-password" data-target="modalPassword" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); z-index: 10; font-size: 1rem; padding: 4px;"></i>
+                            </div>
                         </div>
                         <div class="modal-form-group" style="margin-bottom: 15px;">
                             <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Role / Hak Akses:</label>
@@ -2084,6 +2091,89 @@
                     </div>
                 </div>
 
+                <!-- ============================================== -->
+                <!-- FITUR BARU: EDU-IZIN (IZIN KBM) MASUK, KELUAR, PULANG -->
+                <!-- ============================================== -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 22px; margin-bottom: 30px;">
+                    <!-- CARD 1: FORM PENGAJUAN IZIN KBM -->
+                    <div class="glass-card" style="padding: 24px; border-top: 3px solid #f59e0b;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-door-open" style="color: #f59e0b;"></i> Form Pengajuan Izin KBM (Harian)
+                        </h3>
+                        <form id="formEduIzinKBM">
+                            <div class="form-group-static" style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Kategori Izin *</label>
+                                <select id="inputEduIzinKategori" required style="width: 100%; background: rgba(15, 23, 42, 0.9); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;">
+                                    <option value="">-- Pilih Kategori --</option>
+                                    <option value="Izin Masuk">Izin Masuk (Terlambat)</option>
+                                    <option value="Izin Keluar">Izin Keluar (Keperluan Tertentu)</option>
+                                    <option value="Izin Pulang">Izin Pulang (Mendesak/Sakit)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group-static" style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Alasan Detail *</label>
+                                <textarea id="inputEduIzinAlasan" rows="3" required placeholder="Jelaskan alasan secara spesifik..." style="width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; resize: vertical;"></textarea>
+                            </div>
+
+                            <div class="form-group-static" style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Guru Pengajar Saat Ini *</label>
+                                <select id="inputEduIzinGuru" required style="width: 100%; background: rgba(15, 23, 42, 0.9); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;">
+                                    <!-- Dimuat via JS -->
+                                </select>
+                            </div>
+
+                            <div class="form-group-static" style="margin-bottom: 20px;">
+                                <label style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">Petugas Piket Hari Ini *</label>
+                                <select id="inputEduIzinPiket" required style="width: 100%; background: rgba(15, 23, 42, 0.9); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;">
+                                    <!-- Dimuat via JS -->
+                                </select>
+                            </div>
+
+                            <button type="submit" id="btnKirimEduIzinKBM" class="btn-primary" style="width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 700; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 10px;">
+                                <i class="fa-solid fa-paper-plane"></i> Kirim Pengajuan KBM
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- CARD 2: RIWAYAT IZIN KBM SAYA -->
+                    <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-clock-rotate-left" style="color: #f59e0b;"></i> Riwayat Izin KBM Saya
+                            </h3>
+                            <button type="button" id="btnRefreshEduIzinSiswa" class="btn-secondary" style="padding: 5px 12px; font-size: 0.8rem;">
+                                <i class="fa-solid fa-arrows-rotate"></i> Refresh KBM
+                            </button>
+                        </div>
+
+                        <div class="modern-table-container" style="flex: 1; overflow-x: auto;">
+                            <table class="data-table" style="font-size: 0.83rem; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Waktu</th>
+                                        <th style="text-align: center;">Kategori</th>
+                                        <th>Alasan</th>
+                                        <th style="text-align: center;">Status Pengajuan</th>
+                                        <th style="text-align: center;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyRiwayatEduIzinSiswa">
+                                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data riwayat izin KBM...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <hr style="border-color: var(--card-border); margin-bottom: 30px;">
+
+                <!-- ============================================== -->
+                <!-- IZIN TIDAK HADIR / SAKIT (YANG SUDAH ADA SEBELUMNYA) -->
+                <!-- ============================================== -->
+                <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-bed" style="color: #10b981;"></i> Form Izin Tidak Hadir / Sakit (Ke Wali Kelas)
+                </h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 22px;">
                     <!-- CARD 1: FORM PENGAJUAN IZIN SISWA -->
                     <div class="glass-card" style="padding: 24px;">
@@ -2177,12 +2267,115 @@
                 <div class="panel-header">
                     <div>
                         <h2><i class="fa-solid fa-user-check" style="color: #38bdf8;"></i> Approval & Data Permohonan Izin Siswa</h2>
-                        <p class="panel-subtitle">Daftar permohonan izin/sakit dari siswa yang terdaftar di kelas bimbingan Wali Kelas Anda.</p>
+                        <p class="panel-subtitle">Daftar permohonan izin/sakit (Wali Kelas) & antrean izin KBM (Guru/Piket).</p>
                     </div>
-                    <button type="button" id="btnRefreshApprovalIzinSiswa" class="btn-secondary" style="padding: 8px 16px;">
-                        <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
-                    </button>
+                    <div>
+                        <button type="button" id="btnRefreshApprovalIzinSiswa" class="btn-secondary" style="padding: 8px 16px;">
+                            <i class="fa-solid fa-arrows-rotate"></i> Refresh Semua Data
+                        </button>
+                    </div>
                 </div>
+
+                <!-- ============================================== -->
+                <!-- FITUR BARU: ANTREAN GURU PENGAJAR (EDU-IZIN) -->
+                <!-- ============================================== -->
+                <div id="sectionGuruPengajarEduIzin" style="display: none; margin-bottom: 30px;">
+                    <div class="glass-card" style="padding: 24px;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-hourglass-split" style="color: #f59e0b;"></i> Validasi Izin KBM (Sebagai Guru Pengajar)
+                        </h3>
+                        <div class="modern-table-container" style="overflow-x: auto; margin-bottom: 20px;">
+                            <table class="data-table" style="font-size: 0.83rem; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Waktu</th>
+                                        <th>Siswa</th>
+                                        <th style="text-align: center;">Kategori</th>
+                                        <th>Alasan</th>
+                                        <th style="text-align: center;">Aksi Approval</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyGuruPendingEduIzin">
+                                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat antrean Guru...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3 style="font-size: 1.0rem; font-weight: 600; color: #10b981; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-check-circle" style="color: #10b981;"></i> Riwayat Validasi Anda
+                        </h3>
+                        <div class="modern-table-container" style="overflow-x: auto;">
+                            <table class="data-table" style="font-size: 0.83rem; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Waktu</th>
+                                        <th>Siswa</th>
+                                        <th style="text-align: center;">Kategori</th>
+                                        <th style="text-align: center;">Status Akhir</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyGuruHistoryEduIzin">
+                                    <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat riwayat...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================== -->
+                <!-- FITUR BARU: ANTREAN PETUGAS PIKET (EDU-IZIN) -->
+                <!-- ============================================== -->
+                <div id="sectionPetugasPiketEduIzin" style="display: none; margin-bottom: 30px;">
+                    <div class="glass-card" style="padding: 24px; border-top: 3px solid #38bdf8;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-building" style="color: #38bdf8;"></i> Antrean Meja Piket (Izin KBM)
+                        </h3>
+                        <div class="modern-table-container" style="overflow-x: auto; margin-bottom: 20px;">
+                            <table class="data-table" style="font-size: 0.83rem; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Waktu</th>
+                                        <th>Siswa</th>
+                                        <th style="text-align: center;">Kategori</th>
+                                        <th style="text-align: center;">Status Guru</th>
+                                        <th style="text-align: center;">Aksi Piket (Cetak PDF)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyPiketPendingEduIzin">
+                                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat antrean Piket...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3 style="font-size: 1.0rem; font-weight: 600; color: #10b981; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i> Riwayat Dokumen Izin Terbit
+                        </h3>
+                        <div class="modern-table-container" style="overflow-x: auto;">
+                            <table class="data-table" style="font-size: 0.83rem; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Waktu</th>
+                                        <th>Siswa</th>
+                                        <th style="text-align: center;">Kategori</th>
+                                        <th style="text-align: center;">Status Dokumen (PDF)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyPiketHistoryEduIzin">
+                                    <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat riwayat...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <hr style="border-color: var(--card-border); margin-bottom: 30px;">
+
+                <!-- ============================================== -->
+                <!-- IZIN TIDAK HADIR / SAKIT (WALI KELAS) -->
+                <!-- ============================================== -->
+                <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-bed" style="color: #38bdf8;"></i> Antrean Izin Tidak Hadir / Sakit (Sebagai Wali Kelas)
+                </h3>
 
                 <!-- CARD 1: PERMOHONAN MENUNGGU APPROVAL (PENDING) -->
                 <div class="glass-card" style="padding: 24px; margin-bottom: 25px;">
@@ -2323,6 +2516,7 @@
     <script src="js/user_mesin.js?v=1.0"></script>
     <script src="js/overview_dashboard.js?v=1.0"></script>
     <script src="js/izin_siswa.js?v=1.0"></script>
+    <script src="js/izin_kbm.js?v=1.0"></script>
 </body>
 
 </html>
