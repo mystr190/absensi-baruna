@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * BACKEND GOOGLE APPS SCRIPT UNTUK SISTEM ABSENSI SMART SCHOOL (V4 STABLE & ACCURATE)
+ * BACKEND GOOGLE APPS SCRIPT UNTUK SISTEM ABSENSI SMARTAPP (V4 STABLE & ACCURATE)
  * =========================================================================
  */
 
@@ -14,7 +14,22 @@ const SHEET_LOG_GURU = 'LogAbsenGuru';
 const SHEET_PENGAJUAN_IZIN = 'PengajuanIzin';
 const SHEET_HOLIDAYS = 'HariLibur';
 const SHEET_USER_MESIN = 'User_Mesin';
+const SHEET_MAPEL = 'Mapel';
+const SHEET_KELAS = 'DataKelas';
+const SHEET_IZIN_SISWA = 'LogIzinSiswa';
+const SHEET_DATA_IZIN = 'DataIzin';
 const TIMEZONE = 'Asia/Jakarta'; // Menggunakan Timezone WIB Indonesia
+
+/**
+ * JALANKAN FUNGSI INI 1X DI EDITOR GOOGLE APPS SCRIPT
+ * Untuk memberikan otorisasi izin pembuatan Surat PDF (DocumentApp & DriveApp)
+ */
+function setupAuthorization() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const doc = DocumentApp.create('Temp_Auth_Check');
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+  Logger.log('Otorisasi Google Docs, Sheets, & Drive Berhasil!');
+}
 
 // === DUKUNGAN GET (Tarik Data Cepat & Real-Time) ===
 function doGet(e) {
@@ -45,8 +60,8 @@ function doGet(e) {
     else if (action === 'get_config') {
       return handleGetConfig();
     }
-    else if (action === 'initial_setup') {
-      return handleInitialSetupWeb();
+    else if (action === 'setup_database' || action === 'initial_setup' || action === 'cleanup_and_repair_data' || action === 'fix_database') {
+      return handleCleanupAndRepairData();
     }
     else if (action === 'get_pelanggaran') {
       return handleGetPelanggaran();
@@ -87,6 +102,30 @@ function doGet(e) {
     else if (action === 'get_holidays') {
       return handleGetHolidays();
     }
+    else if (action === 'get_mapel') {
+      return handleGetMapel();
+    }
+    else if (action === 'save_mapel') {
+      return handleSaveMapel(e.parameter.nama, e.parameter.target_kelas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_mapel') {
+      return handleDeleteMapel(e.parameter.nama);
+    }
+    else if (action === 'seed_default_mapel') {
+      return handleSeedDefaultMapel();
+    }
+    else if (action === 'get_kelas') {
+      return handleGetKelas();
+    }
+    else if (action === 'save_kelas') {
+      return handleSaveKelas(e.parameter.nama, e.parameter.tingkat, e.parameter.jurusan, e.parameter.wali_kelas, e.parameter.kapasitas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_kelas') {
+      return handleDeleteKelas(e.parameter.nama);
+    }
+    else if (action === 'seed_default_kelas') {
+      return handleSeedDefaultKelas();
+    }
     else if (action === 'get_students') {
       return handleGetStudents();
     }
@@ -107,6 +146,9 @@ function doGet(e) {
     }
     else if (action === 'get_overview_stats') {
       return handleGetOverviewStats();
+    }
+    else if (action === 'get_izin_siswa') {
+      return handleGetIzinSiswa();
     }
     else if (action === 'device_scan' || action === 'solution_scan') {
       return handleDeviceAttendanceScan(e.parameter.pin || e.parameter.nis, e.parameter.waktu, e.parameter.status, e.parameter.nama_mesin || e.parameter.name);
@@ -132,6 +174,13 @@ function doGet(e) {
     else if (action === 'get_device_users') {
       return handleGetDeviceUsers();
     }
+    // === EDU-IZIN (IZIN KBM) DISPATCHER GET ===
+    else if (action === 'get_dropdown_edu_izin') {
+      return handleGetDropdownDataEduIzin();
+    }
+    else if (action === 'get_edu_izin') {
+      return handleGetEduIzinRequests();
+    }
     else if (action === 'sync_device_users') {
       return handleSyncDeviceUsers();
     }
@@ -152,11 +201,21 @@ function doGet(e) {
 function doPost(e) {
   try {
     let action = e ? (e.parameter ? e.parameter.action : null) : null;
+    let postBody = null;
+
+    if (e && e.postData && e.postData.contents) {
+      try {
+        postBody = JSON.parse(e.postData.contents);
+        if (!action && postBody && postBody.action) {
+          action = postBody.action;
+        }
+      } catch (pErr) {}
+    }
 
     // JIKA TERIMA WEBHOOK TELEGRAM AUTOMATIC ID BOT (Hanya jika bukan request dari Web App API)
-    if (!action && e && e.postData && e.postData.contents) {
+    if (!action && postBody && postBody.message && postBody.message.chat) {
       try {
-        const updateData = JSON.parse(e.postData.contents);
+        const updateData = postBody;
         if (updateData && updateData.message && updateData.message.chat) {
           // Abaikan pesan dari bot lain untuk mencegah loop
           if (updateData.message.from && updateData.message.from.is_bot) {
@@ -233,6 +292,81 @@ function doPost(e) {
     else if (action === 'send_telegram_broadcast') {
       return handleSendTelegramBroadcast(e.parameter.target_type, e.parameter.target_value, e.parameter.subject, e.parameter.message);
     }
+    else if (action === 'get_izin_siswa') {
+      return handleGetIzinSiswa();
+    }
+    else if (action === 'add_pengajuan_izin_siswa') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { dataObj = JSON.parse(e.postData.contents); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) {
+        dataObj = e.parameter;
+      }
+      return handleAddPengajuanIzinSiswa(dataObj);
+    }
+    else if (action === 'approve_izin_siswa') {
+      return handleApproveIzinSiswa(e.parameter.id, e.parameter.approver_name, e.parameter.approver_role);
+    }
+    else if (action === 'reject_izin_siswa') {
+      return handleRejectIzinSiswa(e.parameter.id, e.parameter.approver_name, e.parameter.approver_role);
+    }
+    // === EDU-IZIN (IZIN KBM) DISPATCHER POST ===
+    else if (action === 'submit_edu_izin') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { 
+            let p = JSON.parse(e.postData.contents); 
+            dataObj = p.data ? p.data : p;
+        } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) {
+        dataObj = e.parameter;
+      }
+      return handleSubmitEduIzin(dataObj);
+    }
+    else if (action === 'approve_edu_izin_guru') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleApproveEduIzinGuru(dataObj.id, dataObj.approver);
+    }
+    else if (action === 'approve_edu_izin_piket') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleApproveEduIzinPiket(dataObj.id, dataObj.approver);
+    }
+    else if (action === 'reject_edu_izin') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleRejectEduIzin(dataObj.id, dataObj.tipe, dataObj.alasan, dataObj.approver);
+    }
+    else if (action === 'recap_pdf_edu_izin') {
+      return generateEduIzinRecapPDF(e.parameter.selected_ids);
+    }
     else if (action === 'update_self_profile') {
       return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
     }
@@ -276,19 +410,53 @@ function doPost(e) {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal, e.parameter.is_edit);
     }
     else if (action === 'add_user') {
-      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
+      return handleAddUser(e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket, e.parameter.wali_kelas);
     }
     else if (action === 'update_user') {
-      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
+      return handleUpdateUser(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.role, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram, e.parameter.tugas_piket, e.parameter.wali_kelas);
     }
     else if (action === 'delete_user') {
       return handleDeleteUser(e.parameter.username);
     }
     else if (action === 'save_config') {
-      return handleSaveConfig(e.parameter.nama_sekolah, e.parameter.tahun_pelajaran, e.parameter.telegram_bot_token);
+      return handleSaveConfig(
+        e.parameter.nama_sekolah,
+        e.parameter.tahun_pelajaran,
+        e.parameter.telegram_bot_token,
+        e.parameter.kop_yayasan,
+        e.parameter.kop_sekolah,
+        e.parameter.kop_alamat,
+        e.parameter.kop_logo,
+        e.parameter.kop_logo_width || e.parameter.kop_logo_size,
+        e.parameter.kop_logo_height || e.parameter.kop_logo_size
+      );
     }
-    else if (action === 'initial_setup') {
-      return handleInitialSetupWeb();
+    else if (action === 'setup_database' || action === 'initial_setup' || action === 'cleanup_and_repair_data' || action === 'fix_database') {
+      return handleCleanupAndRepairData();
+    }
+    else if (action === 'get_kelas') {
+      return handleGetKelas();
+    }
+    else if (action === 'save_kelas') {
+      return handleSaveKelas(e.parameter.nama, e.parameter.tingkat, e.parameter.jurusan, e.parameter.wali_kelas, e.parameter.kapasitas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_kelas') {
+      return handleDeleteKelas(e.parameter.nama);
+    }
+    else if (action === 'seed_default_kelas') {
+      return handleSeedDefaultKelas();
+    }
+    else if (action === 'get_mapel') {
+      return handleGetMapel();
+    }
+    else if (action === 'save_mapel') {
+      return handleSaveMapel(e.parameter.nama, e.parameter.target_kelas, e.parameter.old_nama);
+    }
+    else if (action === 'delete_mapel') {
+      return handleDeleteMapel(e.parameter.nama);
+    }
+    else if (action === 'seed_default_mapel') {
+      return handleSeedDefaultMapel();
     }
     else if (action === 'add_pelanggaran') {
       return handleAddPelanggaran(e.parameter.data);
@@ -337,53 +505,140 @@ function doPost(e) {
   }
 }
 
-// Helper Pastikan Header Kolom Users & Device Sesuai Format (Auto-Fix Columns)
-function ensureUserColumns() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_USERS);
-  if (!sheet) return;
 
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, 7).setValues([['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram']]);
-    return;
+function ensureDatabaseSetup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Ensure SHEET_USERS (8 Columns layout - Wali_Kelas is fully handled by DataKelas)
+  let sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (!sheetUsers) {
+    sheetUsers = ss.insertSheet(SHEET_USERS);
+    sheetUsers.appendRow(['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram', 'Tugas_Piket']);
+  } else {
+    const lastCol = Math.max(8, sheetUsers.getLastColumn());
+    const headers = sheetUsers.getRange(1, 1, 1, lastCol).getValues()[0];
+    if (!headers[0] || headers[0].toString().trim() === '') sheetUsers.getRange(1, 1).setValue('ID');
+    if (!headers[1] || headers[1].toString().trim() === '') sheetUsers.getRange(1, 2).setValue('Username');
+    if (!headers[2] || headers[2].toString().trim() === '') sheetUsers.getRange(1, 3).setValue('Password');
+    if (!headers[3] || headers[3].toString().trim() === '') sheetUsers.getRange(1, 4).setValue('Role');
+    if (!headers[4] || headers[4].toString().trim() === '') sheetUsers.getRange(1, 5).setValue('NamaLengkap');
+    if (!headers[5] || headers[5].toString().trim() === '') sheetUsers.getRange(1, 6).setValue('ID_Mesin');
+    if (!headers[6] || headers[6].toString().trim() === '') sheetUsers.getRange(1, 7).setValue('ID_Telegram');
+    if (!headers[7] || headers[7].toString().trim() === '') sheetUsers.getRange(1, 8).setValue('Tugas_Piket');
   }
 
-  const headers = sheet.getRange(1, 1, 1, Math.max(7, sheet.getLastColumn())).getValues()[0];
-  if (!headers[5] || headers[5].toString().trim() === '') sheet.getRange(1, 6).setValue('ID_Mesin');
-  if (!headers[6] || headers[6].toString().trim() === '') sheet.getRange(1, 7).setValue('ID_Telegram');
+  // 2. Ensure SHEET_SISWA
+  let sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa && sheetSiswa.getLastRow() > 0) {
+    const lastCol = Math.max(8, sheetSiswa.getLastColumn());
+    const headers = sheetSiswa.getRange(1, 1, 1, lastCol).getValues()[0];
+    if (!headers[5] || headers[5].toString().trim() === '') sheetSiswa.getRange(1, 6).setValue('ID_Mesin');
+    if (!headers[6] || headers[6].toString().trim() === '') sheetSiswa.getRange(1, 7).setValue('ID_Telegram');
+    if (!headers[7] || headers[7].toString().trim() === '') sheetSiswa.getRange(1, 8).setValue('Password');
+  }
+
+  // 3. Ensure SHEET_IZIN_SISWA ('LogIzinSiswa')
+  if (typeof getOrCreateIzinSiswaSheet === 'function') {
+    getOrCreateIzinSiswaSheet(ss);
+  }
+
+  return true;
+}
+
+function ensureUserColumns() {
+  ensureDatabaseSetup();
 }
 
 function ensureDeviceUserIdColumns() {
-  ensureUserColumns();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
-  if (sheetSiswa && sheetSiswa.getLastRow() > 0) {
-    const headers = sheetSiswa.getRange(1, 1, 1, Math.max(7, sheetSiswa.getLastColumn())).getValues()[0];
-    if (!headers[5] || headers[5].toString().trim() === '') sheetSiswa.getRange(1, 6).setValue('ID_Mesin');
-    if (!headers[6] || headers[6].toString().trim() === '') sheetSiswa.getRange(1, 7).setValue('ID_Telegram');
-  }
+  ensureDatabaseSetup();
 }
 
 // Helper Ambil Data Pengguna / User
 function getUsersFromCacheOrSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return [];
+
+  // Build Wali Kelas lookup dynamically from DataKelas (Single Source of Truth)
+  const classWaliMap = {};
+  const sheetKelas = ss.getSheetByName(SHEET_KELAS);
+  if (sheetKelas) {
+    const kData = sheetKelas.getDataRange().getValues();
+    for (let k = 1; k < kData.length; k++) {
+      const namaKelas = String(kData[k][0] || '').trim();
+      const waliGuru = String(kData[k][3] || '').trim();
+      if (namaKelas && waliGuru && waliGuru !== '-') {
+        const wLower = waliGuru.toLowerCase();
+        classWaliMap[wLower] = namaKelas;
+        const cleanName = wLower.replace(/[^a-z0-9]/g, '');
+        if (cleanName) classWaliMap[cleanName] = namaKelas;
+      }
+    }
+  }
 
   const data = sheet.getDataRange().getValues();
   let users = [];
 
   for (let i = 1; i < data.length; i++) {
+    const idUser = String(data[i][0] || '').trim();
     const u = String(data[i][1] || '').trim();
     if (!u) continue;
+    const pwd = String(data[i][2] || '').trim();
+    const role = String(data[i][3] || '').trim();
+    const namaGuru = String(data[i][4] || u).trim();
+    const idMesin = String(data[i][5] || '').trim();
+    const idTg = String(data[i][6] || '').trim();
+
+    // Auto-resolve Wali Kelas from DataKelas single source of truth
+    let waliK = '-';
+    const namaLower = namaGuru.toLowerCase();
+    const uLower = u.toLowerCase();
+    const cleanNamaLower = namaLower.replace(/[^a-z0-9]/g, '');
+    const cleanULower = uLower.replace(/[^a-z0-9]/g, '');
+
+    if (classWaliMap[namaLower]) {
+      waliK = classWaliMap[namaLower];
+    } else if (classWaliMap[uLower]) {
+      waliK = classWaliMap[uLower];
+    } else if (cleanNamaLower && classWaliMap[cleanNamaLower]) {
+      waliK = classWaliMap[cleanNamaLower];
+    } else if (cleanULower && classWaliMap[cleanULower]) {
+      waliK = classWaliMap[cleanULower];
+    } else {
+      for (const [wKey, kName] of Object.entries(classWaliMap)) {
+        if (wKey.length >= 3 && (namaLower.includes(wKey) || wKey.includes(namaLower))) {
+          waliK = kName;
+          break;
+        }
+      }
+    }
+
+    // Determine Tugas_Piket (If legacy 9-column sheet, col 9 [index 8], else col 8 [index 7])
+    let tugasPiket = '-';
+    if (data[i].length >= 9) {
+      const col8Val = String(data[i][8] || '').trim();
+      const col7Val = String(data[i][7] || '').trim();
+      if (col8Val && col8Val !== '-') {
+        tugasPiket = col8Val;
+      } else if (col7Val && col7Val !== '-' && !col7Val.match(/^(x|xi|xii)/i)) {
+        tugasPiket = col7Val;
+      }
+    } else if (data[i].length >= 8) {
+      tugasPiket = String(data[i][7] || '-').trim();
+    }
+
     users.push({
-      nis: String(data[i][0] || ''),
+      id: idUser || String(i),
+      nis: idUser || String(i),
       username: u,
-      password: String(data[i][2] || '').trim(),
-      role: String(data[i][3] || ''),
-      nama: String(data[i][4] || ''),
-      id_mesin: String(data[i][5] || '').trim(),
-      id_telegram: String(data[i][6] || '').trim()
+      password: pwd,
+      role: role,
+      nama: namaGuru,
+      id_mesin: idMesin,
+      id_telegram: idTg,
+      wali_kelas: waliK,
+      tugas_piket: tugasPiket
     });
   }
 
@@ -395,51 +650,447 @@ function handleLogin(username, password) {
   const p = String(password || '').trim();
 
   if (!u || !p) {
-    return jsonResponse('error', 'Username dan Password wajib diisi.');
+    return jsonResponse('error', 'Username/NIS dan Password wajib diisi.');
   }
 
-  const users = getUsersFromCacheOrSheet();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const uLower = u.toLowerCase();
+  const pLower = p.toLowerCase();
 
-  for (let i = 0; i < users.length; i++) {
-    const userU = String(users[i].username || '').trim();
-    const userP = String(users[i].password || '').trim();
+  // 1. Cek di Sheet Users (Admin, Guru, TU, Kepsek)
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers) {
+    const dataUsers = sheetUsers.getDataRange().getValues();
+    for (let i = 1; i < dataUsers.length; i++) {
+      const userU = String(dataUsers[i][1] || '').trim();
+      if (!userU) continue;
+      const userP = String(dataUsers[i][2] || '').trim();
 
-    if (userU.toLowerCase() === u.toLowerCase() && userP === p) {
-      return jsonResponse('success', 'Berhasil login', {
-        username: users[i].username,
-        role: users[i].role,
-        nama: users[i].nama,
-        id_mesin: users[i].id_mesin || '',
-        id_telegram: users[i].id_telegram || ''
-      });
+      if (userU.toLowerCase() === uLower && (userP === p || userP.toLowerCase() === pLower)) {
+        const role = String(dataUsers[i][3] || '').trim();
+        const namaGuru = String(dataUsers[i][4] || userU).trim();
+        const idMesin = String(dataUsers[i][5] || '').trim();
+        const idTg = String(dataUsers[i][6] || '').trim();
+        const tugasPiket = dataUsers[i].length >= 8 ? String(dataUsers[i][7] || '-').trim() : '-';
+
+        return jsonResponse('success', 'Login berhasil!', {
+          nis: userU,
+          username: userU,
+          role: role,
+          nama: namaGuru,
+          id_mesin: idMesin,
+          id_telegram: idTg,
+          wali_kelas: '-',
+          tugas_piket: tugasPiket
+        });
+      }
     }
   }
-  return jsonResponse('error', 'Username atau Password salah!');
+
+  // 2. Jika tidak ada di Sheet Users, Cek di Sheet DataSiswa (Matching NIS / NISN)
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa) {
+    const dataSiswa = sheetSiswa.getDataRange().getValues();
+    for (let j = 1; j < dataSiswa.length; j++) {
+      const nisn = String(dataSiswa[j][0] || '').trim();
+      const nis = String(dataSiswa[j][1] || '').trim();
+      if (!nis && !nisn) continue;
+
+      const nama = String(dataSiswa[j][2] || '').trim();
+      const kelas = String(dataSiswa[j][3] || '').trim();
+      const gender = String(dataSiswa[j][4] || '').trim();
+      const id_mesin = String(dataSiswa[j][5] || '').trim();
+      const id_telegram = String(dataSiswa[j][6] || '').trim();
+      const savedPass = String(dataSiswa[j][7] || '').trim();
+
+      const nisLower = nis.toLowerCase();
+      const nisnLower = nisn.toLowerCase();
+
+      // Password default adalah NIS atau NISN jika belum pernah diset custom
+      const validPass = savedPass !== '' ? savedPass : (nis || nisn);
+      const validPassLower = validPass.toLowerCase();
+
+      const matchUser = (uLower === nisLower || uLower === nisnLower);
+      const matchPass = (p === validPass || pLower === validPassLower || (nis && pLower === nisLower) || (nisn && pLower === nisnLower));
+
+      if (matchUser && matchPass) {
+        return jsonResponse('success', 'Berhasil login sebagai Siswa', {
+          username: nis || nisn,
+          role: 'Siswa',
+          nama: nama,
+          nis: nis,
+          nisn: nisn,
+          kelas: kelas,
+          gender: gender,
+          id_mesin: id_mesin,
+          id_telegram: id_telegram,
+          wali_kelas: '-',
+          tugas_piket: '-'
+        });
+      }
+    }
+  }
+
+  return jsonResponse('error', 'Username/NIS atau Password salah!');
 }
 
 // === HANDLER MANAJEMEN GURU / PENGGUNA (CRUD) ===
-function fetchUsersList(ss) {
-  const sheet = ss.getSheetByName(SHEET_USERS);
-  if (!sheet) return [];
+function updateClassWaliAssignment(ss, teacherNama, waliKelas) {
+  if (!teacherNama) return;
+  const sheetKelas = getOrCreateKelasSheet(ss);
+  if (!sheetKelas) return;
+  const kData = sheetKelas.getDataRange().getValues();
+  const teacherLower = String(teacherNama).trim().toLowerCase();
+  const targetK = String(waliKelas || '-').trim().toLowerCase();
 
-  const data = sheet.getDataRange().getValues();
-  let users = [];
+  for (let i = 1; i < kData.length; i++) {
+    const kNama = String(kData[i][0] || '').trim().toLowerCase();
+    const kWali = String(kData[i][3] || '').trim().toLowerCase();
 
-  for (let i = 1; i < data.length; i++) {
-    const id = String(data[i][0] || '').trim();
-    const username = String(data[i][1] || '').trim();
-    const password = String(data[i][2] || '').trim();
-    const role = String(data[i][3] || '').trim();
-    const nama = String(data[i][4] || '').trim();
-    const id_mesin = String(data[i][5] || '').trim();
-    const id_telegram = String(data[i][6] || '').trim();
-
-    if (username) {
-      users.push({ id, username, password, role, nama, id_mesin, id_telegram });
+    if (targetK !== '-' && kNama === targetK) {
+      sheetKelas.getRange(i + 1, 4).setValue(teacherNama);
+    } else if (kWali === teacherLower && teacherLower) {
+      sheetKelas.getRange(i + 1, 4).setValue('-');
     }
   }
+}
 
-  return users;
+// === CASCADE DATA UPDATE HELPERS (PREVENT DATA INCONSISTENCY) ===
+
+function cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, newNis, newNisn, newNama, newKelas, newIdMesin, newIdTelegram, oldIdMesin) {
+  try {
+    const oNis = String(oldNis || '').trim().toLowerCase();
+    const oNisn = String(oldNisn || '').trim().toLowerCase();
+    const oNama = String(oldNama || '').trim().toLowerCase();
+    const oIdMesin = String(oldIdMesin || '').trim().toLowerCase();
+
+    const cNisn = String(newNisn || '').trim();
+    const cNis = String(newNis || '').trim();
+    const cNama = String(newNama || '').trim();
+    const cKelas = String(newKelas || '').trim();
+    const cIdMesin = String(newIdMesin || '').trim();
+    const cIdTg = String(newIdTelegram || '').trim();
+
+    // 1. Update Sheet LogAbsen (SHEET_LOG: Waktu[1], NISN[2], NIS[3], Nama[4], Kelas[5], Status[6], Petugas[7])
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog && sheetLog.getLastRow() > 1) {
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < lData.length; i++) {
+        const rNisn = String(lData[i][1] || '').trim().toLowerCase();
+        const rNis = String(lData[i][2] || '').trim().toLowerCase();
+        const rNama = String(lData[i][3] || '').trim().toLowerCase();
+
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn) sheetLog.getRange(rowIdx, 2).setValue(cNisn);
+          if (cNis) sheetLog.getRange(rowIdx, 3).setValue(cNis);
+          if (cNama) sheetLog.getRange(rowIdx, 4).setValue(cNama);
+          if (cKelas) sheetLog.getRange(rowIdx, 5).setValue(cKelas);
+        }
+      }
+    }
+
+    // 2. Update Sheet LogIzinSiswa (SHEET_IZIN_SISWA: ID[1], Waktu[2], Tanggal[3], NISN[4], NIS[5], Nama[6], Kelas[7])
+    const sheetIzin = ss.getSheetByName(SHEET_IZIN_SISWA);
+    if (sheetIzin && sheetIzin.getLastRow() > 1) {
+      const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < izData.length; i++) {
+        const rNisn = String(izData[i][3] || '').trim().toLowerCase();
+        const rNis = String(izData[i][4] || '').trim().toLowerCase();
+        const rNama = String(izData[i][5] || '').trim().toLowerCase();
+
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn) sheetIzin.getRange(rowIdx, 4).setValue(cNisn);
+          if (cNis) sheetIzin.getRange(rowIdx, 5).setValue(cNis);
+          if (cNama) sheetIzin.getRange(rowIdx, 6).setValue(cNama);
+          if (cKelas) sheetIzin.getRange(rowIdx, 7).setValue(cKelas);
+        }
+      }
+    }
+
+    // 3. Update Sheet DataIzin (SHEET_DATA_IZIN - EduIzin KBM: ID[1], Waktu[2], Nama[3], Kelas[4])
+    const sheetDataIzin = ss.getSheetByName(SHEET_DATA_IZIN);
+    if (sheetDataIzin && sheetDataIzin.getLastRow() > 1) {
+      const diData = sheetDataIzin.getRange(2, 1, sheetDataIzin.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < diData.length; i++) {
+        const rNama = String(diData[i][2] || '').trim().toLowerCase();
+        if (oNama && rNama === oNama) {
+          const rowIdx = i + 2;
+          if (cNama) sheetDataIzin.getRange(rowIdx, 3).setValue(cNama);
+          if (cKelas) sheetDataIzin.getRange(rowIdx, 4).setValue(cKelas);
+        }
+      }
+    }
+
+    // 4. Update Sheet LogPelanggaran (SHEET_PELANGGARAN: ID[1], Waktu[2], Tanggal[3], NISN[4], NIS[5], Nama[6], Kelas[7])
+    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
+    if (sheetPel && sheetPel.getLastRow() > 1) {
+      const pData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < pData.length; i++) {
+        const rNisn = String(pData[i][3] || '').trim().toLowerCase();
+        const rNis = String(pData[i][4] || '').trim().toLowerCase();
+        const rNama = String(pData[i][5] || '').trim().toLowerCase();
+
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn) sheetPel.getRange(rowIdx, 4).setValue(cNisn);
+          if (cNis) sheetPel.getRange(rowIdx, 5).setValue(cNis);
+          if (cNama) sheetPel.getRange(rowIdx, 6).setValue(cNama);
+          if (cKelas) sheetPel.getRange(rowIdx, 7).setValue(cKelas);
+        }
+      }
+    }
+
+    // 5. Update Sheet Users (If Student Account Exists)
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers && sheetUsers.getLastRow() > 1) {
+      const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < uData.length; i++) {
+        const rUsername = String(uData[i][1] || '').trim().toLowerCase();
+        const rRole = String(uData[i][3] || '').trim().toLowerCase();
+        const rNama = String(uData[i][4] || '').trim().toLowerCase();
+
+        if (rRole === 'siswa' && ((oNisn && rUsername === oNisn) || (oNis && rUsername === oNis) || (oNama && rNama === oNama))) {
+          const rowIdx = i + 2;
+          if (cNisn || cNis) sheetUsers.getRange(rowIdx, 2).setValue(cNisn || cNis);
+          if (cNama) sheetUsers.getRange(rowIdx, 5).setValue(cNama);
+          if (cIdMesin) sheetUsers.getRange(rowIdx, 6).setValue(cIdMesin);
+          if (cIdTg) sheetUsers.getRange(rowIdx, 7).setValue(cIdTg);
+        }
+      }
+    }
+
+    // 6. Sync Sheet User_Mesin
+    try { handleSyncDeviceUsers(); } catch(e) {}
+
+  } catch (err) {
+    Logger.log("Err cascadeUpdateStudentData: " + err.toString());
+  }
+}
+
+function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama, newRole, newIdMesin, newIdTelegram, newWaliKelas, newTugasPiket, oldIdMesin) {
+  try {
+    const oU = String(oldUsername || '').trim().toLowerCase();
+    const oNama = String(oldNama || '').trim().toLowerCase();
+    const oIdMesin = String(oldIdMesin || '').trim().toLowerCase();
+
+    const cU = String(newUsername || '').trim();
+    const cNama = String(newNama || '').trim();
+    const cRole = String(newRole || 'Guru').trim();
+    const cIdMesin = String(newIdMesin || '').trim();
+    const cIdTg = String(newIdTelegram || '').trim();
+
+    // 1. Update Sheet LogAbsenGuru
+    const sheetLogG = ss.getSheetByName(SHEET_LOG_GURU);
+    if (sheetLogG && sheetLogG.getLastRow() > 1) {
+      const gData = sheetLogG.getRange(2, 1, sheetLogG.getLastRow() - 1, 10).getValues();
+      for (let i = 0; i < gData.length; i++) {
+        const rU = String(gData[i][3] || '').trim().toLowerCase();
+        const rNama = String(gData[i][4] || '').trim().toLowerCase();
+
+        if ((oU && rU === oU) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cU) sheetLogG.getRange(rowIdx, 4).setValue(cU);
+          if (cNama) sheetLogG.getRange(rowIdx, 5).setValue(cNama);
+          if (cRole) sheetLogG.getRange(rowIdx, 6).setValue(cRole);
+          if (cIdMesin) sheetLogG.getRange(rowIdx, 9).setValue(cIdMesin);
+          if (cIdTg) sheetLogG.getRange(rowIdx, 10).setValue(cIdTg);
+        }
+      }
+    }
+
+    // 2. Update Sheet DataKelas (Wali Kelas assignment & name sync)
+    const sheetKelas = ss.getSheetByName(SHEET_KELAS);
+    if (sheetKelas && sheetKelas.getLastRow() > 1) {
+      const kData = sheetKelas.getRange(2, 1, sheetKelas.getLastRow() - 1, 4).getValues();
+      const targetWaliK = String(newWaliKelas || '-').trim().toLowerCase();
+
+      for (let i = 0; i < kData.length; i++) {
+        const kNama = String(kData[i][0] || '').trim().toLowerCase();
+        const kWali = String(kData[i][3] || '').trim().toLowerCase();
+
+        if (targetWaliK !== '-' && kNama === targetWaliK) {
+          sheetKelas.getRange(i + 2, 4).setValue(cNama);
+        } else if (kWali === oNama || (oU && kWali === oU)) {
+          if (targetWaliK === '-') {
+            sheetKelas.getRange(i + 2, 4).setValue('-');
+          } else {
+            sheetKelas.getRange(i + 2, 4).setValue(cNama);
+          }
+        }
+      }
+    }
+
+    // 3. Update Sheet LogIzinSiswa (Wali Kelas & Approver name sync)
+    const sheetIzin = ss.getSheetByName(SHEET_IZIN_SISWA);
+    if (sheetIzin && sheetIzin.getLastRow() > 1) {
+      const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 13).getValues();
+      for (let i = 0; i < izData.length; i++) {
+        const rWali = String(izData[i][7] || '').trim().toLowerCase();
+        const rAppr = String(izData[i][12] || '').trim().toLowerCase();
+
+        const rowIdx = i + 2;
+        if (oNama && rWali === oNama && cNama) {
+          sheetIzin.getRange(rowIdx, 8).setValue(cNama);
+        }
+        if (oNama && rAppr === oNama && cNama) {
+          sheetIzin.getRange(rowIdx, 13).setValue(cNama);
+        }
+      }
+    }
+
+    // 4. Update Sheet PengajuanIzin (Guru & Staff leave requests)
+    const sheetPengajuan = ss.getSheetByName(SHEET_PENGAJUAN_IZIN);
+    if (sheetPengajuan && sheetPengajuan.getLastRow() > 1) {
+      const pData = sheetPengajuan.getRange(2, 1, sheetPengajuan.getLastRow() - 1, 9).getValues();
+      for (let i = 0; i < pData.length; i++) {
+        const rNama = String(pData[i][1] || '').trim().toLowerCase();
+        const rAppr = String(pData[i][8] || '').trim().toLowerCase();
+
+        const rowIdx = i + 2;
+        if (oNama && rNama === oNama && cNama) {
+          sheetPengajuan.getRange(rowIdx, 2).setValue(cNama);
+        }
+        if (oNama && rAppr === oNama && cNama) {
+          sheetPengajuan.getRange(rowIdx, 9).setValue(cNama);
+        }
+      }
+    }
+
+    // 5. Update Sheet LogPelanggaran (Guru Pelapor sync)
+    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
+    if (sheetPel && sheetPel.getLastRow() > 1) {
+      const pelData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 9).getValues();
+      for (let i = 0; i < pelData.length; i++) {
+        const rGuru = String(pelData[i][8] || '').trim().toLowerCase();
+        if (oNama && rGuru === oNama && cNama) {
+          sheetPel.getRange(i + 2, 9).setValue(cNama);
+        }
+      }
+    }
+
+    // 6. Update Sheet LogAbsen (Petugas/Guru name sync)
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog && sheetLog.getLastRow() > 1) {
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < lData.length; i++) {
+        const rPetugas = String(lData[i][6] || '').trim().toLowerCase();
+        if (oNama && rPetugas === oNama && cNama) {
+          sheetLog.getRange(i + 2, 7).setValue(cNama);
+        }
+      }
+    }
+
+    // 7. Update Sheet DataIzin (SHEET_DATA_IZIN - EduIzin KBM Guru & Piket sync)
+    const sheetDataIzin = ss.getSheetByName(SHEET_DATA_IZIN);
+    if (sheetDataIzin && sheetDataIzin.getLastRow() > 1) {
+      const diData = sheetDataIzin.getRange(2, 1, sheetDataIzin.getLastRow() - 1, 8).getValues();
+      for (let i = 0; i < diData.length; i++) {
+        const rGuru = String(diData[i][6] || '').trim().toLowerCase();
+        const rPiket = String(diData[i][7] || '').trim().toLowerCase();
+
+        const rowIdx = i + 2;
+        if (oNama && (rGuru === oNama || (oU && rGuru === oU)) && cNama) {
+          sheetDataIzin.getRange(rowIdx, 7).setValue(cNama);
+        }
+        if (oNama && (rPiket === oNama || (oU && rPiket === oU)) && cNama) {
+          sheetDataIzin.getRange(rowIdx, 8).setValue(cNama);
+        }
+      }
+    }
+
+    // 8. Update Sheet User_Mesin
+    const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
+    if (sheetUM && sheetUM.getLastRow() > 1) {
+      const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 6).getValues();
+      for (let i = 0; i < umData.length; i++) {
+        const rIdM = String(umData[i][0] || '').trim().toLowerCase();
+        const rNama = String(umData[i][2] || '').trim().toLowerCase();
+
+        if ((cIdMesin && rIdM === cIdMesin.toLowerCase()) || (oIdMesin && rIdM === oIdMesin) || (oNama && rNama === oNama) || (oU && rNama === oU)) {
+          const rowIdx = i + 2;
+          if (cIdMesin) sheetUM.getRange(rowIdx, 1).setValue(cIdMesin);
+          if (cNama) sheetUM.getRange(rowIdx, 3).setValue(cNama);
+          sheetUM.getRange(rowIdx, 4).setValue('Guru');
+          if (cRole) sheetUM.getRange(rowIdx, 5).setValue(cRole);
+          if (cIdTg) sheetUM.getRange(rowIdx, 6).setValue(cIdTg);
+        }
+      }
+    }
+
+    // 9. Sync Sheet User_Mesin
+    try { handleSyncDeviceUsers(); } catch(e) {}
+
+  } catch (err) {
+    Logger.log("Err cascadeUpdateTeacherData: " + err.toString());
+  }
+}
+
+// === CASCADE UPDATE CLASS NAME ACROSS ALL RELATED SHEETS ===
+function cascadeUpdateClassName(ss, oldClassName, newClassName) {
+  if (!oldClassName || !newClassName || oldClassName === newClassName) return;
+
+  try {
+    const oK = String(oldClassName).trim().toLowerCase();
+    const nK = String(newClassName).trim();
+
+    // 1. Update Sheet DataSiswa
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const k = String(sData[i][3] || '').trim().toLowerCase();
+        if (k === oK) sheetSiswa.getRange(i + 2, 4).setValue(nK);
+      }
+    }
+
+    // 2. Update Sheet LogAbsen
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog && sheetLog.getLastRow() > 1) {
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < lData.length; i++) {
+        const k = String(lData[i][4] || '').trim().toLowerCase();
+        if (k === oK) sheetLog.getRange(i + 2, 5).setValue(nK);
+      }
+    }
+
+    // 3. Update Sheet LogIzinSiswa
+    const sheetIzin = ss.getSheetByName(SHEET_IZIN_SISWA);
+    if (sheetIzin && sheetIzin.getLastRow() > 1) {
+      const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < izData.length; i++) {
+        const k = String(izData[i][6] || '').trim().toLowerCase();
+        if (k === oK) sheetIzin.getRange(i + 2, 7).setValue(nK);
+      }
+    }
+
+    // 4. Update Sheet LogPelanggaran
+    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
+    if (sheetPel && sheetPel.getLastRow() > 1) {
+      const pData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < pData.length; i++) {
+        const k = String(pData[i][6] || '').trim().toLowerCase();
+        if (k === oK) sheetPel.getRange(i + 2, 7).setValue(nK);
+      }
+    }
+
+    // 5. Update Sheet User_Mesin
+    const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
+    if (sheetUM && sheetUM.getLastRow() > 1) {
+      const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < umData.length; i++) {
+        const k = String(umData[i][4] || '').trim().toLowerCase();
+        if (k === oK) sheetUM.getRange(i + 2, 5).setValue(nK);
+      }
+    }
+  } catch (err) {
+    Logger.log("Err cascadeUpdateClassName: " + err.toString());
+  }
+}
+
+function fetchUsersList(ss) {
+  return getUsersFromCacheOrSheet();
 }
 
 function handleGetUsers() {
@@ -447,12 +1098,13 @@ function handleGetUsers() {
   return jsonResponse('success', 'Daftar Pengguna', fetchUsersList(ss));
 }
 
-function handleAddUser(username, password, role, nama, id_mesin, id_telegram) {
+function handleAddUser(username, password, role, nama, id_mesin, id_telegram, tugas_piket, wali_kelas) {
   if (!username || !password || !nama) {
     return jsonResponse('error', 'Username, Password, dan Nama Lengkap wajib diisi.');
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
   const sheet = ss.getSheetByName(SHEET_USERS);
   if (!sheet) return jsonResponse('error', 'Sheet Users tidak ditemukan.');
 
@@ -467,35 +1119,89 @@ function handleAddUser(username, password, role, nama, id_mesin, id_telegram) {
   }
 
   const newId = String(data.length);
-  sheet.appendRow([newId, username.trim(), password.trim(), role || 'Guru', nama.trim(), String(id_mesin || '').trim(), String(id_telegram || '').trim()]);
+  sheet.appendRow([
+    newId, 
+    username.trim(), 
+    password.trim(), 
+    role || 'Guru', 
+    nama.trim(), 
+    String(id_mesin || '').trim(), 
+    String(id_telegram || '').trim(),
+    String(tugas_piket || '-').trim()
+  ]);
+
+  if (wali_kelas) {
+    updateClassWaliAssignment(ss, nama.trim(), wali_kelas);
+  }
 
   return jsonResponse('success', `Pengguna "${nama}" berhasil ditambahkan.`);
 }
 
-function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram) {
+function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin, id_telegram, tugas_piket, wali_kelas) {
   if (!oldUsername || !username || !nama) {
     return jsonResponse('error', 'Data pengguna tidak lengkap.');
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
+
+  // 1. Cek di SHEET_USERS
   const sheet = ss.getSheetByName(SHEET_USERS);
-  if (!sheet) return jsonResponse('error', 'Sheet Users tidak ditemukan.');
+  if (sheet) {
+    const data = sheet.getDataRange().getValues();
+    const targetOld = String(oldUsername).trim().toLowerCase();
 
-  const data = sheet.getDataRange().getValues();
-  const targetOld = String(oldUsername).trim().toLowerCase();
+    for (let i = 1; i < data.length; i++) {
+      const currentUsername = String(data[i][1] || '').trim().toLowerCase();
+      if (currentUsername === targetOld) {
+        const rowIndex = i + 1;
+        const oldNama = String(data[i][4] || '').trim();
+        const oldIdMesin = String(data[i][5] || '').trim();
 
-  for (let i = 1; i < data.length; i++) {
-    const currentUsername = String(data[i][1] || '').trim().toLowerCase();
-    if (currentUsername === targetOld) {
-      const rowIndex = i + 1;
-      sheet.getRange(rowIndex, 2).setValue(username.trim()); // Username
-      if (password) sheet.getRange(rowIndex, 3).setValue(password.trim()); // Password
-      sheet.getRange(rowIndex, 4).setValue(role || 'Guru'); // Role
-      sheet.getRange(rowIndex, 5).setValue(nama.trim()); // NamaLengkap
-      sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
-      sheet.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram
+        sheet.getRange(rowIndex, 2).setValue(username.trim()); // Username
+        if (password) sheet.getRange(rowIndex, 3).setValue(password.trim()); // Password
+        sheet.getRange(rowIndex, 4).setValue(role || 'Guru'); // Role
+        sheet.getRange(rowIndex, 5).setValue(nama.trim()); // NamaLengkap
+        sheet.getRange(rowIndex, 6).setValue(String(id_mesin || '').trim()); // ID_Mesin
+        sheet.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram
+        sheet.getRange(rowIndex, 8).setValue(String(tugas_piket || '-').trim()); // Tugas_Piket
 
-      return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
+        if (wali_kelas !== undefined) {
+          updateClassWaliAssignment(ss, nama.trim(), wali_kelas);
+        }
+
+        // Cascade Update related teacher data across all sheets
+        cascadeUpdateTeacherData(ss, oldUsername, oldNama, username.trim(), nama.trim(), role || 'Guru', String(id_mesin || '').trim(), String(id_telegram || '').trim(), wali_kelas, String(tugas_piket || '-').trim(), oldIdMesin);
+
+        return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
+      }
+    }
+  }
+
+  // 2. Jika tidak ditemukan di SHEET_USERS, Cek di SHEET_SISWA (Siswa Self-Profile Update)
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa) {
+    const dataSiswa = sheetSiswa.getDataRange().getValues();
+    const targetOld = String(oldUsername).trim().toLowerCase();
+    for (let j = 1; j < dataSiswa.length; j++) {
+      const nisn = String(dataSiswa[j][0] || '').trim().toLowerCase();
+      const nis = String(dataSiswa[j][1] || '').trim().toLowerCase();
+
+      if (nis === targetOld || nisn === targetOld) {
+        const rowIndex = j + 1;
+        const sNisn = String(dataSiswa[j][0] || '').trim();
+        const sNis = String(dataSiswa[j][1] || '').trim();
+        const sNama = String(dataSiswa[j][2] || '').trim();
+        const sKelas = String(dataSiswa[j][3] || '').trim();
+        const sIdMesin = String(dataSiswa[j][5] || '').trim();
+
+        if (password) sheetSiswa.getRange(rowIndex, 8).setValue(password.trim()); // Password (col H)
+        sheetSiswa.getRange(rowIndex, 7).setValue(String(id_telegram || '').trim()); // ID_Telegram (col G)
+
+        cascadeUpdateStudentData(ss, sNis, sNisn, sNama, sNis, sNisn, sNama, sKelas, sIdMesin, String(id_telegram || '').trim(), sIdMesin);
+
+        return jsonResponse('success', `Profil Siswa "${nama}" berhasil diperbarui.`);
+      }
     }
   }
 
@@ -592,10 +1298,37 @@ function handleGetStudents(kelas, tanggal) {
 
   const targetTanggalStr = String(tanggal || '').trim() || getFormattedDate(new Date());
 
+  // 1. Tarik status permohonan izin siswa yang sudah DISETUJU pada tanggal tersebut
+  const sheetIzinSiswa = ss.getSheetByName(SHEET_IZIN_SISWA);
+  if (sheetIzinSiswa && sheetIzinSiswa.getLastRow() > 1) {
+    const izinData = sheetIzinSiswa.getRange(2, 1, sheetIzinSiswa.getLastRow() - 1, 14).getValues();
+    for (let i = 0; i < izinData.length; i++) {
+      const izTgl = getFormattedDate(izinData[i][2]);
+      const izStatus = String(izinData[i][11] || '').trim().toLowerCase();
+      if (izTgl === targetTanggalStr && izStatus === 'disetujui') {
+        const izNisn = String(izinData[i][3] || '').trim().replace(/^'/, '');
+        const izNis = String(izinData[i][4] || '').trim().replace(/^'/, '');
+        const izNama = String(izinData[i][5] || '').trim().toLowerCase();
+        const izKategori = String(izinData[i][8] || 'IZIN').toUpperCase();
+        let st = 'IZIN';
+        if (izKategori.includes('SAKIT')) st = 'SAKIT';
+        else if (izKategori.includes('IZIN')) st = 'IZIN';
+
+        if (izNis) todayStatus[izNis] = st;
+        if (izNisn) todayStatus[izNisn] = st;
+        if (izNama) todayStatus[izNama] = st;
+      }
+    }
+  }
+
+  // 2. Scan LogAbsen harian
+  let totalLogCountForClass = 0;
+  let nonAutoLogCount = 0;
+
   if (sheetLog) {
     const lastRow = sheetLog.getLastRow();
     if (lastRow > 1) {
-      const startRow = 2; // Scan SELURUH data log agar rekap dan status kunci absensi 100% akurat
+      const startRow = 2;
       const numRows = lastRow - startRow + 1;
       const maxCols = Math.min(7, sheetLog.getLastColumn() || 7);
       const logData = sheetLog.getRange(startRow, 1, numRows, maxCols).getValues();
@@ -611,12 +1344,16 @@ function handleGetStudents(kelas, tanggal) {
         const normLogKelas = logKelas.replace(/[\s\-]/g, '');
 
         if ((logKelas === rawTargetKelas || normLogKelas === normTargetKelas) && logDateStr === targetTanggalStr) {
-          alreadySubmitted = true;
-          submittedBy = String(logData[i][6] || 'Petugas');
-          submittedTime = logTimeStr;
+          totalLogCountForClass++;
+          const petugasStr = String(logData[i][6] || '');
+          if (!petugasStr.startsWith('Auto-Izin')) {
+            nonAutoLogCount++;
+            submittedBy = petugasStr || 'Petugas';
+            submittedTime = logTimeStr;
+          }
 
-          const nisn = String(logData[i][1] || '').trim();
-          const nis = String(logData[i][2] || '').trim();
+          const nisn = String(logData[i][1] || '').trim().replace(/^'/, '');
+          const nis = String(logData[i][2] || '').trim().replace(/^'/, '');
           const nama = String(logData[i][3] || '').trim().toLowerCase();
           const status = String(logData[i][5] || 'HADIR');
 
@@ -626,6 +1363,11 @@ function handleGetStudents(kelas, tanggal) {
         }
       }
     }
+  }
+
+  // Dikunci (alreadySubmitted = true) hanya jika ada absensi massal manual dari guru/petugas atau jumlah log >= jumlah siswa
+  if (nonAutoLogCount > 0 || (students.length > 0 && totalLogCountForClass >= students.length)) {
+    alreadySubmitted = true;
   }
 
   return jsonResponse('success', 'Daftar Siswa', {
@@ -686,12 +1428,39 @@ function handleGetAllMasterData() {
         recentLogs.push({
           tanggal: logDateStr,
           jam: logTimeStr,
-          nisn: String(logData[i][1] || ''),
-          nis: String(logData[i][2] || ''),
-          nama: String(logData[i][3] || ''),
-          kelas: String(logData[i][4] || ''),
+          nisn: String(logData[i][1] || '').trim().replace(/^'/, ''),
+          nis: String(logData[i][2] || '').trim().replace(/^'/, ''),
+          nama: String(logData[i][3] || '').trim(),
+          kelas: String(logData[i][4] || '').trim(),
           status: String(logData[i][5] || 'HADIR'),
           petugas: String(logData[i][6] || 'Petugas')
+        });
+      }
+    }
+  }
+
+  // 2b. Ambil Permohonan Izin Siswa yang Disetujui
+  const sheetIzinSiswa = ss.getSheetByName(SHEET_IZIN_SISWA);
+  if (sheetIzinSiswa && sheetIzinSiswa.getLastRow() > 1) {
+    const izData = sheetIzinSiswa.getRange(2, 1, sheetIzinSiswa.getLastRow() - 1, 14).getValues();
+    for (let i = izData.length - 1; i >= 0; i--) {
+      const statusIz = String(izData[i][11] || '').trim().toLowerCase();
+      if (statusIz === 'disetujui') {
+        const izTgl = getFormattedDate(izData[i][2]);
+        const izKat = String(izData[i][8] || 'IZIN').toUpperCase();
+        let st = 'IZIN';
+        if (izKat.includes('SAKIT')) st = 'SAKIT';
+        else if (izKat.includes('IZIN')) st = 'IZIN';
+
+        recentLogs.push({
+          tanggal: izTgl,
+          jam: '07:00:00',
+          nisn: String(izData[i][3] || '').trim().replace(/^'/, ''),
+          nis: String(izData[i][4] || '').trim().replace(/^'/, ''),
+          nama: String(izData[i][5] || '').trim(),
+          kelas: String(izData[i][6] || '').trim(),
+          status: st,
+          petugas: 'Auto-Izin (Walas)'
         });
       }
     }
@@ -760,7 +1529,14 @@ function getConfigObject(ss) {
   let config = {
     namaSekolah: 'SMA 1 BARUNAWATI',
     tahunPelajaran: '2026-2027',
-    telegramBotToken: ''
+    telegramBotToken: '',
+    kopYayasan: 'YAYASAN SEKAR LAUT PELNI',
+    kopSekolah: 'SMA 1 BARUNAWATI',
+    kopAlamat: 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083',
+    kopLogo: '',
+    kopLogoWidth: '85',
+    kopLogoHeight: '85',
+    kopLogoSize: '85'
   };
 
   try {
@@ -773,6 +1549,13 @@ function getConfigObject(ss) {
     sheetConfig.appendRow(['NamaSekolah', config.namaSekolah]);
     sheetConfig.appendRow(['TahunPelajaran', config.tahunPelajaran]);
     sheetConfig.appendRow(['TelegramBotToken', config.telegramBotToken]);
+    sheetConfig.appendRow(['KopYayasan', config.kopYayasan]);
+    sheetConfig.appendRow(['KopSekolah', config.kopSekolah]);
+    sheetConfig.appendRow(['KopAlamat', config.kopAlamat]);
+    sheetConfig.appendRow(['KopLogo', config.kopLogo]);
+    sheetConfig.appendRow(['KopLogoWidth', config.kopLogoWidth]);
+    sheetConfig.appendRow(['KopLogoHeight', config.kopLogoHeight]);
+    sheetConfig.appendRow(['KopLogoSize', config.kopLogoSize]);
     sheetConfig.getRange("A1:B1").setFontWeight("bold").setBackground("#d9ead3");
   } else {
     const data = sheetConfig.getDataRange().getValues();
@@ -781,14 +1564,35 @@ function getConfigObject(ss) {
       const val = String(data[i][1] || '').trim();
       const normKey = rawKey.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      if (normKey.includes('sekolah') || normKey.includes('nama')) {
+      if (normKey === 'namasekolah' || normKey === 'sekolah') {
         if (val) config.namaSekolah = val;
       }
-      if (normKey.includes('tahun') || normKey.includes('ajaran') || normKey.includes('pelajaran') || normKey === 'tp' || normKey === 'ta') {
+      if (normKey === 'tahunpelajaran' || normKey === 'tahunajaran' || normKey === 'tp' || normKey === 'ta') {
         if (val) config.tahunPelajaran = val;
       }
       if (normKey.includes('telegram') || normKey.includes('bot') || normKey.includes('token')) {
         if (val) config.telegramBotToken = val;
+      }
+      if (normKey === 'kopyayasan' || normKey === 'yayasan') {
+        if (val) config.kopYayasan = val;
+      }
+      if (normKey === 'kopsekolah') {
+        if (val) config.kopSekolah = val;
+      }
+      if (normKey === 'kopalamat' || normKey === 'alamat') {
+        if (val) config.kopAlamat = val;
+      }
+      if (normKey === 'koplogo' || normKey === 'logo') {
+        if (val) config.kopLogo = val;
+      }
+      if (normKey === 'koplogowidth' || normKey === 'logowidth') {
+        if (val) config.kopLogoWidth = val;
+      }
+      if (normKey === 'koplogoheight' || normKey === 'logoheight') {
+        if (val) config.kopLogoHeight = val;
+      }
+      if (normKey === 'koplogosize' || normKey === 'logosize') {
+        if (val) config.kopLogoSize = val;
       }
     }
   }
@@ -800,7 +1604,7 @@ function handleGetConfig() {
   return jsonResponse('success', 'Config Loaded', getConfigObject(ss));
 }
 
-function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
+function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight) {
   if (!namaSekolah || !tahunPelajaran) {
     return jsonResponse('error', 'Nama Sekolah dan Tahun Pelajaran wajib diisi.');
   }
@@ -808,6 +1612,13 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheetConfig = ss.getSheetByName(SHEET_CONFIG);
   const cleanToken = String(telegramBotToken || '').trim();
+
+  const cYayasan = String(kopYayasan || '').trim();
+  const cSekolah = String(kopSekolah || namaSekolah || '').trim();
+  const cAlamat = String(kopAlamat || '').trim();
+  const cLogo = String(kopLogo || '').trim();
+  const cLogoWidth = String(kopLogoWidth || '85').trim();
+  const cLogoHeight = String(kopLogoHeight || '85').trim();
 
   // Simpan ke Script Properties
   try {
@@ -822,11 +1633,25 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
     sheetConfig.appendRow(['NamaSekolah', namaSekolah.trim()]);
     sheetConfig.appendRow(['TahunPelajaran', tahunPelajaran.trim()]);
     sheetConfig.appendRow(['TelegramBotToken', cleanToken]);
+    sheetConfig.appendRow(['KopYayasan', cYayasan]);
+    sheetConfig.appendRow(['KopSekolah', cSekolah]);
+    sheetConfig.appendRow(['KopAlamat', cAlamat]);
+    sheetConfig.appendRow(['KopLogo', cLogo]);
+    sheetConfig.appendRow(['KopLogoWidth', cLogoWidth]);
+    sheetConfig.appendRow(['KopLogoHeight', cLogoHeight]);
+    sheetConfig.appendRow(['KopLogoSize', cLogoWidth]);
   } else {
     const data = sheetConfig.getDataRange().getValues();
     let foundNama = false;
     let foundTahun = false;
     let foundToken = false;
+    let foundYayasan = false;
+    let foundKopSekolah = false;
+    let foundAlamat = false;
+    let foundLogo = false;
+    let foundLogoWidth = false;
+    let foundLogoHeight = false;
+    let foundLogoSize = false;
 
     for (let i = 1; i < data.length; i++) {
       const rawKey = String(data[i][0] || '').trim();
@@ -844,14 +1669,49 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken) {
         sheetConfig.getRange(i + 1, 2).setValue(cleanToken);
         foundToken = true;
       }
+      if (normKey === 'kopyayasan' || normKey === 'yayasan') {
+        sheetConfig.getRange(i + 1, 2).setValue(cYayasan);
+        foundYayasan = true;
+      }
+      if (normKey === 'kopsekolah') {
+        sheetConfig.getRange(i + 1, 2).setValue(cSekolah);
+        foundKopSekolah = true;
+      }
+      if (normKey === 'kopalamat' || normKey === 'alamat') {
+        sheetConfig.getRange(i + 1, 2).setValue(cAlamat);
+        foundAlamat = true;
+      }
+      if (normKey === 'koplogo' || normKey === 'logo') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogo);
+        foundLogo = true;
+      }
+      if (normKey === 'koplogowidth' || normKey === 'logowidth') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogoWidth);
+        foundLogoWidth = true;
+      }
+      if (normKey === 'koplogoheight' || normKey === 'logoheight') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogoHeight);
+        foundLogoHeight = true;
+      }
+      if (normKey === 'koplogosize' || normKey === 'logosize') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogoWidth);
+        foundLogoSize = true;
+      }
     }
 
     if (!foundNama) sheetConfig.appendRow(['NamaSekolah', namaSekolah.trim()]);
     if (!foundTahun) sheetConfig.appendRow(['TahunPelajaran', tahunPelajaran.trim()]);
     if (!foundToken) sheetConfig.appendRow(['TelegramBotToken', cleanToken]);
+    if (!foundYayasan) sheetConfig.appendRow(['KopYayasan', cYayasan]);
+    if (!foundKopSekolah) sheetConfig.appendRow(['KopSekolah', cSekolah]);
+    if (!foundAlamat) sheetConfig.appendRow(['KopAlamat', cAlamat]);
+    if (!foundLogo) sheetConfig.appendRow(['KopLogo', cLogo]);
+    if (!foundLogoWidth) sheetConfig.appendRow(['KopLogoWidth', cLogoWidth]);
+    if (!foundLogoHeight) sheetConfig.appendRow(['KopLogoHeight', cLogoHeight]);
+    if (!foundLogoSize) sheetConfig.appendRow(['KopLogoSize', cLogoWidth]);
   }
 
-  return jsonResponse('success', 'Pengaturan sekolah, tahun pelajaran & Bot Telegram berhasil diperbarui.');
+  return jsonResponse('success', 'Pengaturan sekolah & Kop Surat berhasil diperbarui.');
 }
 
 // === HANDLER ABSEN BULK (FAST, DEDUPLICATED & EDIT SUPPORT) ===
@@ -900,8 +1760,24 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
     const numCheck = lastRow - checkStart + 1;
     const existingLogs = sheetLog.getRange(checkStart, 1, numCheck, 7).getValues();
 
-    if (isEditMode) {
-      // MODE EDIT: Hapus log lama untuk kelas & tanggal ini agar ter-update tanpa duplikasi
+    let nonAutoCount = 0;
+    for (let i = existingLogs.length - 1; i >= 0; i--) {
+      const rawDate = existingLogs[i][0];
+      if (!rawDate) continue;
+
+      const logDateStr = getFormattedDate(rawDate);
+      const logKelas = String(existingLogs[i][4] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+      const petugasStr = String(existingLogs[i][6] || '');
+
+      if (logKelas === normSampleKelas && logDateStr === targetTanggalStr) {
+        if (!petugasStr.startsWith('Auto-Izin')) {
+          nonAutoCount++;
+        }
+      }
+    }
+
+    if (isEditMode || nonAutoCount === 0) {
+      // Hapus log lama (termasuk auto-izin sementara) untuk kelas & tanggal ini agar ter-update tanpa duplikasi
       for (let i = existingLogs.length - 1; i >= 0; i--) {
         const rawDate = existingLogs[i][0];
         if (!rawDate) continue;
@@ -915,18 +1791,8 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
         }
       }
     } else {
-      // SIMPAN NORMAL: Tolak simpan ganda jika data sudah tersimpan di sheet
-      for (let i = existingLogs.length - 1; i >= 0; i--) {
-        const rawDate = existingLogs[i][0];
-        if (!rawDate) continue;
-
-        const logDateStr = getFormattedDate(rawDate);
-        const logKelas = String(existingLogs[i][4] || '').trim().toLowerCase().replace(/[\s\-]/g, '');
-
-        if (logKelas === normSampleKelas && logDateStr === targetTanggalStr) {
-          return jsonResponse('error', `Gagal menyimpan: Data absensi kelas ${firstStudent.kelas} untuk tanggal ${targetTanggalStr} sudah ada di database sheet. Klik tombol 'Edit Data Absensi' jika ingin mengedit.`);
-        }
-      }
+      // SIMPAN NORMAL: Tolak simpan ganda jika absensi kelas sudah pernah di-submit penuh oleh guru/petugas
+      return jsonResponse('error', `Gagal menyimpan: Data absensi kelas ${firstStudent.kelas} untuk tanggal ${targetTanggalStr} sudah ada di database sheet. Klik tombol 'Edit Data Absensi' jika ingin mengedit.`);
     }
   }
 
@@ -1249,7 +2115,7 @@ function handleDeleteJenisPelanggaran(idOrNama) {
 function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu('🚀 Smart Absensi')
+    ui.createMenu('🚀 SMARTAPP')
       .addItem('⚙️ Setup Database Otomatis', 'initialSetup')
       .addToUi();
   } catch (e) { }
@@ -1715,7 +2581,7 @@ function handleAddPengajuanIzin(dataRaw) {
     // === NOTIFIKASI TELEGRAM PENGAJUAN IZIN ===
     try {
       const config = getConfigObject(ss);
-      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMARTAPP';
 
       // 1. Notifikasi ke Kepala Sekolah
       const kepsekTgIds = getKepalaSekolahTelegramIds(ss);
@@ -1728,7 +2594,7 @@ function handleAddPengajuanIzin(dataRaw) {
         `<b>Keterangan:</b> ${item.keterangan || '-'}\n` +
         `<b>Status:</b> ${initialStatus === 'Disetujui' ? '✅ Disetujui Otomatis' : '⏳ Menunggu Persetujuan'}` +
         `</blockquote>\n\n` +
-        `<i>Mohon periksa dan berikan persetujuan pada portal Smart School.</i>`;
+        `<i>Mohon periksa dan berikan persetujuan pada portal SMARTAPP.</i>`;
 
       kepsekTgIds.forEach(tgId => {
         if (tgId) sendTelegramNotification(tgId, msgKepsek);
@@ -1822,11 +2688,11 @@ function handleApprovePengajuanIzin(id, approver) {
     // === NOTIFIKASI TELEGRAM KE GURU (DISETUJUI) ===
     try {
       const config = getConfigObject(ss);
-      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMARTAPP';
       const guruTgId = getUserTelegramIdByUsername(ss, item.username);
 
       if (guruTgId) {
-        const msgAcc = `<b>✅ PENGAJUAN IZIN DISETUJUI</b>\n` +
+        const msgAcc = `<b>PENGAJUAN IZIN DISETUJUI</b>\n` +
           `<b>${schoolTitle}</b>\n\n` +
           `<blockquote>` +
           `Halo <b>${item.nama}</b>, permohonan izin Anda telah <b>DISETUJUI</b>.\n\n` +
@@ -1890,11 +2756,11 @@ function handleRejectPengajuanIzin(id, approver) {
     try {
       if (item) {
         const config = getConfigObject(ss);
-        const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+        const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMARTAPP';
         const guruTgId = getUserTelegramIdByUsername(ss, item.username);
 
         if (guruTgId) {
-          const msgReject = `<b>❌ PENGAJUAN IZIN DITOLAK</b>\n` +
+          const msgReject = `<b>PENGAJUAN IZIN DITOLAK</b>\n` +
             `<b>${schoolTitle}</b>\n\n` +
             `<blockquote>` +
             `Halo <b>${item.nama}</b>, permohonan izin Anda pada tanggal <b>${item.tanggal}</b> telah <b>DITOLAK</b>.\n\n` +
@@ -2217,12 +3083,17 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id
   const targetOldNisn = String(oldNisn || '').trim().toLowerCase();
 
   let targetRow = -1;
+  let oldNama = '';
+  let oldIdMesin = '';
+
   for (let i = 1; i < data.length; i++) {
     const rNisn = String(data[i][0] || '').trim().toLowerCase();
     const rNis = String(data[i][1] || '').trim().toLowerCase();
 
     if ((targetOldNis && rNis === targetOldNis) || (targetOldNisn && rNisn === targetOldNisn)) {
       targetRow = i + 1;
+      oldNama = String(data[i][2] || '').trim();
+      oldIdMesin = String(data[i][5] || '').trim();
       break;
     }
   }
@@ -2241,6 +3112,9 @@ function handleUpdateStudent(oldNis, oldNisn, nisn, nis, nama, kelas, gender, id
 
   sheet.getRange(targetRow, 1, 1, 7).setValues([[cleanNisn, cleanNis, cleanNama, cleanKelas, cleanGender, cleanIdMesin, cleanIdTelegram]]);
   clearStudentCache();
+
+  // Cascade Update across all related sheets (LogAbsen, LogIzinSiswa, LogPelanggaran, User_Mesin)
+  cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, cleanNis, cleanNisn, cleanNama, cleanKelas, cleanIdMesin, cleanIdTelegram, oldIdMesin);
 
   return jsonResponse('success', `Data siswa "${cleanNama}" berhasil diperbarui.`);
 }
@@ -3240,7 +4114,18 @@ function handleGetSelfProfile(username) {
 }
 
 // === OVERVIEW STATS & ANALYTICS SUMMARY ENDPOINT ===
-function handleGetOverviewStats() {
+function handleGetOverviewStats(forceServer) {
+  const cache = CacheService.getScriptCache();
+  if (!forceServer) {
+    const cached = cache.get("OVERVIEW_STATS_CACHE");
+    if (cached) {
+      try {
+        const obj = JSON.parse(cached);
+        return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+      } catch (e) {}
+    }
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // 1. Data Siswa & Gender & Kelas
@@ -3253,15 +4138,16 @@ function handleGetOverviewStats() {
   if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
     const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 6).getValues();
     for (let i = 0; i < sData.length; i++) {
-      const nama = String(sData[i][3] || '').trim();
+      const nama = String(sData[i][2] || '').trim();
       if (!nama) continue;
 
       totalSiswa++;
+      const kls = String(sData[i][3] || 'Lainnya').trim();
       const gender = String(sData[i][4] || '').trim().toUpperCase();
+
       if (gender === 'L' || gender === 'LAKI-LAKI') totalLaki++;
       else if (gender === 'P' || gender === 'PEREMPUAN') totalPerempuan++;
 
-      const kls = String(sData[i][5] || 'Lainnya').trim();
       if (!kelasMap[kls]) kelasMap[kls] = { kls: kls, total: 0, L: 0, P: 0 };
       kelasMap[kls].total++;
       if (gender === 'L' || gender === 'LAKI-LAKI') kelasMap[kls].L++;
@@ -3271,25 +4157,40 @@ function handleGetOverviewStats() {
 
   const todayFormatted = getFormattedDate(new Date());
 
-  // 2. Data Absensi Siswa (Hari Ini / Hari Berjalan)
+  // 2. Data Absensi Siswa (Hari Ini & Historical Logs)
   let studentAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
+  const studentLogs = [];
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   if (sheetLog && sheetLog.getLastRow() > 1) {
-    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
+    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
     for (let i = 0; i < logData.length; i++) {
       const rawDate = logData[i][0];
       if (!rawDate) continue;
       const logDateFormatted = getFormattedDate(rawDate);
-      if (logDateFormatted !== todayFormatted) continue;
-
+      const nisn = String(logData[i][1] || '').trim();
+      const nis = String(logData[i][2] || '').trim();
+      const nama = String(logData[i][3] || '').trim();
+      const kelas = String(logData[i][4] || '').trim();
       const st = String(logData[i][5] || '').trim().toUpperCase();
-      if (!st) continue;
-      if (st.includes('HADIR') || st === 'H') studentAbsenSummary.Hadir++;
-      else if (st.includes('SAKIT') || st === 'S') studentAbsenSummary.Sakit++;
-      else if (st.includes('IZIN') || st === 'I') studentAbsenSummary.Izin++;
-      else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') studentAbsenSummary.Alpa++;
-      else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') studentAbsenSummary.Terlambat++;
-      else studentAbsenSummary.Hadir++;
+
+      studentLogs.push({
+        tanggal: logDateFormatted,
+        nisn: nisn,
+        nis: nis,
+        nama: nama,
+        kelas: kelas,
+        status: st
+      });
+
+      if (logDateFormatted === todayFormatted) {
+        if (!st) continue;
+        if (st.includes('HADIR') || st === 'H') studentAbsenSummary.Hadir++;
+        else if (st.includes('SAKIT') || st === 'S') studentAbsenSummary.Sakit++;
+        else if (st.includes('IZIN') || st === 'I') studentAbsenSummary.Izin++;
+        else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') studentAbsenSummary.Alpa++;
+        else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') studentAbsenSummary.Terlambat++;
+        else studentAbsenSummary.Hadir++;
+      }
     }
   }
 
@@ -3298,16 +4199,16 @@ function handleGetOverviewStats() {
   let totalViolations = 0;
   const sheetPelanggaran = ss.getSheetByName(SHEET_PELANGGARAN);
   if (sheetPelanggaran && sheetPelanggaran.getLastRow() > 1) {
-    const pData = sheetPelanggaran.getRange(2, 6, sheetPelanggaran.getLastRow() - 1, 1).getValues();
+    const pData = sheetPelanggaran.getRange(2, 1, sheetPelanggaran.getLastRow() - 1, 6).getValues();
     for (let i = 0; i < pData.length; i++) {
-      const kat = String(pData[i][0] || 'Lainnya').trim();
+      const kat = String(pData[i][5] || pData[i][4] || 'Lainnya').trim();
       if (!kat) continue;
       totalViolations++;
       violationSummary[kat] = (violationSummary[kat] || 0) + 1;
     }
   }
 
-  // 4. Data Absensi Guru & Staf (Hari Ini / Hari Berjalan)
+  // 4. Data Absensi Guru & Staf (Hari Ini)
   let guruAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
   let totalGuruLog = 0;
   const attendedGuruUsernames = new Set();
@@ -3315,9 +4216,9 @@ function handleGetOverviewStats() {
 
   const sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
   if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
-    const gData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 6).getValues();
+    const gData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 7).getValues();
     for (let i = 0; i < gData.length; i++) {
-      const rawDate = gData[i][2]; // Tanggal di Kolom C (index 2)
+      const rawDate = gData[i][1];
       if (!rawDate) continue;
       const logDateFormatted = getFormattedDate(rawDate);
       if (logDateFormatted !== todayFormatted) continue;
@@ -3327,7 +4228,7 @@ function handleGetOverviewStats() {
       if (uName) attendedGuruUsernames.add(uName);
       if (nama) attendedGuruNames.add(nama);
 
-      const st = String(gData[i][5] || '').trim().toUpperCase(); // Status di Kolom F (index 5)
+      const st = String(gData[i][6] || '').trim().toUpperCase();
       if (!st) continue;
       totalGuruLog++;
       if (st.includes('HADIR') || st === 'H') guruAbsenSummary.Hadir++;
@@ -3366,7 +4267,7 @@ function handleGetOverviewStats() {
     }
   }
 
-  return jsonResponse('success', 'Data overview berhasil ditarik', {
+  const resultObj = {
     totalSiswa: totalSiswa,
     totalLaki: totalLaki,
     totalPerempuan: totalPerempuan,
@@ -3377,6 +4278,1512 @@ function handleGetOverviewStats() {
     violationSummary: violationSummary,
     totalGuruLog: totalGuruLog,
     guruAbsenSummary: guruAbsenSummary,
-    unabsenGuruList: unabsenGuruList
+    unabsenGuruList: unabsenGuruList,
+    studentLogs: studentLogs
+  };
+
+  try {
+    cache.put("OVERVIEW_STATS_CACHE", JSON.stringify({
+      status: 'success',
+      message: 'Data overview (cached)',
+      data: resultObj
+    }), 45); // Cache for 45s
+  } catch (e) {}
+
+  return jsonResponse('success', 'Data overview berhasil ditarik', resultObj);
+}
+
+// ==========================================
+// MANAJEMEN DATA MATA PELAJARAN (MAPEL) & TARGET KELAS
+// ==========================================
+const DEFAULT_MAPEL_DATA = [
+  { nama: 'Informatika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-5' },
+  { nama: 'IT Preneur', target_kelas: 'X-1, X-2, X-3, X-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Geografi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2' },
+  { nama: 'Pendidikan Agama Islam', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Bahasa Indonesia', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Ekonomi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
+  { nama: 'PJOK', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Bahasa Jerman', target_kelas: 'XI-1, XI-2, XII-1, XII-2, XII-3' },
+  { nama: 'Sosiologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
+  { nama: 'Matematika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Matematika TL', target_kelas: 'XI-3, XI-4, XII-4, XII-5' },
+  { nama: 'Kimia', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
+  { nama: 'Pendidikan Pancasila', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Bahasa Inggris', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Fisika', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
+  { nama: 'Seni Rupa', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Sejarah', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
+  { nama: 'Biologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-3, XII-4' }
+];
+
+function getOrCreateMapelSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_MAPEL);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_MAPEL);
+    sheet.appendRow(['Nama Mata Pelajaran', 'Target Kelas']);
+    for (let i = 0; i < DEFAULT_MAPEL_DATA.length; i++) {
+      sheet.appendRow([DEFAULT_MAPEL_DATA[i].nama, DEFAULT_MAPEL_DATA[i].target_kelas]);
+    }
+  }
+  return sheet;
+}
+
+function handleGetMapel() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateMapelSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  const list = [];
+  
+  if (data.length > 1) {
+    for (let i = 1; i < data.length; i++) {
+      const nama = String(data[i][0] || '').trim();
+      const target = String(data[i][1] || '').trim();
+      if (nama) {
+        list.push({ nama: nama, target_kelas: target });
+      }
+    }
+  } else {
+    for (let i = 0; i < DEFAULT_MAPEL_DATA.length; i++) {
+      sheet.appendRow([DEFAULT_MAPEL_DATA[i].nama, DEFAULT_MAPEL_DATA[i].target_kelas]);
+      list.push(DEFAULT_MAPEL_DATA[i]);
+    }
+  }
+  
+  return jsonResponse('success', 'Data Mata Pelajaran berhasil ditarik', list);
+}
+
+function handleSaveMapel(nama, target_kelas, old_nama) {
+  if (!nama) return jsonResponse('error', 'Nama Mata Pelajaran wajib diisi!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateMapelSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  
+  let foundRow = -1;
+  const targetNamaSearch = String(old_nama || nama).trim().toLowerCase();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, 2).setValues([[nama, target_kelas || '']]);
+    return jsonResponse('success', `Mata Pelajaran '${nama}' berhasil diperbarui!`);
+  } else {
+    sheet.appendRow([nama, target_kelas || '']);
+    return jsonResponse('success', `Mata Pelajaran '${nama}' berhasil ditambahkan!`);
+  }
+}
+
+function handleDeleteMapel(nama) {
+  if (!nama) return jsonResponse('error', 'Nama Mata Pelajaran tidak valid!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateMapelSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  const targetNamaSearch = String(nama).trim().toLowerCase();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse('success', `Mata Pelajaran '${nama}' berhasil dihapus!`);
+    }
+  }
+  
+  return jsonResponse('error', `Mata Pelajaran '${nama}' tidak ditemukan.`);
+}
+
+function handleSeedDefaultMapel() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_MAPEL);
+  if (sheet) {
+    ss.deleteSheet(sheet);
+  }
+  sheet = ss.insertSheet(SHEET_MAPEL);
+  sheet.appendRow(['Nama Mata Pelajaran', 'Target Kelas']);
+  
+  for (let i = 0; i < DEFAULT_MAPEL_DATA.length; i++) {
+    sheet.appendRow([DEFAULT_MAPEL_DATA[i].nama, DEFAULT_MAPEL_DATA[i].target_kelas]);
+  }
+  
+  return jsonResponse('success', '18 Data Mata Pelajaran Bawaan berhasil disetup ulang!', DEFAULT_MAPEL_DATA);
+}
+
+// ==========================================
+// MANAJEMEN MASTER DATA KELAS (DATAKELAS)
+// ==========================================
+const DEFAULT_KELAS_DATA = [
+  { nama: 'X-1', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'X-2', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'X-3', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'X-4', tingkat: 'X', jurusan: 'Umum', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-1', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-2', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-3', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XI-4', tingkat: 'XI', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-1', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-2', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-3', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-4', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' },
+  { nama: 'XII-5', tingkat: 'XII', jurusan: 'Peminatan', wali_kelas: '-', kapasitas: '36' }
+];
+
+function getOrCreateKelasSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_KELAS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_KELAS);
+    sheet.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+    for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+      sheet.appendRow([
+        DEFAULT_KELAS_DATA[i].nama,
+        DEFAULT_KELAS_DATA[i].tingkat,
+        DEFAULT_KELAS_DATA[i].jurusan,
+        DEFAULT_KELAS_DATA[i].wali_kelas,
+        DEFAULT_KELAS_DATA[i].kapasitas
+      ]);
+    }
+  }
+  return sheet;
+}
+
+function handleGetKelas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateKelasSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  // Create Wali Kelas lookup from Sheet Users (Single Source of Truth)
+  const waliMap = {};
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers) {
+    const uData = sheetUsers.getDataRange().getValues();
+    for (let i = 1; i < uData.length; i++) {
+      const role = String(uData[i][3] || '').trim();
+      const namaGuru = String(uData[i][4] || uData[i][0] || '').trim();
+      const wKelas = String(uData[i][7] || uData[i][8] || '').trim(); // Wali Kelas column
+      if (wKelas && wKelas !== '-') {
+        waliMap[wKelas.toLowerCase()] = namaGuru;
+      }
+    }
+  }
+
+  const list = [];
+  
+  if (data.length > 1) {
+    for (let i = 1; i < data.length; i++) {
+      const nama = String(data[i][0] || '').trim();
+      const tingkat = String(data[i][1] || '').trim();
+      const jurusan = String(data[i][2] || '-').trim();
+      let wali = String(data[i][3] || '-').trim();
+      
+      // Auto resolve from Users sheet if empty/dash
+      if ((!wali || wali === '-') && waliMap[nama.toLowerCase()]) {
+        wali = waliMap[nama.toLowerCase()];
+      }
+
+      const kap = String(data[i][4] || '-').trim();
+      if (nama) {
+        list.push({ nama: nama, tingkat: tingkat, jurusan: jurusan, wali_kelas: wali, kapasitas: kap });
+      }
+    }
+  } else {
+    for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+      let wali = DEFAULT_KELAS_DATA[i].wali_kelas;
+      if (waliMap[DEFAULT_KELAS_DATA[i].nama.toLowerCase()]) {
+        wali = waliMap[DEFAULT_KELAS_DATA[i].nama.toLowerCase()];
+      }
+      sheet.appendRow([
+        DEFAULT_KELAS_DATA[i].nama,
+        DEFAULT_KELAS_DATA[i].tingkat,
+        DEFAULT_KELAS_DATA[i].jurusan,
+        wali,
+        DEFAULT_KELAS_DATA[i].kapasitas
+      ]);
+      list.push({ ...DEFAULT_KELAS_DATA[i], wali_kelas: wali });
+    }
+  }
+  
+  return jsonResponse('success', 'Data Master Kelas berhasil ditarik', list);
+}
+
+function handleSaveKelas(nama, tingkat, jurusan, wali_kelas, kapasitas, old_nama) {
+  if (!nama) return jsonResponse('error', 'Nama Kelas wajib diisi!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateKelasSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  
+  let foundRow = -1;
+  const targetNamaSearch = String(old_nama || nama).trim().toLowerCase();
+  const cleanWali = String(wali_kelas || '-').trim();
+
+  // Deduplicate Wali Kelas: Ensure 1 Teacher is not assigned to multiple classes simultaneously
+  if (cleanWali !== '-') {
+    for (let i = 1; i < data.length; i++) {
+      const rowNama = String(data[i][0] || '').trim().toLowerCase();
+      const rowWali = String(data[i][3] || '').trim().toLowerCase();
+      if (rowWali === cleanWali.toLowerCase() && rowNama !== targetNamaSearch) {
+        sheet.getRange(i + 1, 4).setValue('-'); // Clear previous assignment
+      }
+    }
+  }
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  
+  const cleanTingkat = tingkat || (nama.toUpperCase().startsWith('XII') ? 'XII' : nama.toUpperCase().startsWith('XI') ? 'XI' : 'X');
+  
+  if (foundRow > 0) {
+    sheet.getRange(foundRow, 1, 1, 5).setValues([[nama, cleanTingkat, jurusan || '-', cleanWali, kapasitas || '36']]);
+    if (old_nama && old_nama.trim() !== nama.trim()) {
+      cascadeUpdateClassName(ss, old_nama.trim(), nama.trim());
+    }
+    return jsonResponse('success', `Data Kelas '${nama}' berhasil diperbarui!`);
+  } else {
+    sheet.appendRow([nama, cleanTingkat, jurusan || '-', cleanWali, kapasitas || '36']);
+    return jsonResponse('success', `Data Kelas '${nama}' berhasil ditambahkan!`);
+  }
+}
+
+function handleDeleteKelas(nama) {
+  if (!nama) return jsonResponse('error', 'Nama Kelas tidak valid!');
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateKelasSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  const targetNamaSearch = String(nama).trim().toLowerCase();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim().toLowerCase() === targetNamaSearch) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse('success', `Data Kelas '${nama}' berhasil dihapus!`);
+    }
+  }
+  
+  return jsonResponse('error', `Data Kelas '${nama}' tidak ditemukan.`);
+}
+
+function handleSeedDefaultKelas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_KELAS);
+  if (sheet) {
+    ss.deleteSheet(sheet);
+  }
+  sheet = ss.insertSheet(SHEET_KELAS);
+  sheet.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+  
+  for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+    sheet.appendRow([
+      DEFAULT_KELAS_DATA[i].nama,
+      DEFAULT_KELAS_DATA[i].tingkat,
+      DEFAULT_KELAS_DATA[i].jurusan,
+      DEFAULT_KELAS_DATA[i].wali_kelas,
+      DEFAULT_KELAS_DATA[i].kapasitas
+    ]);
+  }
+  
+  return jsonResponse('success', '13 Data Master Kelas Bawaan berhasil disetup ulang!', DEFAULT_KELAS_DATA);
+}
+
+// ==========================================
+// OTOMATIS BERSIHKAN & PERBAIKI SELURUH DATABASE
+// ==========================================
+function handleCleanupAndRepairData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureDatabaseSetup();
+
+  const log = [];
+
+  // 1. Perbaiki & Standarkan DataKelas
+  let sheetKelas = ss.getSheetByName(SHEET_KELAS);
+  if (!sheetKelas) {
+    sheetKelas = ss.insertSheet(SHEET_KELAS);
+    sheetKelas.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+    log.push('Tabel DataKelas baru saja dibuat.');
+  }
+
+  const kData = sheetKelas.getDataRange().getValues();
+  const existingWaliMap = {};
+  if (kData.length > 1) {
+    for (let i = 1; i < kData.length; i++) {
+      const namaK = String(kData[i][0] || '').trim();
+      const waliK = String(kData[i][3] || '-').trim();
+      if (namaK) {
+        existingWaliMap[namaK.toLowerCase()] = waliK;
+      }
+    }
+  }
+
+  // Bersihkan dan susun ulang 13 rombel preset bawaan dengan Peminatan untuk XI & XII
+  sheetKelas.clear();
+  sheetKelas.appendRow(['Nama Kelas', 'Tingkat', 'Jurusan', 'Wali Kelas', 'Kapasitas']);
+
+  for (let i = 0; i < DEFAULT_KELAS_DATA.length; i++) {
+    const item = DEFAULT_KELAS_DATA[i];
+    const prevWali = existingWaliMap[item.nama.toLowerCase()] || '-';
+    sheetKelas.appendRow([
+      item.nama,
+      item.tingkat,
+      item.jurusan,
+      prevWali,
+      item.kapasitas
+    ]);
+  }
+  log.push('13 Rombel DataKelas disinkronkan & diperbaiki (XI & XII Peminatan).');
+
+  // 2. Format ulang & bersihkan Tabel Users (Hapus kolom legacy Wali_Kelas dari Sheet Users)
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers) {
+    const uData = sheetUsers.getDataRange().getValues();
+    if (uData.length > 0) {
+      const cleanUsersData = [
+        ['ID', 'Username', 'Password', 'Role', 'NamaLengkap', 'ID_Mesin', 'ID_Telegram', 'Tugas_Piket']
+      ];
+
+      for (let i = 1; i < uData.length; i++) {
+        const u = String(uData[i][1] || '').trim();
+        if (!u) continue;
+        const idUser = String(uData[i][0] || i);
+        const pwd = String(uData[i][2] || '').trim();
+        const role = String(uData[i][3] || 'Guru').trim();
+        const nama = String(uData[i][4] || u).trim();
+        const idMesin = String(uData[i][5] || '').trim();
+        const idTg = String(uData[i][6] || '').trim();
+
+        // Determine Tugas_Piket (If legacy 9-column format, col 9 [index 8], else col 8 [index 7])
+        let tugasPiket = '-';
+        if (uData[i].length >= 9) {
+          tugasPiket = String(uData[i][8] || '-').trim();
+        } else if (uData[i].length >= 8) {
+          const val8 = String(uData[i][7] || '-').trim();
+          if (!val8.toUpperCase().startsWith('X') && !val8.toUpperCase().startsWith('XI') && !val8.toUpperCase().startsWith('XII')) {
+            tugasPiket = val8;
+          }
+        }
+
+        cleanUsersData.push([idUser, u, pwd, role, nama, idMesin, idTg, tugasPiket]);
+      }
+
+      sheetUsers.clear();
+      sheetUsers.getRange(1, 1, cleanUsersData.length, 8).setValues(cleanUsersData);
+      log.push('Kolom Wali_Kelas berhasil dihapus dari sheet Users. Penugasan Wali Kelas 100% dipusatkan ke DataKelas.');
+    }
+  }
+
+  return jsonResponse('success', '✅ Database berhasil dibersihkan, kolom Wali_Kelas di sheet Users dihapus, & disinkronkan!', {
+    log: log
   });
+}
+
+// ==========================================
+// MODUL PENGAJUAN IZIN SISWA & APPROVAL WALI KELAS
+// ==========================================
+
+function getOrCreateIzinSiswaSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_IZIN_SISWA);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_IZIN_SISWA);
+    const headers = [
+      'ID', 'Waktu', 'Tanggal', 'NISN', 'NIS', 'Nama', 
+      'Kelas', 'WaliKelas', 'Kategori', 'Keterangan', 
+      'FotoUrl', 'Status', 'DisetujuiOleh', 'WaktuPersetujuan'
+    ];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold')
+      .setBackground('#1e293b')
+      .setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getWaliKelasForClass(ss, namaKelas) {
+  if (!namaKelas) return '-';
+  const targetKls = String(namaKelas).trim().toLowerCase();
+  
+  const sheetKls = ss.getSheetByName(SHEET_KELAS);
+  if (sheetKls && sheetKls.getLastRow() > 1) {
+    const data = sheetKls.getRange(2, 1, sheetKls.getLastRow() - 1, 6).getValues();
+    for (let i = 0; i < data.length; i++) {
+      const klsName = String(data[i][0] || '').trim().toLowerCase();
+      if (klsName === targetKls) {
+        return String(data[i][3] || '-').trim();
+      }
+    }
+  }
+  return '-';
+}
+
+function handleGetIzinSiswa() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+    const data = [];
+    
+    if (sheet.getLastRow() > 1) {
+      const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+      for (let i = rows.length - 1; i >= 0; i--) { // Reverse for newest first
+        const r = rows[i];
+        if (!r[0]) continue;
+        data.push({
+          id: String(r[0]),
+          waktu: String(r[1] || ''),
+          tanggal: getFormattedDate(r[2]),
+          nisn: String(r[3] || '').trim().replace(/^'/, ''),
+          nis: String(r[4] || '').trim().replace(/^'/, ''),
+          nama: String(r[5] || ''),
+          kelas: String(r[6] || ''),
+          waliKelas: String(r[7] || ''),
+          kategori: String(r[8] || ''),
+          keterangan: String(r[9] || ''),
+          fotoUrl: String(r[10] || ''),
+          status: String(r[11] || 'Pending'),
+          disetujuiOleh: String(r[12] || ''),
+          waktuPersetujuan: String(r[13] || '')
+        });
+      }
+    }
+    
+    return jsonResponse('success', 'Berhasil mengambil log izin siswa', data);
+  } catch (err) {
+    return jsonResponse('error', 'Gagal mengambil log izin siswa: ' + err.toString());
+  }
+}
+
+function handleAddPengajuanIzinSiswa(dataObj) {
+  try {
+    if (!dataObj) return jsonResponse('error', 'Data pengajuan kosong');
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+
+    const id = 'IZIN-SISWA-' + Date.now();
+    const waktu = new Date().toLocaleString('id-ID');
+    const tanggal = dataObj.tanggal || getFormattedDate(new Date());
+    let nisn = String(dataObj.nisn || '').trim().replace(/^'/, '');
+    let nis = String(dataObj.nis || '').trim().replace(/^'/, '');
+    const nama = String(dataObj.nama || '').trim();
+    const kelas = String(dataObj.kelas || '').trim();
+    const kategori = String(dataObj.kategori || 'Izin').trim();
+    const keterangan = String(dataObj.keterangan || '').trim();
+    const fotoUrl = String(dataObj.fotoUrl || dataObj.foto || '').trim();
+
+    // Cross-check dengan DataSiswa untuk memastikan NISN & NIS lengkap dengan 0 di depan
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const masterNisn = String(sData[i][0] || '').trim();
+        const masterNis = String(sData[i][1] || '').trim();
+        const masterNama = String(sData[i][2] || '').trim();
+
+        if (
+          (nisn && (masterNisn === nisn || Number(masterNisn) === Number(nisn))) ||
+          (nis && (masterNis === nis || Number(masterNis) === Number(nis))) ||
+          (nama && masterNama.toLowerCase() === nama.toLowerCase())
+        ) {
+          if (masterNisn) nisn = masterNisn;
+          if (masterNis) nis = masterNis;
+          break;
+        }
+      }
+    }
+
+    // Paksa Google Sheets menyimpan sebagai TEKS (agar angka 0 di depan tidak terhapus)
+    const nisnForSheet = nisn ? (nisn.startsWith("'") ? nisn : "'" + nisn) : '';
+    const nisForSheet = nis ? (nis.startsWith("'") ? nis : "'" + nis) : '';
+
+    const waliKelas = getWaliKelasForClass(ss, kelas);
+
+    const newRow = [
+      id, waktu, tanggal, nisnForSheet, nisForSheet, nama,
+      kelas, waliKelas, kategori, keterangan,
+      fotoUrl, 'Pending', '', ''
+    ];
+
+    sheet.appendRow(newRow);
+
+    // 1. Send Telegram Notification to Student (if id_telegram available)
+    let studentTgId = String(dataObj.id_telegram || '').trim();
+    if (!studentTgId) {
+      if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+        const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
+        for (let i = 0; i < sData.length; i++) {
+          const sNisn = String(sData[i][0] || '').trim();
+          const sNis = String(sData[i][1] || '').trim();
+          if ((nisn && sNisn === nisn) || (nis && sNis === nis)) {
+            studentTgId = String(sData[i][7] || sData[i][6] || '').trim();
+            break;
+          }
+        }
+      }
+    }
+
+    if (studentTgId) {
+      const msgSiswa = `📩 <b>Pengajuan Izin Berhasil Dikirim!</b>\n\n` +
+        `👤 Nama: <b>${nama}</b>\n` +
+        `🏫 Kelas: <b>${kelas}</b>\n` +
+        `📅 Tanggal: <b>${tanggal}</b>\n` +
+        `📝 Kategori: <b>${kategori}</b>\n` +
+        `👨‍🏫 Wali Kelas: <b>${waliKelas}</b>\n` +
+        `💬 Ket: <i>${keterangan || '-'}</i>\n\n` +
+        `⏳ Status: <b>Menunggu Persetujuan Wali Kelas</b>`;
+      sendTelegramNotification(studentTgId, msgSiswa);
+    }
+
+    // 2. Send Telegram Notification to Wali Kelas (if id_telegram available)
+    let walasTgId = '';
+    if (waliKelas && waliKelas !== '-') {
+      const sheetUsers = ss.getSheetByName(SHEET_USERS);
+      if (sheetUsers && sheetUsers.getLastRow() > 1) {
+        const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+        const walasLower = waliKelas.toLowerCase();
+        for (let i = 0; i < uData.length; i++) {
+          const uNama = String(uData[i][4] || uData[i][1] || '').trim().toLowerCase();
+          if (uNama && (uNama === walasLower || uNama.includes(walasLower) || walasLower.includes(uNama))) {
+            walasTgId = String(uData[i][6] || '').trim();
+            break;
+          }
+        }
+      }
+    }
+
+    if (walasTgId) {
+      const msgWalas = `🔔 <b>PERMOHONAN IZIN SISWA BARU</b>\n\n` +
+        `👤 Nama Siswa: <b>${nama}</b> (${kelas})\n` +
+        `📅 Tanggal Izin: <b>${tanggal}</b>\n` +
+        `📌 Kategori: <b>${kategori}</b>\n` +
+        `💬 Keterangan: <i>${keterangan || '-'}</i>\n\n` +
+        `Silakan buka aplikasi SMARTAPP untuk menyetujui / menolak permohonan ini.`;
+      sendTelegramNotification(walasTgId, msgWalas);
+    }
+
+    return jsonResponse('success', 'Pengajuan izin siswa berhasil disimpan & notifikasi dikirim', {
+      id: id,
+      waliKelas: waliKelas,
+      status: 'Pending'
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyimpan pengajuan izin siswa: ' + err.toString());
+  }
+}
+
+function handleApproveIzinSiswa(id, approverName, approverRole) {
+  try {
+    if (!id) return jsonResponse('error', 'ID Izin tidak valid');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+
+    if (sheet.getLastRow() <= 1) return jsonResponse('error', 'Data izin kosong');
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+    let rowIndex = -1;
+    let targetRowData = null;
+
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        rowIndex = i + 2;
+        targetRowData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) return jsonResponse('error', 'Data permohonan izin tidak ditemukan');
+
+    const timeNowStr = new Date().toLocaleString('id-ID');
+    const nameStr = approverName || 'Wali Kelas';
+
+    sheet.getRange(rowIndex, 12).setValue('Disetujui');
+    sheet.getRange(rowIndex, 13).setValue(nameStr);
+    sheet.getRange(rowIndex, 14).setValue(timeNowStr);
+
+    const tanggal = getFormattedDate(targetRowData[2]);
+    let nisn = String(targetRowData[3] || '').trim().replace(/^'/, '');
+    let nis = String(targetRowData[4] || '').trim().replace(/^'/, '');
+    const nama = String(targetRowData[5] || '').trim();
+    const kelas = String(targetRowData[6] || '').trim();
+    const kategori = String(targetRowData[8] || 'Izin').toUpperCase();
+
+    // Cross-check dengan DataSiswa untuk memastikan NISN & NIS lengkap dengan 0 di depan
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const masterNisn = String(sData[i][0] || '').trim();
+        const masterNis = String(sData[i][1] || '').trim();
+        const masterNama = String(sData[i][2] || '').trim();
+
+        if (
+          (nisn && (masterNisn === nisn || Number(masterNisn) === Number(nisn))) ||
+          (nis && (masterNis === nis || Number(masterNis) === Number(nis))) ||
+          (nama && masterNama.toLowerCase() === nama.toLowerCase())
+        ) {
+          if (masterNisn) nisn = masterNisn;
+          if (masterNis) nis = masterNis;
+          break;
+        }
+      }
+    }
+
+    // Paksa Google Sheets menyimpan sebagai TEKS (agar angka 0 di depan tidak terhapus)
+    const nisnForSheet = nisn ? (nisn.startsWith("'") ? nisn : "'" + nisn) : '';
+    const nisForSheet = nis ? (nis.startsWith("'") ? nis : "'" + nis) : '';
+
+    // 1. AUTO-FILL PRESENSI (LogAbsen / SHEET_LOG)
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    if (sheetLog) {
+      let statusAbsen = 'IZIN';
+      if (kategori.includes('SAKIT')) statusAbsen = 'SAKIT';
+      else if (kategori.includes('IZIN')) statusAbsen = 'IZIN';
+
+      let existingLogIndex = -1;
+      if (sheetLog.getLastRow() > 1) {
+        const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 6).getValues();
+        for (let i = 0; i < logData.length; i++) {
+          const lTgl = getFormattedDate(logData[i][0]);
+          const lNisn = String(logData[i][1] || '').trim().replace(/^'/, '');
+          const lNis = String(logData[i][2] || '').trim().replace(/^'/, '');
+          const lNama = String(logData[i][3] || '').trim();
+
+          if (lTgl === tanggal && ((nisn && (lNisn === nisn || Number(lNisn) === Number(nisn))) || (nis && (lNis === nis || Number(lNis) === Number(nis))) || (nama && lNama.toLowerCase() === nama.toLowerCase()))) {
+            existingLogIndex = i + 2;
+            break;
+          }
+        }
+      }
+
+      const petugasTag = 'Auto-Izin (Walas: ' + nameStr + ')';
+      if (existingLogIndex !== -1) {
+        sheetLog.getRange(existingLogIndex, 2).setValue(nisnForSheet);
+        sheetLog.getRange(existingLogIndex, 3).setValue(nisForSheet);
+        sheetLog.getRange(existingLogIndex, 6).setValue(statusAbsen);
+        sheetLog.getRange(existingLogIndex, 7).setValue(petugasTag);
+      } else {
+        sheetLog.appendRow([timeNowStr, nisnForSheet, nisForSheet, nama, kelas, statusAbsen, petugasTag]);
+      }
+    }
+
+    // 2. Send Telegram Notification to Student
+    let studentTgId = '';
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const sNisn = String(sData[i][0] || '').trim();
+        const sNis = String(sData[i][1] || '').trim();
+        if ((nisn && sNisn === nisn) || (nis && sNis === nis)) {
+          studentTgId = String(sData[i][7] || sData[i][6] || '').trim();
+          break;
+        }
+      }
+    }
+
+    if (studentTgId) {
+      const msgSiswa = `<b>[PENGAJUAN IZIN DISETUJUI]</b>\n\n` +
+        `Pengajuan izin Anda untuk tanggal <b>${tanggal}</b> (Kategori: <b>${targetRowData[8]}</b>) telah <b>DISETUJUI</b> oleh ${nameStr}.\n\n` +
+        `Status presensi Anda pada tanggal tersebut otomatis dicatat sebagai <b>${targetRowData[8]}</b>.`;
+      sendTelegramNotification(studentTgId, msgSiswa);
+    }
+
+    // 3. Send Security Telegram Notification to Approver / Wali Kelas
+    let walasTgId = '';
+    const waliKelasName = String(targetRowData[7] || nameStr || '').trim();
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers && sheetUsers.getLastRow() > 1) {
+      const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+      const searchName1 = String(approverName || '').trim().toLowerCase();
+      const searchName2 = waliKelasName.toLowerCase();
+
+      for (let i = 0; i < uData.length; i++) {
+        const uNama = String(uData[i][4] || uData[i][1] || '').trim().toLowerCase();
+        const uTgId = String(uData[i][6] || '').trim();
+        if (uTgId && uNama && (
+          (searchName1 && (uNama === searchName1 || uNama.includes(searchName1) || searchName1.includes(uNama))) ||
+          (searchName2 && (uNama === searchName2 || uNama.includes(searchName2) || searchName2.includes(uNama)))
+        )) {
+          walasTgId = uTgId;
+          break;
+        }
+      }
+    }
+
+    if (walasTgId) {
+      const msgWalas = `<b>[KONFIRMASI PERSETUJUAN IZIN SISWA]</b>\n\n` +
+        `Anda baru saja <b>MENYETUJUI</b> permohonan izin berikut:\n\n` +
+        `- Siswa: <b>${nama}</b> (${kelas})\n` +
+        `- Tanggal: <b>${tanggal}</b>\n` +
+        `- Kategori: <b>${targetRowData[8] || 'Izin'}</b>\n` +
+        `- Keterangan: <i>${targetRowData[9] || '-'}</i>\n` +
+        `- Waktu ACC: <b>${timeNowStr}</b>\n\n` +
+        `<i>Pesan keamanan ini dikirim ke Telegram Anda untuk mencegah penyalahgunaan akun.</i>`;
+      sendTelegramNotification(walasTgId, msgWalas);
+    }
+
+    return jsonResponse('success', `Berhasil menyetujui izin ${nama} & presensi terisi otomatis`, {
+      id: id,
+      status: 'Disetujui',
+      disetujuiOleh: nameStr
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyetujui izin siswa: ' + err.toString());
+  }
+}
+
+function handleRejectIzinSiswa(id, approverName, approverRole) {
+  try {
+    if (!id) return jsonResponse('error', 'ID Izin tidak valid');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateIzinSiswaSheet(ss);
+
+    if (sheet.getLastRow() <= 1) return jsonResponse('error', 'Data izin kosong');
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+    let rowIndex = -1;
+    let targetRowData = null;
+
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        rowIndex = i + 2;
+        targetRowData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) return jsonResponse('error', 'Data permohonan izin tidak ditemukan');
+
+    const timeNowStr = new Date().toLocaleString('id-ID');
+    const nameStr = approverName || 'Wali Kelas';
+
+    sheet.getRange(rowIndex, 12).setValue('Ditolak');
+    sheet.getRange(rowIndex, 13).setValue(nameStr);
+    sheet.getRange(rowIndex, 14).setValue(timeNowStr);
+
+    const tanggal = getFormattedDate(targetRowData[2]);
+    const nisn = String(targetRowData[3] || '');
+    const nis = String(targetRowData[4] || '');
+    const nama = String(targetRowData[5] || '');
+    const kelas = String(targetRowData[6] || '');
+
+    // 1. Send Telegram Notification to Student
+    let studentTgId = '';
+    const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+    if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+      const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 8).getValues();
+      for (let i = 0; i < sData.length; i++) {
+        const sNisn = String(sData[i][0] || '').trim();
+        const sNis = String(sData[i][1] || '').trim();
+        if ((nisn && sNisn === nisn) || (nis && sNis === nis)) {
+          studentTgId = String(sData[i][7] || sData[i][6] || '').trim();
+          break;
+        }
+      }
+    }
+
+    if (studentTgId) {
+      const msgSiswa = `❌ <b>PENGAJUAN IZIN DITOLAK</b>\n\n` +
+        `Pengajuan izin Anda untuk tanggal <b>${tanggal}</b> telah <b>DITOLAK</b> oleh Wali Kelas/Petugas <b>${nameStr}</b>.\n\n` +
+        `Silakan hubungi Wali Kelas Anda untuk informasi lebih lanjut.`;
+      sendTelegramNotification(studentTgId, msgSiswa);
+    }
+
+    // 2. Send Security Telegram Notification to Approver / Wali Kelas
+    let walasTgId = '';
+    const waliKelasName = String(targetRowData[7] || nameStr || '').trim();
+    const sheetUsers = ss.getSheetByName(SHEET_USERS);
+    if (sheetUsers && sheetUsers.getLastRow() > 1) {
+      const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+      const searchName1 = String(approverName || '').trim().toLowerCase();
+      const searchName2 = waliKelasName.toLowerCase();
+
+      for (let i = 0; i < uData.length; i++) {
+        const uNama = String(uData[i][4] || uData[i][1] || '').trim().toLowerCase();
+        const uTgId = String(uData[i][6] || '').trim();
+        if (uTgId && uNama && (
+          (searchName1 && (uNama === searchName1 || uNama.includes(searchName1) || searchName1.includes(uNama))) ||
+          (searchName2 && (uNama === searchName2 || uNama.includes(searchName2) || searchName2.includes(uNama)))
+        )) {
+          walasTgId = uTgId;
+          break;
+        }
+      }
+    }
+
+    if (walasTgId) {
+      const msgWalas = `🛡️ <b>KONFIRMASI PENOLAKAN IZIN SISWA</b>\n\n` +
+        `Anda baru saja <b>MENOLAK</b> permohonan izin berikut:\n\n` +
+        `👤 Siswa: <b>${nama}</b> (${kelas})\n` +
+        `📅 Tanggal: <b>${tanggal}</b>\n` +
+        `📌 Kategori: <b>${targetRowData[8] || 'Izin'}</b>\n` +
+        `⏰ Waktu Penolakan: <b>${timeNowStr}</b>\n\n` +
+        `<i>Pesan keamanan ini dikirim ke Telegram Anda untuk mencegah penyalahgunaan akun.</i>`;
+      sendTelegramNotification(walasTgId, msgWalas);
+    }
+
+    return jsonResponse('success', `Pengajuan izin ${nama} ditolak`, {
+      id: id,
+      status: 'Ditolak',
+      disetujuiOleh: nameStr
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menolak izin siswa: ' + err.toString());
+  }
+}
+
+// ==========================================
+// FITUR EDU-IZIN (IZIN KBM) SISWA
+// ==========================================
+
+function getOrCreateDataIzinSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_DATA_IZIN);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_DATA_IZIN);
+    sheet.appendRow(['ID', 'Waktu', 'Nama Siswa', 'Kelas', 'Kategori', 'Alasan', 'Guru Pengajar', 'Petugas Piket', 'Status Guru', 'Status Piket', 'Link PDF', 'Keterangan Tolak']);
+    sheet.setFrozenRows(1);
+    sheet.getRange("A1:L1").setFontWeight("bold").setBackground("#c9daf8");
+  }
+  return sheet;
+}
+
+function findTelegramIdByNameOrUsername(ss, nameOrUsername) {
+  if (!nameOrUsername || nameOrUsername === '-' || nameOrUsername === 'Tidak ada guru') return '';
+  
+  const cleanStr = function(str) {
+    return String(str || '')
+      .toLowerCase()
+      .replace(/,?\s*(s\.pd|m\.pd|s\.kom|m\.kom|s\.si|m\.si|s\.t|m\.t|s\.ag|m\.ag|drs|dra|h|hj)\.?/gi, '')
+      .trim();
+  };
+
+  const searchRaw = String(nameOrUsername).trim().toLowerCase();
+  const searchClean = cleanStr(nameOrUsername);
+
+  // 1. Cari di Sheet Users (Guru/Piket/Admin)
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  if (sheetUsers && sheetUsers.getLastRow() > 1) {
+    const uData = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+    for (let i = 0; i < uData.length; i++) {
+      const username = String(uData[i][1] || '').trim().toLowerCase();
+      const namaRaw = String(uData[i][4] || uData[i][0] || '').trim().toLowerCase();
+      const namaClean = cleanStr(uData[i][4] || uData[i][0]);
+      const tgId = String(uData[i][6] || uData[i][7] || '').trim();
+
+      if (tgId && tgId !== '-') {
+        if (username === searchRaw || namaRaw === searchRaw || namaClean === searchClean) return tgId;
+        if (searchClean.length >= 3 && (namaClean.includes(searchClean) || searchClean.includes(namaClean))) return tgId;
+      }
+    }
+  }
+
+  // 2. Cari di Sheet DataSiswa
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (sheetSiswa && sheetSiswa.getLastRow() > 1) {
+    const sData = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, 7).getValues();
+    for (let i = 0; i < sData.length; i++) {
+      const nisn = String(sData[i][0] || '').trim().toLowerCase();
+      const nis = String(sData[i][1] || '').trim().toLowerCase();
+      const namaRaw = String(sData[i][2] || '').trim().toLowerCase();
+      const namaClean = cleanStr(sData[i][2]);
+      const tgId = String(sData[i][6] || '').trim();
+
+      if (tgId && tgId !== '-') {
+        if (nisn === searchRaw || nis === searchRaw || namaRaw === searchRaw || namaClean === searchClean) return tgId;
+        if (searchClean.length >= 3 && (namaClean.includes(searchClean) || searchClean.includes(namaClean))) return tgId;
+      }
+    }
+  }
+
+  return '';
+}
+
+function handleGetDropdownDataEduIzin() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetUsers = ss.getSheetByName(SHEET_USERS);
+  const gurus = [];
+  const pikets = [];
+
+  if (sheetUsers && sheetUsers.getLastRow() > 1) {
+    const data = sheetUsers.getRange(2, 1, sheetUsers.getLastRow() - 1, 8).getValues();
+    for (let i = 0; i < data.length; i++) {
+      const role = String(data[i][3] || '');
+      const nama = String(data[i][4] || data[i][0] || '').trim();
+      const tugasPiket = String(data[i][7] || '').toLowerCase().trim();
+      if (!nama) continue;
+      
+      const rLower = role.toLowerCase();
+      // Hanya yang role nya guru
+      if (rLower.includes('guru') || rLower.includes('walas')) {
+        if (!gurus.includes(nama)) gurus.push(nama);
+      }
+      // Hanya yang tugas_piket sebagai piket
+      if (tugasPiket.includes('piket') || rLower.includes('piket')) {
+        if (!pikets.includes(nama)) pikets.push(nama);
+      }
+    }
+  }
+  return jsonResponse('success', 'Dropdown EduIzin', { gurus: gurus, pikets: pikets });
+}
+
+function handleSubmitEduIzin(data) {
+  if (!data || !data.nama || !data.kategori || !data.piket) {
+    return jsonResponse('error', 'Semua data pengajuan wajib diisi!');
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  
+  const id = 'IZIN-' + new Date().getTime();
+  const waktu = new Date();
+  const statusGuru = (data.guru === 'Tidak ada guru' || !data.guru) ? 'Lewati' : 'Menunggu';
+  const statusPiket = 'Menunggu';
+  
+  sheet.appendRow([
+    id,
+    waktu,
+    data.nama,
+    data.kelas,
+    data.kategori,
+    data.alasan,
+    data.guru || 'Tidak ada guru',
+    data.piket,
+    statusGuru,
+    statusPiket,
+    '',
+    ''
+  ]);
+
+  const waktuFormatted = Utilities.formatDate(waktu, TIMEZONE, "dd/MM/yyyy HH:mm");
+  
+  // Notifikasi Telegram untuk SISWA (Konfirmasi Pengajuan Terkirim)
+  const siswaTgId = findTelegramIdByNameOrUsername(ss, data.nama);
+  if (siswaTgId) {
+    const msgSiswaSubmit = `<b>[PERMOHONAN IZIN KBM TERKIRIM]</b>\n\n` +
+      `Halo <b>${data.nama}</b>, permohonan izin <b>${data.kategori}</b> Anda telah diajukan ke sistem.\n` +
+      `- Guru Pengajar: <b>${data.guru || 'Tidak ada guru'}</b>\n` +
+      `- Petugas Piket: <b>${data.piket}</b>\n\n` +
+      `<i>Status saat ini sedang diproses. Anda akan menerima notifikasi Telegram saat izin disetujui.</i>`;
+    sendTelegramNotification(siswaTgId, msgSiswaSubmit);
+  }
+
+  if (statusGuru === 'Menunggu') {
+    const guruTgId = findTelegramIdByNameOrUsername(ss, data.guru);
+    if (guruTgId) {
+      const msgGuru = `<b>[PENGAJUAN IZIN KBM SISWA BARU]</b>\n\n` +
+        `- Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
+        `- Kategori: <b>${data.kategori}</b>\n` +
+        `- Alasan: <i>${data.alasan}</i>\n` +
+        `- Waktu: ${waktuFormatted} WIB\n` +
+        `- Petugas Piket: ${data.piket}\n\n` +
+        `<i>Mohon masuk ke Aplikasi SmartApp untuk menyetujui atau menolak permohonan ini.</i>`;
+      sendTelegramNotification(guruTgId, msgGuru);
+    }
+  } else {
+    const piketTgId = findTelegramIdByNameOrUsername(ss, data.piket);
+    if (piketTgId) {
+      const msgPiket = `<b>[PENGAJUAN IZIN KBM - ANTREAN PIKET]</b>\n\n` +
+        `- Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
+        `- Kategori: <b>${data.kategori}</b>\n` +
+        `- Alasan: <i>${data.alasan}</i>\n` +
+        `- Status Guru: <b>Dilewati (Jam Kosong)</b>\n` +
+        `- Waktu: ${waktuFormatted} WIB\n\n` +
+        `<i>Mohon masuk ke Aplikasi SmartApp untuk memproses izin di Meja Piket & mencetak PDF.</i>`;
+      sendTelegramNotification(piketTgId, msgPiket);
+    }
+  }
+
+  return jsonResponse('success', 'Permohonan izin KBM berhasil diajukan!');
+}
+
+function handleGetEduIzinRequests() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return jsonResponse('success', 'Data Izin Kosong', []);
+
+  data.shift();
+  const list = data.map(function(row) {
+    let rawDate = row[1];
+    let waktuStr = '-';
+    if (rawDate) {
+      try {
+        waktuStr = Utilities.formatDate(new Date(rawDate), TIMEZONE, "dd/MM/yyyy HH:mm");
+      } catch (e) {
+        waktuStr = String(rawDate);
+      }
+    }
+    return {
+      id: String(row[0]),
+      waktu: waktuStr,
+      nama: String(row[2] || ''),
+      kelas: String(row[3] || ''),
+      kategori: String(row[4] || ''),
+      alasan: String(row[5] || ''),
+      guru: String(row[6] || ''),
+      piket: String(row[7] || ''),
+      statusGuru: String(row[8] || 'Menunggu'),
+      statusPiket: String(row[9] || 'Menunggu'),
+      linkPdf: String(row[10] || ''),
+      keteranganTolak: String(row[11] || '')
+    };
+  }).reverse();
+
+  return jsonResponse('success', 'Data Izin KBM', list);
+}
+
+function handleApproveEduIzinGuru(id, approver) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      sheet.getRange(i + 1, 9).setValue('Disetujui');
+
+      const namaSiswa = data[i][2];
+      const kelasSiswa = data[i][3];
+      const kategori = data[i][4];
+      const alasan = data[i][5];
+      const namaGuru = data[i][6];
+      const namaPiket = data[i][7];
+
+      const piketTgId = findTelegramIdByNameOrUsername(ss, namaPiket);
+      if (piketTgId) {
+        const msgPiket = `<b>[IZIN KBM DISETUJUI GURU - ANTREAN PIKET]</b>\n\n` +
+          `- Siswa: <b>${namaSiswa}</b> (${kelasSiswa})\n` +
+          `- Kategori: <b>${kategori}</b>\n` +
+          `- Disetujui Guru: <b>${namaGuru}</b>\n` +
+          `- Alasan: <i>${alasan}</i>\n\n` +
+          `<i>Mohon buka Meja Piket di sistem SmartApp untuk memproses izin & cetak PDF.</i>`;
+        sendTelegramNotification(piketTgId, msgPiket);
+      }
+
+      const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
+      if (siswaTgId) {
+        const msgSiswa = `<b>[UPDATE PERMOHONAN IZIN KBM]</b>\n\n` +
+          `Guru Pengajar (<b>${namaGuru}</b>) telah <b>MENYETUJUI</b> izin ${kategori} Anda.\n` +
+          `Saat ini permohonan diteruskan ke Petugas Piket (<b>${namaPiket}</b>) untuk pengesahan & penerbitan PDF.`;
+        sendTelegramNotification(siswaTgId, msgSiswa);
+      }
+
+      return jsonResponse('success', 'Izin telah diverifikasi oleh Guru Pengajar!');
+    }
+  }
+
+  return jsonResponse('error', 'Data permohonan izin tidak ditemukan.');
+}
+
+function handleApproveEduIzinPiket(id, approver) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  let rowData = null;
+  let rowIndex = -1;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      rowData = data[i];
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  if (rowData) {
+    const pdfUrl = generateEduIzinPDF(rowData);
+    sheet.getRange(rowIndex, 10).setValue('Disetujui');
+    sheet.getRange(rowIndex, 11).setValue(pdfUrl);
+
+    const namaSiswa = rowData[2];
+    const kelasSiswa = rowData[3];
+    const kategori = rowData[4];
+    const namaGuru = rowData[6];
+    const namaPiket = rowData[7];
+
+    // 1. Notifikasi ke SISWA (Anak: membawa link PDF Surat Izin)
+    const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
+    if (siswaTgId) {
+      const msgSiswa = `<b>[SURAT BUKTI IZIN KBM DITERBITKAN]</b>\n\n` +
+        `Halo <b>${namaSiswa}</b>, permohonan izin <b>${kategori}</b> Anda telah DISAHKAN oleh Petugas Piket (<b>${approver || namaPiket}</b>).\n\n` +
+        `<b>Link Surat Bukti Izin (PDF):</b>\n${pdfUrl}\n\n` +
+        `<i>Tunjukkan Surat Izin PDF ini kepada Satpam atau Guru jika diminta.</i>`;
+      sendTelegramNotification(siswaTgId, msgSiswa);
+    }
+
+    // 2. Notifikasi ke GURU PIKET (Petugas Piket yang memproses / bertugas)
+    const targetPiket = approver || namaPiket;
+    const piketTgId = findTelegramIdByNameOrUsername(ss, targetPiket) || findTelegramIdByNameOrUsername(ss, namaPiket);
+    if (piketTgId) {
+      const msgPiket = `<b>[IZIN KBM DISAHKAN - KONFIRMASI PIKET]</b>\n\n` +
+        `Petugas Piket (<b>${targetPiket}</b>) telah menyetujui izin <b>${kategori}</b> & menerbitkan Surat Izin PDF.\n\n` +
+        `- Siswa: <b>${namaSiswa}</b> (${kelasSiswa})\n` +
+        `- Guru Pengajar: <b>${namaGuru}</b>\n` +
+        `- Link Dokumen PDF:\n${pdfUrl}`;
+      sendTelegramNotification(piketTgId, msgPiket);
+    }
+
+    // 3. Notifikasi ke GURU PENGAJAR (Baik yang disetujui Guru maupun yang dilewati karena jam kosong)
+    if (namaGuru && namaGuru !== 'Tidak ada guru') {
+      const guruTgId = findTelegramIdByNameOrUsername(ss, namaGuru);
+      if (guruTgId) {
+        const msgGuru = `<b>[INFORMASI IZIN KBM SELESAI]</b>\n\n` +
+          `Siswa <b>${namaSiswa}</b> (${kelasSiswa}) telah resmi diberikan izin <b>${kategori}</b> oleh Petugas Piket (<b>${targetPiket}</b>).\n` +
+          `Link Bukti PDF: ${pdfUrl}`;
+        sendTelegramNotification(guruTgId, msgGuru);
+      }
+    }
+
+    return jsonResponse('success', 'Izin disahkan oleh Piket & PDF Surat Izin berhasil dibuat!');
+  }
+
+  return jsonResponse('error', 'Data permohonan izin tidak ditemukan.');
+}
+
+function handleRejectEduIzin(id, tipe, alasan, approver) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      const namaSiswa = data[i][2];
+      const kelasSiswa = data[i][3];
+      const kategori = data[i][4];
+      const namaGuru = data[i][6];
+      const penolak = (tipe === 'guru') ? data[i][6] : data[i][7];
+
+      if (tipe === 'guru') {
+        sheet.getRange(i + 1, 9).setValue('Ditolak');
+        sheet.getRange(i + 1, 10).setValue('Dibatalkan');
+        sheet.getRange(i + 1, 12).setValue(alasan || 'Tidak disetujui');
+      } else {
+        sheet.getRange(i + 1, 10).setValue('Ditolak');
+        sheet.getRange(i + 1, 12).setValue(alasan || 'Tidak disetujui');
+      }
+
+      // Notifikasi ke SISWA
+      const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
+      if (siswaTgId) {
+        const msgReject = `<b>[PERMOHONAN IZIN KBM DITOLAK]</b>\n\n` +
+          `Halo <b>${namaSiswa}</b>, permohonan <b>${kategori}</b> Anda DITOLAK oleh ${tipe === 'guru' ? 'Guru Pengajar' : 'Petugas Piket'} (<b>${penolak}</b>).\n` +
+          `Alasan Penolakan: <i>${alasan || '-'}</i>`;
+        sendTelegramNotification(siswaTgId, msgReject);
+      }
+
+      // Jika ditolak oleh Piket, beritahukan juga Guru Pengajarnya (jika ada)
+      if (tipe === 'piket' && namaGuru && namaGuru !== 'Tidak ada guru') {
+        const guruTgId = findTelegramIdByNameOrUsername(ss, namaGuru);
+        if (guruTgId) {
+          const msgGuruReject = `<b>[INFORMASI PENOLAKAN IZIN KBM]</b>\n\n` +
+            `Permohonan izin <b>${kategori}</b> untuk siswa <b>${namaSiswa}</b> (${kelasSiswa}) telah DITOLAK oleh Petugas Piket (<b>${penolak}</b>).\n` +
+            `Alasan: <i>${alasan || '-'}</i>`;
+          sendTelegramNotification(guruTgId, msgGuruReject);
+        }
+      }
+
+      return jsonResponse('success', 'Permohonan izin berhasil ditolak!');
+    }
+  }
+
+  return jsonResponse('error', 'Data permohonan izin tidak ditemukan.');
+}
+
+function generateEduIzinPDF(rowData) {
+  const idIzin = rowData[0];
+  const nama = rowData[2];
+  const props = PropertiesService.getScriptProperties();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfg = getConfigObject(ss);
+  
+  const doc = DocumentApp.create('Temp_Izin_' + nama);
+  const body = doc.getBody();
+
+  body.setMarginTop(30).setMarginBottom(40).setMarginLeft(45).setMarginRight(45);
+
+  const kopYayasan = String(cfg.kopYayasan || 'YAYASAN SEKAR LAUT PELNI').trim();
+  const kopSekolah = String(cfg.kopSekolah || cfg.namaSekolah || 'SMA 1 BARUNAWATI').trim();
+  const kopAlamat = String(cfg.kopAlamat || 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083').trim();
+  const kopLogo = String(cfg.kopLogo || '').trim();
+  const kopLogoWidth = parseInt(cfg.kopLogoWidth || cfg.kopLogoSize || '85', 10) || 85;
+  const kopLogoHeight = parseInt(cfg.kopLogoHeight || cfg.kopLogoSize || '85', 10) || 85;
+
+  // HEADING KOP SURAT RESMI
+  let logoBlob = null;
+  if (kopLogo) {
+    try {
+      logoBlob = UrlFetchApp.fetch(kopLogo).getBlob();
+    } catch (errLogo) {
+      Logger.log("Gagal fetch logo kop: " + errLogo.toString());
+      logoBlob = null;
+    }
+  }
+
+  if (logoBlob) {
+    const kopTable = body.appendTable();
+    kopTable.setBorderWidth(0);
+    const kopRow = kopTable.appendTableRow();
+    
+    const cellLogo = kopRow.appendTableCell();
+    cellLogo.setWidth(kopLogoWidth + 15);
+    cellLogo.setVerticalAlignment(DocumentApp.VerticalAlignment.MIDDLE);
+
+    const pImg = cellLogo.getChild(0).asParagraph();
+    pImg.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    pImg.setSpacingBefore(0);
+    pImg.setSpacingAfter(0);
+    const inlineLogo = pImg.appendInlineImage(logoBlob);
+    inlineLogo.setWidth(kopLogoWidth).setHeight(kopLogoHeight);
+
+    const cellText = kopRow.appendTableCell();
+    cellText.setWidth(390);
+    cellText.setVerticalAlignment(DocumentApp.VerticalAlignment.MIDDLE);
+
+    const pYys = cellText.getChild(0).asParagraph();
+    if (kopYayasan) {
+      pYys.setText(kopYayasan.toUpperCase());
+      pYys.setFontFamily('Arial');
+      pYys.setFontSize(10.5);
+      pYys.setBold(true);
+      pYys.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pYys.setSpacingBefore(0);
+      pYys.setSpacingAfter(2);
+
+      const pSek = cellText.appendParagraph(kopSekolah.toUpperCase());
+      pSek.setFontFamily('Arial');
+      pSek.setFontSize(14);
+      pSek.setBold(true);
+      pSek.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pSek.setSpacingBefore(0);
+      pSek.setSpacingAfter(2);
+    } else {
+      pYys.setText(kopSekolah.toUpperCase());
+      pYys.setFontFamily('Arial');
+      pYys.setFontSize(14);
+      pYys.setBold(true);
+      pYys.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pYys.setSpacingBefore(0);
+      pYys.setSpacingAfter(2);
+    }
+    
+    if (kopAlamat) {
+      const pAlm = cellText.appendParagraph(kopAlamat);
+      pAlm.setFontFamily('Arial');
+      pAlm.setFontSize(8.5);
+      pAlm.setItalic(true);
+      pAlm.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pAlm.setSpacingBefore(0);
+      pAlm.setSpacingAfter(0);
+    }
+  } else {
+    if (kopYayasan) {
+      const pYys = body.appendParagraph(kopYayasan.toUpperCase());
+      pYys.setFontFamily('Arial');
+      pYys.setFontSize(10.5);
+      pYys.setBold(true);
+      pYys.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pYys.setSpacingBefore(0);
+      pYys.setSpacingAfter(2);
+    }
+    const pSek = body.appendParagraph(kopSekolah.toUpperCase());
+    pSek.setFontFamily('Arial');
+    pSek.setFontSize(14);
+    pSek.setBold(true);
+    pSek.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    pSek.setSpacingBefore(0);
+    pSek.setSpacingAfter(2);
+    if (kopAlamat) {
+      const pAlm = body.appendParagraph(kopAlamat);
+      pAlm.setFontFamily('Arial');
+      pAlm.setFontSize(8.5);
+      pAlm.setItalic(true);
+      pAlm.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pAlm.setSpacingBefore(0);
+      pAlm.setSpacingAfter(0);
+    }
+  }
+
+  // Jarak dari Kop ke Garis Pemisah (Horizontal Rule) terpaut 1 enter saja
+  body.appendHorizontalRule();
+  body.appendParagraph('');
+
+  const header = body.appendParagraph('SURAT BUKTI IZIN SISWA');
+  header.setFontFamily('Arial').setFontSize(13).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  body.appendParagraph('');
+
+  let tglAju = '-';
+  let jamAju = '-';
+  try {
+    const rawDt = new Date(rowData[1]);
+    tglAju = Utilities.formatDate(rawDt, TIMEZONE, "dd MMMM yyyy");
+    jamAju = Utilities.formatDate(rawDt, TIMEZONE, "HH:mm");
+  } catch (e) {
+    tglAju = String(rowData[1]);
+  }
+
+  const pIntro = body.appendParagraph('Berdasarkan validasi dan persetujuan dari pihak sekolah pada tanggal ' + tglAju + ', dengan ini memberikan izin kepada siswa/i dengan rincian sebagai berikut:');
+  pIntro.setFontFamily('Arial').setFontSize(10.5);
+  body.appendParagraph('');
+
+  const table = body.appendTable();
+  table.setBorderWidth(0);
+
+  function addRow(label, value) {
+    const tr = table.appendTableRow();
+    tr.appendTableCell(label).setWidth(140).setFontFamily('Arial').setFontSize(10.5).setBold(true);
+    tr.appendTableCell(':  ' + value).setFontFamily('Arial').setFontSize(10.5);
+  }
+
+  addRow('Nomor Registrasi', idIzin);
+  addRow('Nama Lengkap', rowData[2]);
+  addRow('Kelas', rowData[3]);
+  addRow('Kategori Izin', rowData[4]);
+  addRow('Alasan', rowData[5]);
+  addRow('Waktu Pengajuan', jamAju + ' WIB');
+
+  body.appendParagraph('');
+  const pOutro = body.appendParagraph('Surat ini adalah dokumen resmi yang diterbitkan oleh sistem sekolah. Harap tunjukkan surat ini kepada petugas keamanan atau pihak terkait jika diminta.');
+  pOutro.setFontFamily('Arial').setFontSize(10).setItalic(true);
+  body.appendParagraph('');
+
+  // OTOMATIS GENERATE BARCODE / QR CODE VERIFIKASI DIGITAL
+  const namaSiswa = rowData[2] || '';
+  const kelasSiswa = rowData[3] || '';
+  const kategoriIzin = rowData[4] || '';
+  const namaPiket = rowData[7] || '';
+  const waktuLengkap = tglAju + ' ' + jamAju + ' WIB';
+
+  const qrContent = "VERIFIKASI SURAT IZIN SISWA\n" +
+    "ID: " + idIzin + "\n" +
+    "Nama: " + namaSiswa + " (" + kelasSiswa + ")\n" +
+    "Kategori: " + kategoriIzin + "\n" +
+    "Waktu: " + waktuLengkap + "\n" +
+    "Petugas Piket: " + namaPiket;
+
+  const qrApiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=0&data=" + encodeURIComponent(qrContent);
+
+  try {
+    const qrBlob = UrlFetchApp.fetch(qrApiUrl).getBlob();
+    
+    const qrTable = body.appendTable();
+    qrTable.setBorderWidth(0);
+    const qrRow = qrTable.appendTableRow();
+    
+    const cellImg = qrRow.appendTableCell();
+    cellImg.setWidth(160);
+    const imgPara = cellImg.appendParagraph('');
+    imgPara.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    imgPara.appendInlineImage(qrBlob);
+
+    const cellInfo = qrRow.appendTableCell();
+    const pValTitle = cellInfo.appendParagraph('BARCODE VERIFIKASI DIGITAL');
+    pValTitle.setFontFamily('Arial').setFontSize(11).setBold(true).setForegroundColor('#0f172a');
+    
+    const pValSub = cellInfo.appendParagraph(
+      'Dokumen ini disahkan secara resmi oleh Petugas Piket:\n' +
+      '• Nama Siswa: ' + namaSiswa + ' (' + kelasSiswa + ')\n' +
+      '• Tanggal/Waktu: ' + waktuLengkap + '\n' +
+      '• Petugas Piket Bertugas: ' + namaPiket + '\n' +
+      '• Status: SAH & TERVERIFIKASI SISTEM'
+    );
+    pValSub.setFontFamily('Arial').setFontSize(9.5).setForegroundColor('#334155');
+  } catch (e) {
+    Logger.log('Gagal mengunduh QR Code/Barcode: ' + e);
+  }
+
+  doc.saveAndClose();
+
+  let folderId = props.getProperty('FOLDER_ID');
+  if (!folderId) {
+    const folders = DriveApp.getFoldersByName('Surat_Izin_PDF');
+    const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder('Surat_Izin_PDF');
+    folderId = folder.getId();
+    props.setProperty('FOLDER_ID', folderId);
+  }
+
+  const folder = DriveApp.getFolderById(folderId);
+  const pdfBlob = doc.getAs('application/pdf');
+  const pdfFile = folder.createFile(pdfBlob).setName('Surat_Izin_' + nama + '_' + idIzin + '.pdf');
+  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+
+  return pdfFile.getUrl();
+}
+
+function generateEduIzinRecapPDF(selectedIds) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getOrCreateDataIzinSheet(ss);
+  const data = sheet.getDataRange().getValues();
+
+  const doc = DocumentApp.create('Temp_Rekap_Izin');
+  const body = doc.getBody();
+  body.setMarginTop(30).setMarginBottom(30).setMarginLeft(30).setMarginRight(30);
+
+  const header = body.appendParagraph("REKAPITULASI IZIN SISWA KBM\nSMARTAPP SEKOLAH");
+  header.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  body.appendParagraph('Dicetak pada: ' + Utilities.formatDate(new Date(), TIMEZONE, "dd/MM/yyyy HH:mm")).setAlignment(DocumentApp.HorizontalAlignment.CENTER).setFontSize(9.5).setFontFamily('Arial');
+  body.appendParagraph('');
+
+  const table = body.appendTable();
+  const tr = table.appendTableRow();
+  tr.appendTableCell('No').setBold(true).setWidth(25);
+  tr.appendTableCell('Tgl / Waktu').setBold(true).setWidth(95);
+  tr.appendTableCell('Nama Siswa').setBold(true);
+  tr.appendTableCell('Kelas').setBold(true).setWidth(65);
+  tr.appendTableCell('Kategori').setBold(true).setWidth(95);
+  tr.appendTableCell('Status').setBold(true).setWidth(70);
+
+  let targetIds = [];
+  if (selectedIds) {
+    if (typeof selectedIds === 'string') {
+      try { targetIds = JSON.parse(selectedIds); } catch(e) { targetIds = selectedIds.split(','); }
+    } else if (Array.isArray(selectedIds)) {
+      targetIds = selectedIds;
+    }
+  }
+
+  let no = 1;
+  for (let i = 1; i < data.length; i++) {
+    const rowId = String(data[i][0]);
+    if (!targetIds || targetIds.length === 0 || targetIds.indexOf(rowId) !== -1) {
+      const row = table.appendTableRow();
+      row.appendTableCell(no.toString()).setFontSize(9.5).setFontFamily('Arial');
+      let wStr = '-';
+      try { wStr = Utilities.formatDate(new Date(data[i][1]), TIMEZONE, "dd/MM/yy HH:mm"); } catch(e) { wStr = String(data[i][1]); }
+
+      row.appendTableCell(wStr).setFontSize(9.5).setFontFamily('Arial');
+      row.appendTableCell(String(data[i][2] || '')).setFontSize(9.5).setFontFamily('Arial');
+      row.appendTableCell(String(data[i][3] || '')).setFontSize(9.5).setFontFamily('Arial');
+      row.appendTableCell(String(data[i][4] || '')).setFontSize(9.5).setFontFamily('Arial');
+
+      let status = "Selesai";
+      if (data[i][8] === 'Ditolak' || data[i][9] === 'Ditolak') { status = "Ditolak"; }
+      else if (data[i][9] !== 'Disetujui') { status = "Proses"; }
+
+      row.appendTableCell(status).setFontSize(9.5).setFontFamily('Arial');
+      no++;
+    }
+  }
+
+  doc.saveAndClose();
+  const props = PropertiesService.getScriptProperties();
+  let folderId = props.getProperty('FOLDER_ID');
+  if (!folderId) {
+    const folders = DriveApp.getFoldersByName('Surat_Izin_PDF');
+    const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder('Surat_Izin_PDF');
+    folderId = folder.getId();
+    props.setProperty('FOLDER_ID', folderId);
+  }
+
+  const folder = DriveApp.getFolderById(folderId);
+  const pdfBlob = doc.getAs('application/pdf');
+  const pdfFile = folder.createFile(pdfBlob).setName('Rekap_Izin_KBM_' + new Date().getTime() + '.pdf');
+
+  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+  return pdfFile.getUrl();
 }

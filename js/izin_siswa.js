@@ -246,32 +246,42 @@ async function handleFormIzinSiswaSubmit(e) {
     }
 }
 
+let isLoadingIzinSiswa = false;
+
 /**
  * Fetch all student leave requests from Backend
  */
 async function loadIzinSiswaData() {
+    if (isLoadingIzinSiswa) return;
+    isLoadingIzinSiswa = true;
+
     const btns = [
         document.getElementById('btnRefreshIzinSiswa'),
         document.getElementById('btnRefreshApprovalIzinSiswa')
-    ];
+    ].filter(Boolean);
 
-    const originalHtmlMap = new Map();
     btns.forEach(b => {
-        if (b) {
-            originalHtmlMap.set(b, b.innerHTML);
-            b.disabled = true;
-            b.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin spin-icon" style="margin-right: 6px;"></i> Memuat...';
-        }
+        b.disabled = true;
+        b.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin spin-icon" style="margin-right: 6px;"></i> Memuat...';
     });
 
     const startTime = Date.now();
 
     try {
-        const url = `${SCRIPT_URL}?action=get_izin_siswa&_t=${Date.now()}`;
-        const response = await fetch(url);
-        const res = await response.json();
+        const targetUrl = typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL ? SCRIPT_URL : localStorage.getItem('absen_script_url');
+        if (!targetUrl) return;
 
-        if (res.status === 'success' && Array.isArray(res.data)) {
+        const url = `${targetUrl}?action=get_izin_siswa&_t=${Date.now()}`;
+        
+        let res;
+        if (typeof fetchWithRetry === 'function') {
+            res = await fetchWithRetry(url, { method: 'GET' }, 1, 1000);
+        } else {
+            const response = await fetch(url);
+            res = await response.json();
+        }
+
+        if (res && res.status === 'success' && Array.isArray(res.data)) {
             globalIzinSiswaLogs = res.data;
             try { localStorage.setItem('smart_absen_izin_siswa_cache', JSON.stringify(res.data)); } catch(e){}
             pageIzinSiswa = 1;
@@ -288,12 +298,10 @@ async function loadIzinSiswaData() {
 
         setTimeout(() => {
             btns.forEach(b => {
-                if (b) {
-                    b.disabled = false;
-                    const orig = originalHtmlMap.get(b);
-                    b.innerHTML = orig || '<i class="fa-solid fa-arrows-rotate"></i> Refresh';
-                }
+                b.disabled = false;
+                b.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Refresh';
             });
+            isLoadingIzinSiswa = false;
         }, remainingDelay);
     }
 }
@@ -389,20 +397,29 @@ function renderWalasIzinApprovalTable() {
 
     // Filter permohonan target Wali Kelas
     // If Admin or Kepsek -> sees ALL requests
-    // If Guru -> sees requests where item.waliKelas matches teacher's name OR student's class matches teacher's class
+    // If Guru (only) -> sees requests matching teacher's name
     let filteredLogs = globalIzinSiswaLogs;
 
-    if (uRole === 'guru' || uRole === 'walas' || uRole === 'wali kelas') {
+    const isKepsekOrAdmin = uRole.includes('kepala sekolah') || uRole.includes('kepsek') || uRole.includes('admin');
+
+    if (!isKepsekOrAdmin && (uRole.includes('guru') || uRole.includes('walas') || uRole.includes('wali kelas'))) {
+        const myCleanName = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(uName) : uName;
         filteredLogs = globalIzinSiswaLogs.filter(item => {
-            const walasName = String(item.waliKelas || '').trim().toLowerCase();
+            const walasName = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(item.waliKelas || '') : String(item.waliKelas || '').trim().toLowerCase();
             if (!walasName || walasName === '-') return true;
-            return walasName === uName || walasName.includes(uName) || uName.includes(walasName);
+            if (!myCleanName) return true;
+            return walasName === myCleanName || walasName.includes(myCleanName) || myCleanName.includes(walasName);
         });
     }
 
     // Split Pending & History
-    const pendingList = filteredLogs.filter(item => String(item.status || 'Pending').toLowerCase() === 'pending');
-    const historyList = filteredLogs.filter(item => String(item.status || 'Pending').toLowerCase() !== 'pending');
+    const isPendingStatus = (st) => {
+        const s = String(st || 'Pending').trim().toLowerCase();
+        return s === 'pending' || s.includes('menunggu');
+    };
+
+    const pendingList = filteredLogs.filter(item => isPendingStatus(item.status));
+    const historyList = filteredLogs.filter(item => !isPendingStatus(item.status));
 
     // 1. RENDER PENDING TABLE
     const badgePendingCount = document.getElementById('badgePendingIzinSiswaCount');

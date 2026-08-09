@@ -21,21 +21,61 @@ const modalIdTelegram = document.getElementById('modalIdTelegram');
 const modalPassword = document.getElementById('modalPassword');
 const modalNama = document.getElementById('modalNama');
 const modalRole = document.getElementById('modalRole');
+const modalWaliKelas = document.getElementById('modalWaliKelas');
+const modalTugasPiket = document.getElementById('modalTugasPiket');
 
-// Handle Tombol Buka Modal Tambah
+// Handle Tombol Buka Modal & Search Input
 if (btnTambahUser) {
     btnTambahUser.addEventListener('click', () => {
         openUserModal();
     });
 }
 
+const inputSearchUser = document.getElementById('inputSearchUser');
+if (inputSearchUser) {
+    inputSearchUser.addEventListener('input', filterAndRenderUsers);
+}
+
 // Handle Close Modal
 if (btnCloseModalUser) btnCloseModalUser.addEventListener('click', closeUserModal);
 if (btnCancelModalUser) btnCancelModalUser.addEventListener('click', closeUserModal);
 
+function populateWaliKelasOptions(selectedClass = '-') {
+    if (!modalWaliKelas) return;
+
+    let students = window.allStudents || [];
+    if (!students || students.length === 0) {
+        try {
+            students = JSON.parse(localStorage.getItem('smart_absen_students') || '[]');
+        } catch (e) {
+            students = [];
+        }
+    }
+
+    const uniqueClasses = [...new Set(students.map(s => String(s.kelas || '').trim()).filter(Boolean))].sort();
+
+    // Pastikan kelas terpilih ikut dimasukkan jika belum ada di daftar
+    if (selectedClass && selectedClass !== '-' && !uniqueClasses.includes(selectedClass)) {
+        uniqueClasses.push(selectedClass);
+        uniqueClasses.sort();
+    }
+
+    let html = `<option value="-">Bukan Wali Kelas / -</option>`;
+    uniqueClasses.forEach(cls => {
+        const isSel = String(selectedClass).trim() === cls ? 'selected' : '';
+        html += `<option value="${cls}" ${isSel}>Kelas ${cls}</option>`;
+    });
+
+    modalWaliKelas.innerHTML = html;
+    modalWaliKelas.value = selectedClass || '-';
+}
+
 function openUserModal(user = null) {
     if (!modalUser) return;
     
+    const targetWali = user ? (user.wali_kelas || '-') : '-';
+    populateWaliKelasOptions(targetWali);
+
     if (user) {
         if (modalUserTitle) modalUserTitle.innerText = "Edit Data Pengguna / Guru";
         if (modalOldUsername) modalOldUsername.value = user.username;
@@ -45,6 +85,7 @@ function openUserModal(user = null) {
         if (modalPassword) modalPassword.value = ''; // Kosongkan password saat edit
         if (modalNama) modalNama.value = user.nama;
         if (modalRole) modalRole.value = user.role || 'Guru';
+        if (modalTugasPiket) modalTugasPiket.value = user.tugas_piket || '-';
     } else {
         if (modalUserTitle) modalUserTitle.innerText = "Tambah Pengguna Baru";
         if (modalOldUsername) modalOldUsername.value = '';
@@ -54,6 +95,7 @@ function openUserModal(user = null) {
         if (modalPassword) modalPassword.value = '';
         if (modalNama) modalNama.value = '';
         if (modalRole) modalRole.value = 'Guru';
+        if (modalTugasPiket) modalTugasPiket.value = '-';
     }
 
     modalUser.style.display = 'flex';
@@ -67,7 +109,7 @@ function closeUserModal() {
 async function loadUsers() {
     const tableBody = document.getElementById('tableBodyUsers');
     if (tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td></tr>`;
     }
 
     try {
@@ -77,17 +119,47 @@ async function loadUsers() {
             window.allUsers = userListState;
             window.allTeachers = userListState.map(u => ({ username: u.username, namaLengkap: u.nama, role: u.role, id_mesin: u.id_mesin, id_telegram: u.id_telegram }));
             localStorage.setItem('smart_absen_users_cache', JSON.stringify(window.allUsers));
-            if (tableBody) renderUserTable(userListState);
+            if (tableBody) filterAndRenderUsers();
             if (typeof renderAbsenGuruBatchTable === 'function') {
                 renderAbsenGuruBatchTable();
             }
         } else {
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Gagal memuat pengguna: ${result ? result.message : 'Error'}</td></tr>`;
         }
     } catch (err) {
         console.error("Load users error:", err);
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:red;">Koneksi error saat memuat pengguna.</td></tr>`;
     }
+}
+
+function filterAndRenderUsers() {
+    const searchInp = document.getElementById('inputSearchUser');
+    const query = (searchInp ? searchInp.value : '').trim().toLowerCase();
+
+    if (!query) {
+        renderUserTable(userListState);
+        return;
+    }
+
+    const filtered = userListState.filter(u => {
+        const username = String(u.username || '').toLowerCase();
+        const nama = String(u.nama || '').toLowerCase();
+        const role = String(u.role || '').toLowerCase();
+        const wali = String(u.wali_kelas || '').toLowerCase();
+        const piket = String(u.tugas_piket || '').toLowerCase();
+        const idMesin = String(u.id_mesin || '').toLowerCase();
+        const idTelegram = String(u.id_telegram || '').toLowerCase();
+
+        return username.includes(query) ||
+               nama.includes(query) ||
+               role.includes(query) ||
+               wali.includes(query) ||
+               piket.includes(query) ||
+               idMesin.includes(query) ||
+               idTelegram.includes(query);
+    });
+
+    renderUserTable(filtered);
 }
 
 function renderUserTable(users) {
@@ -95,7 +167,11 @@ function renderUserTable(users) {
     if (!tableBody) return;
 
     if (!users || users.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--text-muted);">Belum ada data pengguna.</td></tr>`;
+        const query = (document.getElementById('inputSearchUser')?.value || '').trim();
+        const emptyText = query 
+            ? `Tidak ada pengguna yang cocok dengan pencarian "<strong>${escapeHtml(query)}</strong>".`
+            : 'Belum ada data pengguna.';
+        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 25px; color: var(--text-muted);"><i class="fa-solid fa-user-slash" style="font-size: 1.5rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>${emptyText}</td></tr>`;
         return;
     }
 
@@ -109,6 +185,14 @@ function renderUserTable(users) {
         const idTelegramDisplay = u.id_telegram 
             ? `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-family: monospace; font-size: 0.85rem;"><i class="fa-brands fa-telegram"></i> ${u.id_telegram}</span>`
             : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
+        
+        const waliKelasDisplay = (u.wali_kelas && u.wali_kelas !== '-') 
+            ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.82rem;"><i class="fa-solid fa-chalkboard-user"></i> ${u.wali_kelas}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
+
+        const piketDisplay = (u.tugas_piket && u.tugas_piket !== '-') 
+            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fde047; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.82rem;"><i class="fa-solid fa-user-shield"></i> ${u.tugas_piket}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
 
         html += `
             <tr>
@@ -118,6 +202,8 @@ function renderUserTable(users) {
                 <td style="text-align:center;">${idMesinDisplay}</td>
                 <td style="text-align:center;">${idTelegramDisplay}</td>
                 <td style="text-align:center;"><span class="badge" style="${roleBadge}">${u.role}</span></td>
+                <td style="text-align:center;">${waliKelasDisplay}</td>
+                <td style="text-align:center;">${piketDisplay}</td>
                 <td style="text-align:center;">
                     <button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem; margin-right:4px;" onclick="editUserByUsername('${u.username}')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
                     ${!isSelf ? `<button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); border-color:rgba(239,68,68,0.4); color:#fca5a5;" onclick="deleteUserByUsername('${u.username}', '${u.nama}')"><i class="fa-solid fa-trash-can"></i> Hapus</button>` : ''}
@@ -182,6 +268,7 @@ if (formUserModal) {
         const password = modalPassword ? modalPassword.value.trim() : '';
         const nama = modalNama ? modalNama.value.trim() : '';
         const role = modalRole ? modalRole.value : 'Guru';
+        const tugas_piket = modalTugasPiket ? modalTugasPiket.value : '-';
 
         if (!username || !nama) {
             showToast("Username dan Nama Lengkap wajib diisi.", 'warning');
@@ -192,6 +279,17 @@ if (formUserModal) {
         if (!isEdit && !password) {
             showToast("Password wajib diisi untuk pengguna baru.", 'warning');
             return;
+        }
+
+        if (isEdit) {
+            const confirmed = await showCustomConfirm({
+                title: 'Simpan Perubahan Pengguna?',
+                message: `Apakah Anda yakin ingin memperbarui data pengguna <strong>"${nama}"</strong> (@${username})?<br><small style="color: var(--text-muted);">Seluruh data presensi dan perizinan terkait akan otomatis disinkronkan.</small>`,
+                icon: 'warning',
+                confirmText: 'Ya, Simpan Perubahan',
+                cancelText: 'Batal'
+            });
+            if (!confirmed) return;
         }
 
         const btnSave = document.getElementById('btnSaveModalUser');
@@ -207,6 +305,8 @@ if (formUserModal) {
             if (password) formData.append('password', password);
             formData.append('nama', nama);
             formData.append('role', role);
+            formData.append('wali_kelas', modalWaliKelas ? modalWaliKelas.value : '-');
+            formData.append('tugas_piket', tugas_piket);
 
             const result = await fetchWithRetry(SCRIPT_URL, {
                 method: 'POST',
@@ -276,11 +376,27 @@ function updateAppSchoolConfigUI(config) {
     const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
     const inputUrlScript = document.getElementById('inputUrlScript');
     const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
+    const inputKopYayasan = document.getElementById('inputKopYayasan');
+    const inputKopSekolah = document.getElementById('inputKopSekolah');
+    const inputKopAlamat = document.getElementById('inputKopAlamat');
+    const inputKopLogo = document.getElementById('inputKopLogo');
+    const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+    const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
 
     if (inputNamaSekolah) inputNamaSekolah.value = schoolName;
     if (inputTahunPelajaran) inputTahunPelajaran.value = tahunPelajaran;
     if (inputUrlScript) inputUrlScript.value = mergedConfig.urlScript || mergedConfig.url_script || window.SCRIPT_URL || '';
     if (inputTelegramBotToken && !inputTelegramBotToken.value) inputTelegramBotToken.value = mergedConfig.telegramBotToken || mergedConfig.telegram_bot_token || '';
+
+    if (inputKopYayasan && mergedConfig.kopYayasan !== undefined) inputKopYayasan.value = mergedConfig.kopYayasan;
+    if (inputKopSekolah && mergedConfig.kopSekolah !== undefined) inputKopSekolah.value = mergedConfig.kopSekolah || schoolName;
+    if (inputKopAlamat && mergedConfig.kopAlamat !== undefined) inputKopAlamat.value = mergedConfig.kopAlamat;
+    if (inputKopLogo && mergedConfig.kopLogo !== undefined) inputKopLogo.value = mergedConfig.kopLogo;
+    
+    const defLogoWidth = mergedConfig.kopLogoWidth || mergedConfig.kopLogoSize || '85';
+    const defLogoHeight = mergedConfig.kopLogoHeight || mergedConfig.kopLogoSize || '85';
+    if (inputKopLogoWidth) inputKopLogoWidth.value = defLogoWidth;
+    if (inputKopLogoHeight) inputKopLogoHeight.value = defLogoHeight;
 
     // Update elemen nama sekolah di seluruh aplikasi
     if (schoolName) {
@@ -299,6 +415,89 @@ function updateAppSchoolConfigUI(config) {
     if (typeof updatePrintTitles === 'function') {
         updatePrintTitles();
     }
+
+    updateKopSuratPreview();
+}
+
+function updateKopSuratPreview() {
+    const inputKopYayasan = document.getElementById('inputKopYayasan');
+    const inputKopSekolah = document.getElementById('inputKopSekolah');
+    const inputKopAlamat = document.getElementById('inputKopAlamat');
+    const inputKopLogo = document.getElementById('inputKopLogo');
+    const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+    const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
+    const inputKopLogoSize = document.getElementById('inputKopLogoSize');
+    const inputNamaSekolah = document.getElementById('inputNamaSekolah');
+
+    const previewYayasan = document.getElementById('kopPreviewYayasan');
+    const previewSekolah = document.getElementById('kopPreviewSekolah');
+    const previewAlamat = document.getElementById('kopPreviewAlamat');
+    const previewLogoImg = document.getElementById('kopPreviewLogoImg');
+    const previewLogoFallback = document.getElementById('kopPreviewLogoFallback');
+    const logoContainer = document.getElementById('kopPreviewLogoContainer');
+
+    const yayasanVal = inputKopYayasan ? inputKopYayasan.value.trim() : '';
+    const sekolahVal = inputKopSekolah ? inputKopSekolah.value.trim() : (inputNamaSekolah ? inputNamaSekolah.value.trim() : '');
+    const alamatVal = inputKopAlamat ? inputKopAlamat.value.trim() : '';
+    const logoVal = inputKopLogo ? inputKopLogo.value.trim() : '';
+
+    const fallbackSize = inputKopLogoSize ? (parseInt(inputKopLogoSize.value, 10) || 85) : 85;
+    const logoWidthVal = inputKopLogoWidth ? (parseInt(inputKopLogoWidth.value, 10) || fallbackSize) : fallbackSize;
+    const logoHeightVal = inputKopLogoHeight ? (parseInt(inputKopLogoHeight.value, 10) || fallbackSize) : fallbackSize;
+
+    if (logoContainer) {
+        logoContainer.style.width = logoWidthVal + 'px';
+        logoContainer.style.height = logoHeightVal + 'px';
+    }
+
+    if (previewYayasan) {
+        previewYayasan.innerText = (yayasanVal || 'YAYASAN SEKAR LAUT PELNI').toUpperCase();
+    }
+    if (previewSekolah) {
+        previewSekolah.innerText = (sekolahVal || 'SMA 1 BARUNAWATI').toUpperCase();
+    }
+    if (previewAlamat) {
+        previewAlamat.innerText = alamatVal || 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083';
+    }
+
+    if (logoVal && previewLogoImg && previewLogoFallback) {
+        previewLogoImg.src = logoVal;
+        previewLogoImg.style.display = 'block';
+        previewLogoImg.style.objectFit = 'contain';
+        previewLogoFallback.style.display = 'none';
+        
+        previewLogoImg.onerror = function() {
+            previewLogoImg.style.display = 'none';
+            previewLogoFallback.style.display = 'block';
+        };
+    } else if (previewLogoImg && previewLogoFallback) {
+        previewLogoImg.style.display = 'none';
+        previewLogoFallback.style.display = 'block';
+    }
+}
+
+// Bind Live Preview Events
+const previewInputIds = ['inputKopYayasan', 'inputKopSekolah', 'inputKopAlamat', 'inputKopLogo', 'inputKopLogoWidth', 'inputKopLogoHeight', 'inputKopLogoSize', 'inputNamaSekolah'];
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => {
+        previewInputIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', updateKopSuratPreview);
+                el.addEventListener('change', updateKopSuratPreview);
+            }
+        });
+        updateKopSuratPreview();
+    });
+} else {
+    previewInputIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', updateKopSuratPreview);
+            el.addEventListener('change', updateKopSuratPreview);
+        }
+    });
+    updateKopSuratPreview();
 }
 
 applyCachedSchoolConfig();
@@ -317,11 +516,24 @@ if (formConfigSekolah) {
         const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
         const inputUrlScript = document.getElementById('inputUrlScript');
         const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
+        const inputKopYayasan = document.getElementById('inputKopYayasan');
+        const inputKopSekolah = document.getElementById('inputKopSekolah');
+        const inputKopAlamat = document.getElementById('inputKopAlamat');
+        const inputKopLogo = document.getElementById('inputKopLogo');
+        const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+        const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
 
         const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : '';
         const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '';
         const urlScript = inputUrlScript ? inputUrlScript.value.trim() : '';
         const telegramBotToken = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
+
+        const kopYayasan = inputKopYayasan ? inputKopYayasan.value.trim() : '';
+        const kopSekolah = inputKopSekolah ? inputKopSekolah.value.trim() : '';
+        const kopAlamat = inputKopAlamat ? inputKopAlamat.value.trim() : '';
+        const kopLogo = inputKopLogo ? inputKopLogo.value.trim() : '';
+        const kopLogoWidth = inputKopLogoWidth ? inputKopLogoWidth.value.trim() : '85';
+        const kopLogoHeight = inputKopLogoHeight ? inputKopLogoHeight.value.trim() : '85';
 
         if (!namaSekolah || !tahunPelajaran) {
             showToast("Nama Sekolah dan Tahun Pelajaran wajib diisi.", "warning");
@@ -341,6 +553,13 @@ if (formConfigSekolah) {
             formData.append('nama_sekolah', namaSekolah);
             formData.append('tahun_pelajaran', tahunPelajaran);
             formData.append('telegram_bot_token', telegramBotToken);
+            formData.append('kop_yayasan', kopYayasan);
+            formData.append('kop_sekolah', kopSekolah);
+            formData.append('kop_alamat', kopAlamat);
+            formData.append('kop_logo', kopLogo);
+            formData.append('kop_logo_width', kopLogoWidth);
+            formData.append('kop_logo_height', kopLogoHeight);
+            formData.append('kop_logo_size', kopLogoWidth);
 
             const activeUrl = urlScript || SCRIPT_URL;
             const result = await fetchWithRetry(activeUrl, {
@@ -349,12 +568,74 @@ if (formConfigSekolah) {
                 body: new URLSearchParams(formData).toString()
             }, 0);
 
-            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken };
+            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight, kopLogoSize: kopLogoWidth };
             updateAppSchoolConfigUI(newConfig);
-            showToast("✅ Identitas sekolah, Token Telegram Bot & Web Server URL berhasil diperbarui!", "success");
+            showToast("✅ Identitas sekolah, Token Telegram Bot & Server URL berhasil diperbarui!", "success");
         } catch (err) {
             console.error(err);
             showToast("❌ Gagal menyimpan pengaturan.", "error");
+        } finally {
+            if (btnSave) btnSave.disabled = false;
+        }
+    });
+}
+
+// Handle Form Simpan Kop Surat Secara Spesifik
+const formKopSurat = document.getElementById('formKopSurat');
+if (formKopSurat) {
+    formKopSurat.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const inputNamaSekolah = document.getElementById('inputNamaSekolah');
+        const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
+        const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
+        const inputKopYayasan = document.getElementById('inputKopYayasan');
+        const inputKopSekolah = document.getElementById('inputKopSekolah');
+        const inputKopAlamat = document.getElementById('inputKopAlamat');
+        const inputKopLogo = document.getElementById('inputKopLogo');
+        const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+        const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
+
+        const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : 'Sekolah';
+        const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '2026/2027';
+        const telegramBotToken = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
+
+        const kopYayasan = inputKopYayasan ? inputKopYayasan.value.trim() : '';
+        const kopSekolah = inputKopSekolah ? inputKopSekolah.value.trim() : '';
+        const kopAlamat = inputKopAlamat ? inputKopAlamat.value.trim() : '';
+        const kopLogo = inputKopLogo ? inputKopLogo.value.trim() : '';
+        const kopLogoWidth = inputKopLogoWidth ? inputKopLogoWidth.value.trim() : '85';
+        const kopLogoHeight = inputKopLogoHeight ? inputKopLogoHeight.value.trim() : '85';
+
+        const btnSave = document.getElementById('btnSaveKopSurat');
+        if (btnSave) btnSave.disabled = true;
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'save_config');
+            formData.append('nama_sekolah', namaSekolah);
+            formData.append('tahun_pelajaran', tahunPelajaran);
+            formData.append('telegram_bot_token', telegramBotToken);
+            formData.append('kop_yayasan', kopYayasan);
+            formData.append('kop_sekolah', kopSekolah);
+            formData.append('kop_alamat', kopAlamat);
+            formData.append('kop_logo', kopLogo);
+            formData.append('kop_logo_width', kopLogoWidth);
+            formData.append('kop_logo_height', kopLogoHeight);
+            formData.append('kop_logo_size', kopLogoWidth);
+
+            const result = await fetchWithRetry(SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(formData).toString()
+            }, 0);
+
+            const newConfig = { namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight, kopLogoSize: kopLogoWidth };
+            updateAppSchoolConfigUI(newConfig);
+            showToast("✅ Pengaturan Kop Surat Resmi PDF berhasil disimpan!", "success");
+        } catch (err) {
+            console.error(err);
+            showToast("❌ Gagal menyimpan Kop Surat.", "error");
         } finally {
             if (btnSave) btnSave.disabled = false;
         }

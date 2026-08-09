@@ -69,12 +69,7 @@ function initAbsenGuruEventListeners() {
         btnTidakHadir.addEventListener('click', () => setSemuaStatusAbsenGuru('TIDAK HADIR'));
     }
 
-    const btnRefresh = document.getElementById('btnRefreshAbsenGuru');
-    if (btnRefresh) {
-        btnRefresh.addEventListener('click', () => {
-            syncAbsenGuruDataFromServer();
-        });
-    }
+
 
     const btnPrintGuru = document.getElementById('btnPrintRekapGuru');
     if (btnPrintGuru) {
@@ -202,9 +197,12 @@ function renderIzinGuruPanel() {
 function renderWidgetGuruTidakHadirHariIni() {
     const container = document.getElementById('containerGuruTidakHadirHariIni');
     const badgeTotal = document.getElementById('badgeTotalGuruTidakHadir');
+    const elTxtTanggal = document.getElementById('txtTanggalHariIni');
     if (!container) return;
 
     const todayStr = getTodayFormattedDate();
+    if (elTxtTanggal) elTxtTanggal.innerText = todayStr;
+
     const absentMap = new Map();
 
     localPengajuanIzin.forEach(item => {
@@ -330,8 +328,8 @@ async function handleSubmiIzinGuru(e) {
     const keterangan = document.getElementById('inputIzinKeterangan').value.trim();
 
     // Jika pengaju adalah Kepala Sekolah atau Admin -> Otomatis Disetujui!
-    const userRole = (loggedUser.role || '').trim();
-    const isAutoApprove = (userRole === 'Kepala Sekolah' || userRole === 'Admin');
+    const userRoleLower = (loggedUser.role || '').toLowerCase();
+    const isAutoApprove = (userRoleLower.includes('kepala sekolah') || userRoleLower.includes('kepsek') || userRoleLower.includes('admin'));
     const initialStatus = isAutoApprove ? 'Disetujui' : 'Pending';
     const disetujuiOleh = isAutoApprove ? `${loggedUser.nama || 'Kepala Sekolah'} (Otomatis)` : '';
     const timeNowStr = new Date().toLocaleString('id-ID');
@@ -405,8 +403,13 @@ function renderApprovalKepsekPanel() {
 
     if (!tbodyPending || !tbodyRiwayat) return;
 
-    const pendingList = localPengajuanIzin.filter(i => i.status === 'Pending');
-    const historyList = localPengajuanIzin.filter(i => i.status !== 'Pending');
+    const isStatusPending = (statusStr) => {
+        const st = String(statusStr || '').trim().toLowerCase();
+        return st === 'pending' || st.includes('menunggu');
+    };
+
+    const pendingList = localPengajuanIzin.filter(i => isStatusPending(i.status));
+    const historyList = localPengajuanIzin.filter(i => !isStatusPending(i.status));
 
     if (badgePending) badgePending.innerText = `${pendingList.length} Menunggu`;
 
@@ -463,39 +466,65 @@ function renderApprovalKepsekPanel() {
     }
 }
 
-async function approveIzinKepsek(id) {
+async function approveIzinKepsek(id, btnEl) {
     const loggedUser = JSON.parse(localStorage.getItem('smart_absen_user') || '{}');
     const approverName = loggedUser.nama || 'Kepala Sekolah';
 
     const itemIndex = localPengajuanIzin.findIndex(i => String(i.id) === String(id));
-    if (itemIndex !== -1) {
-        localPengajuanIzin[itemIndex].status = 'Disetujui';
-        localPengajuanIzin[itemIndex].disetujuiOleh = approverName;
-        localPengajuanIzin[itemIndex].waktuPersetujuan = new Date().toLocaleString('id-ID');
+    if (itemIndex === -1) return;
 
-        const item = localPengajuanIzin[itemIndex];
-        const rawKat = String(item.kategori || '').trim().toLowerCase();
-        const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
-        localLogAbsenGuru.unshift({
-            id: 'AG-APP-' + Date.now(),
-            waktu: new Date().toLocaleString('id-ID'),
-            tanggal: item.tanggal,
-            username: item.username,
-            nama: item.nama,
-            status: isDutyHadir ? 'HADIR' : 'TIDAK HADIR',
-            keterangan: `[${item.kategori}] ${cleanKeterangan(item.keterangan)}`,
-            inputBy: approverName
-        });
+    const item = localPengajuanIzin[itemIndex];
+    const targetNama = item.nama || 'Guru';
 
-        localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
-        localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
-        
-        renderApprovalKepsekPanel();
-        renderIzinGuruPanel();
-        renderAbsenGuruAdminPanel();
+    const confirmed = typeof showCustomConfirm === 'function'
+        ? await showCustomConfirm({
+            title: 'Konfirmasi Persetujuan Kepala Sekolah',
+            message: `Apakah Anda yakin ingin MENYETUJUI pengajuan izin dari "${targetNama}"?`,
+            icon: 'question',
+            confirmText: 'Ya, Setujui',
+            cancelText: 'Batal'
+        })
+        : confirm(`Apakah Anda yakin ingin MENYETUJUI pengajuan izin dari "${targetNama}"?`);
 
-        showToast(`✅ Pengajuan izin ${item.nama} berhasil disetujui!`, 'success');
+    if (!confirmed) return;
+
+    const targetBtn = btnEl || (window.event && window.event.target ? window.event.target.closest('button') : null);
+    const parentContainer = targetBtn ? targetBtn.parentElement : null;
+    const originalHtml = targetBtn ? targetBtn.innerHTML : '';
+
+    if (targetBtn) {
+        if (parentContainer) {
+            parentContainer.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+        targetBtn.disabled = true;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
     }
+
+    localPengajuanIzin[itemIndex].status = 'Disetujui';
+    localPengajuanIzin[itemIndex].disetujuiOleh = approverName;
+    localPengajuanIzin[itemIndex].waktuPersetujuan = new Date().toLocaleString('id-ID');
+
+    const rawKat = String(item.kategori || '').trim().toLowerCase();
+    const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
+    localLogAbsenGuru.unshift({
+        id: 'AG-APP-' + Date.now(),
+        waktu: new Date().toLocaleString('id-ID'),
+        tanggal: item.tanggal,
+        username: item.username,
+        nama: item.nama,
+        status: isDutyHadir ? 'HADIR' : 'TIDAK HADIR',
+        keterangan: `[${item.kategori}] ${cleanKeterangan(item.keterangan)}`,
+        inputBy: approverName
+    });
+
+    localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
+    localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
+    
+    renderApprovalKepsekPanel();
+    renderIzinGuruPanel();
+    renderAbsenGuruAdminPanel();
+
+    showToast(`Pengajuan izin ${item.nama} berhasil disetujui!`, 'success');
 
     try {
         await fetchWithRetry(`${SCRIPT_URL}?action=approve_pengajuan_izin&id=${encodeURIComponent(id)}&approver=${encodeURIComponent(approverName)}`, { method: 'POST' }, 2, 800);
@@ -503,23 +532,50 @@ async function approveIzinKepsek(id) {
     } catch(e) {}
 }
 
-async function rejectIzinKepsek(id) {
+async function rejectIzinKepsek(id, btnEl) {
     const loggedUser = JSON.parse(localStorage.getItem('smart_absen_user') || '{}');
     const approverName = loggedUser.nama || 'Kepala Sekolah';
 
     const itemIndex = localPengajuanIzin.findIndex(i => String(i.id) === String(id));
-    if (itemIndex !== -1) {
-        localPengajuanIzin[itemIndex].status = 'Ditolak';
-        localPengajuanIzin[itemIndex].disetujuiOleh = approverName;
-        localPengajuanIzin[itemIndex].waktuPersetujuan = new Date().toLocaleString('id-ID');
+    if (itemIndex === -1) return;
 
-        localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
-        
-        renderApprovalKepsekPanel();
-        renderIzinGuruPanel();
+    const targetNama = localPengajuanIzin[itemIndex].nama || 'Guru';
 
-        showToast(`❌ Pengajuan izin ${localPengajuanIzin[itemIndex].nama} ditolak.`, 'info');
+    const confirmed = typeof showCustomConfirm === 'function'
+        ? await showCustomConfirm({
+            title: 'Konfirmasi Penolakan Kepala Sekolah',
+            message: `Apakah Anda yakin ingin MENOLAK pengajuan izin dari "${targetNama}"?`,
+            icon: 'danger',
+            confirmText: 'Ya, Tolak',
+            cancelText: 'Batal',
+            danger: true
+        })
+        : confirm(`Apakah Anda yakin ingin MENOLAK pengajuan izin dari "${targetNama}"?`);
+
+    if (!confirmed) return;
+
+    const targetBtn = btnEl || (window.event && window.event.target ? window.event.target.closest('button') : null);
+    const parentContainer = targetBtn ? targetBtn.parentElement : null;
+    const originalHtml = targetBtn ? targetBtn.innerHTML : '';
+
+    if (targetBtn) {
+        if (parentContainer) {
+            parentContainer.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+        targetBtn.disabled = true;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
     }
+
+    localPengajuanIzin[itemIndex].status = 'Ditolak';
+    localPengajuanIzin[itemIndex].disetujuiOleh = approverName;
+    localPengajuanIzin[itemIndex].waktuPersetujuan = new Date().toLocaleString('id-ID');
+
+    localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
+    
+    renderApprovalKepsekPanel();
+    renderIzinGuruPanel();
+
+    showToast(`Pengajuan izin ${targetNama} telah ditolak.`, 'info');
 
     try {
         await fetchWithRetry(`${SCRIPT_URL}?action=reject_pengajuan_izin&id=${encodeURIComponent(id)}&approver=${encodeURIComponent(approverName)}`, { method: 'POST' }, 2, 800);
@@ -1032,7 +1088,38 @@ function renderTableLogAbsenGuru() {
 // ----------------------------------------------------
 // 4. SYNC DATA SINKRONISASI DARI SERVER (GAS)
 // ----------------------------------------------------
-async function syncAbsenGuruDataFromServer() {
+let isSyncingAbsenGuruData = false;
+
+async function syncAbsenGuruDataFromServer(clickedBtn) {
+    if (isSyncingAbsenGuruData) return;
+    isSyncingAbsenGuruData = true;
+
+    if (clickedBtn && clickedBtn.currentTarget) clickedBtn = clickedBtn.currentTarget;
+    if (clickedBtn && clickedBtn.target) clickedBtn = clickedBtn.target.closest('button');
+
+    const refreshBtnIds = [
+        'btnRefreshAbsenGuru',
+        'btnRefreshIzinGuru',
+        'btnRefreshApprovalKepsek'
+    ];
+    
+    const btns = refreshBtnIds.map(id => document.getElementById(id)).filter(Boolean);
+    if (clickedBtn && clickedBtn.nodeType === 1 && !btns.includes(clickedBtn)) {
+        btns.push(clickedBtn);
+    }
+
+    const originalHtmlMap = new Map();
+    btns.forEach(btn => {
+        const curHtml = btn.innerHTML;
+        if (!curHtml.includes('fa-spin') && !curHtml.includes('Memuat')) {
+            originalHtmlMap.set(btn, curHtml);
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin spin-icon" style="margin-right: 6px;"></i> Memuat...';
+    });
+
+    const startTime = Date.now();
+
     try {
         const [resGuru, resIzin] = await Promise.all([
             fetchWithRetry(`${SCRIPT_URL}?action=get_absen_guru`, { method: 'GET' }, 2, 800),
@@ -1047,6 +1134,7 @@ async function syncAbsenGuruDataFromServer() {
         if (resIzin && resIzin.status === 'success' && Array.isArray(resIzin.data)) {
             localPengajuanIzin = resIzin.data;
             localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
+            if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge();
         }
 
         applyCachedAbsenGuruData();
@@ -1055,6 +1143,21 @@ async function syncAbsenGuruDataFromServer() {
         }
     } catch (e) {
         console.warn("Sync Absen Guru / Izin failed, using cached data.");
+    } finally {
+        const elapsedTime = Date.now() - startTime;
+        const remainingDelay = Math.max(0, 600 - elapsedTime);
+
+        setTimeout(() => {
+            btns.forEach(btn => {
+                btn.disabled = false;
+                let orig = originalHtmlMap.get(btn);
+                if (!orig || orig.includes('fa-spin') || orig.includes('Memuat')) {
+                    orig = '<i class="fa-solid fa-arrows-rotate"></i> Refresh';
+                }
+                btn.innerHTML = orig;
+            });
+            isSyncingAbsenGuruData = false;
+        }, remainingDelay);
     }
 }
 
@@ -1451,22 +1554,4 @@ window.updateAbsenGuruMasterData = function(absenGuru, pengajuanIzin) {
     applyCachedAbsenGuruData();
 };
 
-async function syncAbsenGuruDataFromServer() {
-    if (typeof fetchWithRetry !== 'function' || !SCRIPT_URL) return;
-    try {
-        const resG = await fetchWithRetry(`${SCRIPT_URL}?action=get_absen_guru`, { method: 'GET' }, 1, 1000);
-        if (resG && resG.status === 'success' && Array.isArray(resG.data)) {
-            localLogAbsenGuru = resG.data;
-            localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
-        }
-        const resI = await fetchWithRetry(`${SCRIPT_URL}?action=get_pengajuan_izin`, { method: 'GET' }, 1, 1000);
-        if (resI && resI.status === 'success' && Array.isArray(resI.data)) {
-            localPengajuanIzin = resI.data;
-            localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(localPengajuanIzin));
-        }
-        applyCachedAbsenGuruData();
-        showToast("⚡ Data presensi & izin guru diperbarui dari server.", "info");
-    } catch(e) {
-        console.warn("Error syncing absen guru data:", e);
-    }
-}
+
