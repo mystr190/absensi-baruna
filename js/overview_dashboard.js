@@ -6,9 +6,6 @@ let chartGender = null;
 let chartStudentAbsen = null;
 let chartViolations = null;
 let chartTeacherAbsen = null;
-let chartStudentPersonalTimeline = null;
-
-let overviewAutoRefreshInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const navOverview = document.getElementById('nav-overview');
@@ -30,58 +27,31 @@ async function renderOverviewDashboard(forceServer = false) {
     const btnRefresh = document.getElementById('btnRefreshOverview');
     const iconBtn = btnRefresh ? btnRefresh.querySelector('i') : null;
     if (iconBtn) iconBtn.classList.add('fa-spin');
-    if (btnRefresh) btnRefresh.disabled = true;
 
-    // 1. Instant load from local cache if available (0ms delay UI render)
+    // 1. Initial quick load from local storage cache if available
     loadLocalOverviewStats();
 
     // 2. Fetch fresh real-time overview stats from server backend
     try {
-        const forceParam = forceServer ? '&force_server=1' : '';
-        const url = `${SCRIPT_URL}?action=get_overview_stats${forceParam}`;
-        const res = await fetchWithRetry(url, { method: 'GET' }, forceServer ? 1 : 0, 600);
+        const url = `${SCRIPT_URL}?action=get_overview_stats`;
+        const res = await fetchWithRetry(url, { method: 'GET' }, forceServer ? 2 : 1, 1000);
 
         if (res && res.status === 'success' && res.data) {
             updateOverviewUI(res.data);
-            try {
-                localStorage.setItem('smart_absen_overview_cache', JSON.stringify(res.data));
-            } catch(e){}
         }
     } catch (e) {
         console.warn("Failed loading live overview stats from server, fallback to local data:", e);
     } finally {
         if (iconBtn) iconBtn.classList.remove('fa-spin');
-        if (btnRefresh) btnRefresh.disabled = false;
-    }
-
-    // Auto-refresh interval (every 30 seconds) when Overview is active
-    if (!overviewAutoRefreshInterval) {
-        overviewAutoRefreshInterval = setInterval(() => {
-            const overviewSection = document.getElementById('overview');
-            if (overviewSection && overviewSection.style.display !== 'none') {
-                renderOverviewDashboard(false);
-            }
-        }, 30000);
     }
 }
 
 function loadLocalOverviewStats() {
     try {
-        // 1. Try saved full overview cache first
-        const cachedOverview = localStorage.getItem('smart_absen_overview_cache');
-        if (cachedOverview) {
-            try {
-                const parsed = JSON.parse(cachedOverview);
-                if (parsed && typeof parsed === 'object' && parsed.totalSiswa !== undefined) {
-                    updateOverviewUI(parsed);
-                    return;
-                }
-            } catch(e){}
-        }
-
-        // 2. Fallback to master student list calculation
         const rawMaster = localStorage.getItem('smart_absen_master_siswa');
-        const siswaList = rawMaster ? JSON.parse(rawMaster) : [];
+        if (!rawMaster) return;
+
+        const siswaList = JSON.parse(rawMaster);
         let totalSiswa = siswaList.length;
         let totalLaki = 0;
         let totalPerempuan = 0;
@@ -99,6 +69,7 @@ function loadLocalOverviewStats() {
             else if (g === 'P' || g === 'PEREMPUAN') kelasMap[kls].P++;
         });
 
+        // Hitung presensi siswa lokal jika tersedia (Hari Ini saja)
         let studentAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, Terlambat: 0 };
         const rawRecent = localStorage.getItem('smart_absen_recent_logs');
         const todayStr = typeof getTodayYYYYMMDD === 'function' ? getTodayYYYYMMDD() : new Date().toISOString().substring(0, 10);
@@ -140,49 +111,7 @@ function loadLocalOverviewStats() {
 }
 
 function updateOverviewUI(data) {
-    let loggedUser = null;
-    try {
-        const rawUser = localStorage.getItem('smart_absen_user');
-        if (rawUser) loggedUser = JSON.parse(rawUser);
-    } catch(e){}
-
-    const userRole = String(loggedUser && loggedUser.role ? loggedUser.role : '').trim().toLowerCase();
-    const isSiswa = userRole === 'siswa';
-
-    const kpiGrid = document.getElementById('overviewKpiGrid');
-    const chartsRow1 = document.getElementById('overviewChartsRow1');
-    const chartsRow2 = document.getElementById('overviewChartsRow2');
-    const siswaOverviewContainer = document.getElementById('siswaOverviewContainer');
-
-    const panelTitle = document.getElementById('overviewPanelTitle');
-    const panelSubtitle = document.getElementById('overviewPanelSubtitle');
-
-    if (isSiswa) {
-        if (panelTitle) panelTitle.innerHTML = `<i class="fa-solid fa-graduation-cap" style="color: #10b981;"></i> Dashboard Siswa`;
-        if (panelSubtitle) panelSubtitle.innerText = `Ringkasan Presensi & Informasi Guru Bertugas Hari Ini`;
-
-        if (kpiGrid) kpiGrid.style.display = 'none';
-        if (chartsRow1) chartsRow1.style.display = 'none';
-        if (chartsRow2) chartsRow2.style.display = 'none';
-        if (siswaOverviewContainer) siswaOverviewContainer.style.display = 'block';
-
-        renderStudentPersonalDashboard((data && data.studentLogs) ? data.studentLogs : null, loggedUser);
-
-        if (typeof renderWidgetGuruTidakHadirHariIni === 'function') {
-            renderWidgetGuruTidakHadirHariIni();
-        }
-        return;
-    }
-
     if (!data) return;
-
-    if (panelTitle) panelTitle.innerHTML = `<i class="fa-solid fa-chart-pie" style="color: #6366f1;"></i> Overview Dashboard`;
-    if (panelSubtitle) panelSubtitle.innerText = `Ringkasan Analitik Real-Time Presensi, Siswa, Guru & Catatan Pelanggaran Sekolah`;
-
-    if (kpiGrid) kpiGrid.style.display = 'grid';
-    if (chartsRow1) chartsRow1.style.display = 'grid';
-    if (chartsRow2) chartsRow2.style.display = 'grid';
-    if (siswaOverviewContainer) siswaOverviewContainer.style.display = 'none';
 
     // Update KPI Card Metric Elements
     const ovTotalSiswa = document.getElementById('ovTotalSiswa');
@@ -228,184 +157,6 @@ function updateOverviewUI(data) {
     if (typeof renderWidgetGuruTidakHadirHariIni === 'function') {
         renderWidgetGuruTidakHadirHariIni();
     }
-}
-
-function renderStudentPersonalDashboard(serverLogs, loggedUser) {
-    let allLogs = [];
-    if (Array.isArray(serverLogs) && serverLogs.length > 0) {
-        allLogs = serverLogs;
-    } else {
-        try {
-            const rawRecent = localStorage.getItem('smart_absen_recent_logs');
-            if (rawRecent) allLogs = JSON.parse(rawRecent);
-        } catch(e){}
-    }
-
-    const uName = String(loggedUser ? loggedUser.username || '' : '').trim().toLowerCase();
-    const uNisn = String(loggedUser ? loggedUser.nisn || '' : '').trim().toLowerCase();
-    const uNis = String(loggedUser ? loggedUser.nis || '' : '').trim().toLowerCase();
-    const uNama = String(loggedUser ? loggedUser.nama || '' : '').trim().toLowerCase();
-
-    const myLogs = allLogs.filter(l => {
-        const nisn = String(l.nisn || '').trim().toLowerCase();
-        const nis = String(l.nis || '').trim().toLowerCase();
-        const nama = String(l.nama || '').trim().toLowerCase();
-
-        if (uNisn && (nisn === uNisn || nis === uNisn)) return true;
-        if (uNis && (nisn === uNis || nis === uNis)) return true;
-        if (uName && (nisn === uName || nis === uName)) return true;
-        if (uNama && nama && (nama === uNama || nama.includes(uNama) || uNama.includes(nama))) return true;
-        return false;
-    });
-
-    // Urutkan kronologis dari awal masuk s/d sekarang
-    myLogs.sort((a, b) => new Date(a.tanggal || 0) - new Date(b.tanggal || 0));
-
-    let totalHadir = 0;
-    let totalTelat = 0;
-    let totalIzinSakit = 0;
-    let totalAlpa = 0;
-
-    myLogs.forEach(l => {
-        const st = String(l.status || '').trim().toUpperCase();
-        if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') {
-            totalTelat++;
-        } else if (st.includes('HADIR') || st === 'H') {
-            totalHadir++;
-        } else if (st.includes('SAKIT') || st === 'S' || st.includes('IZIN') || st === 'I') {
-            totalIzinSakit++;
-        } else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') {
-            totalAlpa++;
-        } else {
-            totalHadir++;
-        }
-    });
-
-    const totalDays = myLogs.length;
-    const percentage = totalDays > 0 ? Math.round(((totalHadir + totalTelat) / totalDays) * 100) : 0;
-
-    const elHadir = document.getElementById('studentMyHadir');
-    const elTelat = document.getElementById('studentMyTelat');
-    const elIzinSakit = document.getElementById('studentMyIzinSakit');
-    const elAlpa = document.getElementById('studentMyAlpa');
-    const elPerc = document.getElementById('studentMyPercentage');
-    const elBadgeRange = document.getElementById('studentDateRangeBadge');
-
-    if (elHadir) elHadir.innerText = totalHadir;
-    if (elTelat) elTelat.innerText = totalTelat;
-    if (elIzinSakit) elIzinSakit.innerText = totalIzinSakit;
-    if (elAlpa) elAlpa.innerText = totalAlpa;
-    if (elPerc) elPerc.innerText = percentage + '%';
-
-    if (elBadgeRange) {
-        if (myLogs.length > 0) {
-            const startDate = myLogs[0].tanggal || '-';
-            const endDate = myLogs[myLogs.length - 1].tanggal || '-';
-            elBadgeRange.innerText = `Periode: ${startDate} s/d ${endDate}`;
-        } else {
-            elBadgeRange.innerText = `Periode: Belum Ada Data Presensi`;
-        }
-    }
-
-    renderChartStudentPersonalTimeline(myLogs);
-}
-
-function renderChartStudentPersonalTimeline(myLogs) {
-    const ctx = document.getElementById('chartStudentPersonalTimeline');
-    if (!ctx) return;
-
-    if (chartStudentPersonalTimeline) chartStudentPersonalTimeline.destroy();
-
-    const labels = [];
-    const dataValues = [];
-    const pointColors = [];
-
-    if (!myLogs || myLogs.length === 0) {
-        labels.push('Belum Ada Data');
-        dataValues.push(0);
-        pointColors.push('#94a3b8');
-    } else {
-        myLogs.forEach(l => {
-            labels.push(l.tanggal || 'Tanggal');
-            const st = String(l.status || '').trim().toUpperCase();
-            if (st.includes('HADIR') || st === 'H') {
-                dataValues.push(100);
-                pointColors.push('#10b981');
-            } else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') {
-                dataValues.push(75);
-                pointColors.push('#f59e0b');
-            } else if (st.includes('SAKIT') || st === 'S' || st.includes('IZIN') || st === 'I') {
-                dataValues.push(50);
-                pointColors.push('#3b82f6');
-            } else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') {
-                dataValues.push(25);
-                pointColors.push('#ef4444');
-            } else {
-                dataValues.push(100);
-                pointColors.push('#10b981');
-            }
-        });
-    }
-
-    chartStudentPersonalTimeline = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Status Kehadiran Saya',
-                data: dataValues,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                pointBackgroundColor: pointColors,
-                pointBorderColor: pointColors,
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                fill: true,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const val = context.raw;
-                            if (val === 100) return ' Status: HADIR (Tepat Waktu)';
-                            if (val === 75) return ' Status: TERLAMBAT';
-                            if (val === 50) return ' Status: IZIN / SAKIT';
-                            if (val === 25) return ' Status: ALPA (Tanpa Keterangan)';
-                            return ' Status: Belum Ada Data';
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: { color: getChartSubTextColor() },
-                    grid: { color: getChartGridColor() }
-                },
-                y: {
-                    min: 0,
-                    max: 110,
-                    ticks: {
-                        color: getChartSubTextColor(),
-                        stepSize: 25,
-                        callback: function(value) {
-                            if (value === 100) return 'Hadir (100%)';
-                            if (value === 75) return 'Telat (75%)';
-                            if (value === 50) return 'Izin/Sakit (50%)';
-                            if (value === 25) return 'Alpa (0%)';
-                            return '';
-                        }
-                    },
-                    grid: { color: getChartGridColor() }
-                }
-            }
-        }
-    });
 }
 
 function renderUnabsenGuruList(list) {
@@ -467,18 +218,8 @@ function renderUnabsenGuruList(list) {
 }
 
 // ==========================================
-// CHART.JS RENDER HELPERS (DYNAMIC THEME COMPATIBLE)
+// CHART.JS RENDER HELPERS
 // ==========================================
-
-function getChartTextColor() {
-    return document.documentElement.getAttribute('data-theme') === 'light' ? '#0f172a' : '#f8fafc';
-}
-function getChartSubTextColor() {
-    return document.documentElement.getAttribute('data-theme') === 'light' ? '#475569' : '#cbd5e1';
-}
-function getChartGridColor() {
-    return document.documentElement.getAttribute('data-theme') === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
-}
 
 function renderChartGender(laki, perempuan) {
     const ctx = document.getElementById('chartGenderDistribution');
@@ -503,7 +244,7 @@ function renderChartGender(laki, perempuan) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { color: getChartTextColor(), font: { family: 'Outfit', size: 12 } }
+                    labels: { color: '#f8fafc', font: { family: 'Outfit', size: 12 } }
                 }
             }
         }
@@ -546,8 +287,8 @@ function renderChartStudentAbsen(sSummary) {
                 legend: { display: false }
             },
             scales: {
-                x: { ticks: { color: getChartSubTextColor() }, grid: { display: false } },
-                y: { ticks: { color: getChartSubTextColor() }, grid: { color: getChartGridColor() } }
+                x: { ticks: { color: '#cbd5e1' }, grid: { display: false } },
+                y: { ticks: { color: '#cbd5e1' }, grid: { color: 'rgba(255,255,255,0.08)' } }
             }
         }
     });
@@ -586,8 +327,8 @@ function renderChartViolations(vSummary) {
                 legend: { display: false }
             },
             scales: {
-                x: { ticks: { color: getChartSubTextColor() }, grid: { color: getChartGridColor() } },
-                y: { ticks: { color: getChartSubTextColor() }, grid: { display: false } }
+                x: { ticks: { color: '#cbd5e1' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+                y: { ticks: { color: '#cbd5e1' }, grid: { display: false } }
             }
         }
     });
@@ -613,7 +354,7 @@ function renderChartTeacherAbsen(gSummary) {
                 ],
                 backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'],
                 borderWidth: 2,
-                borderColor: document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : 'rgba(15, 23, 42, 0.8)'
+                borderColor: 'rgba(15, 23, 42, 0.8)'
             }]
         },
         options: {
@@ -622,7 +363,7 @@ function renderChartTeacherAbsen(gSummary) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { color: getChartTextColor(), font: { family: 'Outfit', size: 12 } }
+                    labels: { color: '#f8fafc', font: { family: 'Outfit', size: 12 } }
                 }
             }
         }

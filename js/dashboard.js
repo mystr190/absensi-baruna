@@ -101,8 +101,8 @@ async function loadDashboardData(forceRefresh = false) {
         applySearchAndPaginate();
     }
 
-    const btnOldHtml = btnRefreshData.innerHTML;
-    btnRefreshData.innerHTML = '<i class="fa-solid fa-rotate-right fa-spin"></i> Memuat...';
+    const btnOldText = btnRefreshData.innerText;
+    btnRefreshData.innerText = "Memuat...";
     btnRefreshData.disabled = true;
 
     try {
@@ -134,7 +134,7 @@ async function loadDashboardData(forceRefresh = false) {
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Koneksi error. Silakan coba lagi.</td></tr>`;
         if (typeof showToast === 'function') showToast("Gagal menarik laporan data.", "error");
     } finally {
-        btnRefreshData.innerHTML = btnOldHtml;
+        btnRefreshData.innerText = btnOldText;
         btnRefreshData.disabled = false;
     }
 }
@@ -362,13 +362,7 @@ function updateStatsAndChart(dataArray) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        color: document.documentElement.getAttribute('data-theme') === 'light' ? '#0f172a' : '#f8fafc',
-                        font: { family: 'Outfit', size: 12 }
-                    }
-                }
+                legend: { position: 'right', labels: { color: '#f8fafc' } }
             }
         }
     });
