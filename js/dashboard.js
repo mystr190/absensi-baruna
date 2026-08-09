@@ -101,8 +101,8 @@ async function loadDashboardData(forceRefresh = false) {
         applySearchAndPaginate();
     }
 
-    const btnOldText = btnRefreshData.innerText;
-    btnRefreshData.innerText = "Memuat...";
+    const btnOldHtml = btnRefreshData.innerHTML;
+    btnRefreshData.innerHTML = '<i class="fa-solid fa-rotate-right fa-spin"></i> Memuat...';
     btnRefreshData.disabled = true;
 
     try {
@@ -134,7 +134,7 @@ async function loadDashboardData(forceRefresh = false) {
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Koneksi error. Silakan coba lagi.</td></tr>`;
         if (typeof showToast === 'function') showToast("Gagal menarik laporan data.", "error");
     } finally {
-        btnRefreshData.innerText = btnOldText;
+        btnRefreshData.innerHTML = btnOldHtml;
         btnRefreshData.disabled = false;
     }
 }

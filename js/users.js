@@ -281,6 +281,17 @@ if (formUserModal) {
             return;
         }
 
+        if (isEdit) {
+            const confirmed = await showCustomConfirm({
+                title: 'Simpan Perubahan Pengguna?',
+                message: `Apakah Anda yakin ingin memperbarui data pengguna <strong>"${nama}"</strong> (@${username})?<br><small style="color: var(--text-muted);">Seluruh data presensi dan perizinan terkait akan otomatis disinkronkan.</small>`,
+                icon: 'warning',
+                confirmText: 'Ya, Simpan Perubahan',
+                cancelText: 'Batal'
+            });
+            if (!confirmed) return;
+        }
+
         const btnSave = document.getElementById('btnSaveModalUser');
         if (btnSave) btnSave.disabled = true;
 
@@ -369,7 +380,8 @@ function updateAppSchoolConfigUI(config) {
     const inputKopSekolah = document.getElementById('inputKopSekolah');
     const inputKopAlamat = document.getElementById('inputKopAlamat');
     const inputKopLogo = document.getElementById('inputKopLogo');
-    const inputKopLogoSize = document.getElementById('inputKopLogoSize');
+    const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+    const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
 
     if (inputNamaSekolah) inputNamaSekolah.value = schoolName;
     if (inputTahunPelajaran) inputTahunPelajaran.value = tahunPelajaran;
@@ -380,7 +392,11 @@ function updateAppSchoolConfigUI(config) {
     if (inputKopSekolah && mergedConfig.kopSekolah !== undefined) inputKopSekolah.value = mergedConfig.kopSekolah || schoolName;
     if (inputKopAlamat && mergedConfig.kopAlamat !== undefined) inputKopAlamat.value = mergedConfig.kopAlamat;
     if (inputKopLogo && mergedConfig.kopLogo !== undefined) inputKopLogo.value = mergedConfig.kopLogo;
-    if (inputKopLogoSize && mergedConfig.kopLogoSize !== undefined) inputKopLogoSize.value = mergedConfig.kopLogoSize || '85';
+    
+    const defLogoWidth = mergedConfig.kopLogoWidth || mergedConfig.kopLogoSize || '85';
+    const defLogoHeight = mergedConfig.kopLogoHeight || mergedConfig.kopLogoSize || '85';
+    if (inputKopLogoWidth) inputKopLogoWidth.value = defLogoWidth;
+    if (inputKopLogoHeight) inputKopLogoHeight.value = defLogoHeight;
 
     // Update elemen nama sekolah di seluruh aplikasi
     if (schoolName) {
@@ -408,6 +424,8 @@ function updateKopSuratPreview() {
     const inputKopSekolah = document.getElementById('inputKopSekolah');
     const inputKopAlamat = document.getElementById('inputKopAlamat');
     const inputKopLogo = document.getElementById('inputKopLogo');
+    const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+    const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
     const inputKopLogoSize = document.getElementById('inputKopLogoSize');
     const inputNamaSekolah = document.getElementById('inputNamaSekolah');
 
@@ -422,11 +440,14 @@ function updateKopSuratPreview() {
     const sekolahVal = inputKopSekolah ? inputKopSekolah.value.trim() : (inputNamaSekolah ? inputNamaSekolah.value.trim() : '');
     const alamatVal = inputKopAlamat ? inputKopAlamat.value.trim() : '';
     const logoVal = inputKopLogo ? inputKopLogo.value.trim() : '';
-    const logoSizeVal = inputKopLogoSize ? (parseInt(inputKopLogoSize.value, 10) || 85) : 85;
+
+    const fallbackSize = inputKopLogoSize ? (parseInt(inputKopLogoSize.value, 10) || 85) : 85;
+    const logoWidthVal = inputKopLogoWidth ? (parseInt(inputKopLogoWidth.value, 10) || fallbackSize) : fallbackSize;
+    const logoHeightVal = inputKopLogoHeight ? (parseInt(inputKopLogoHeight.value, 10) || fallbackSize) : fallbackSize;
 
     if (logoContainer) {
-        logoContainer.style.width = logoSizeVal + 'px';
-        logoContainer.style.height = logoSizeVal + 'px';
+        logoContainer.style.width = logoWidthVal + 'px';
+        logoContainer.style.height = logoHeightVal + 'px';
     }
 
     if (previewYayasan) {
@@ -442,6 +463,7 @@ function updateKopSuratPreview() {
     if (logoVal && previewLogoImg && previewLogoFallback) {
         previewLogoImg.src = logoVal;
         previewLogoImg.style.display = 'block';
+        previewLogoImg.style.objectFit = 'contain';
         previewLogoFallback.style.display = 'none';
         
         previewLogoImg.onerror = function() {
@@ -455,7 +477,7 @@ function updateKopSuratPreview() {
 }
 
 // Bind Live Preview Events
-const previewInputIds = ['inputKopYayasan', 'inputKopSekolah', 'inputKopAlamat', 'inputKopLogo', 'inputKopLogoSize', 'inputNamaSekolah'];
+const previewInputIds = ['inputKopYayasan', 'inputKopSekolah', 'inputKopAlamat', 'inputKopLogo', 'inputKopLogoWidth', 'inputKopLogoHeight', 'inputKopLogoSize', 'inputNamaSekolah'];
 if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', () => {
         previewInputIds.forEach(id => {
@@ -498,7 +520,8 @@ if (formConfigSekolah) {
         const inputKopSekolah = document.getElementById('inputKopSekolah');
         const inputKopAlamat = document.getElementById('inputKopAlamat');
         const inputKopLogo = document.getElementById('inputKopLogo');
-        const inputKopLogoSize = document.getElementById('inputKopLogoSize');
+        const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+        const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
 
         const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : '';
         const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '';
@@ -509,7 +532,8 @@ if (formConfigSekolah) {
         const kopSekolah = inputKopSekolah ? inputKopSekolah.value.trim() : '';
         const kopAlamat = inputKopAlamat ? inputKopAlamat.value.trim() : '';
         const kopLogo = inputKopLogo ? inputKopLogo.value.trim() : '';
-        const kopLogoSize = inputKopLogoSize ? inputKopLogoSize.value.trim() : '85';
+        const kopLogoWidth = inputKopLogoWidth ? inputKopLogoWidth.value.trim() : '85';
+        const kopLogoHeight = inputKopLogoHeight ? inputKopLogoHeight.value.trim() : '85';
 
         if (!namaSekolah || !tahunPelajaran) {
             showToast("Nama Sekolah dan Tahun Pelajaran wajib diisi.", "warning");
@@ -533,7 +557,9 @@ if (formConfigSekolah) {
             formData.append('kop_sekolah', kopSekolah);
             formData.append('kop_alamat', kopAlamat);
             formData.append('kop_logo', kopLogo);
-            formData.append('kop_logo_size', kopLogoSize);
+            formData.append('kop_logo_width', kopLogoWidth);
+            formData.append('kop_logo_height', kopLogoHeight);
+            formData.append('kop_logo_size', kopLogoWidth);
 
             const activeUrl = urlScript || SCRIPT_URL;
             const result = await fetchWithRetry(activeUrl, {
@@ -542,7 +568,7 @@ if (formConfigSekolah) {
                 body: new URLSearchParams(formData).toString()
             }, 0);
 
-            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoSize };
+            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight, kopLogoSize: kopLogoWidth };
             updateAppSchoolConfigUI(newConfig);
             showToast("✅ Identitas sekolah, Token Telegram Bot & Server URL berhasil diperbarui!", "success");
         } catch (err) {
@@ -567,7 +593,8 @@ if (formKopSurat) {
         const inputKopSekolah = document.getElementById('inputKopSekolah');
         const inputKopAlamat = document.getElementById('inputKopAlamat');
         const inputKopLogo = document.getElementById('inputKopLogo');
-        const inputKopLogoSize = document.getElementById('inputKopLogoSize');
+        const inputKopLogoWidth = document.getElementById('inputKopLogoWidth');
+        const inputKopLogoHeight = document.getElementById('inputKopLogoHeight');
 
         const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : 'Sekolah';
         const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '2026/2027';
@@ -577,7 +604,8 @@ if (formKopSurat) {
         const kopSekolah = inputKopSekolah ? inputKopSekolah.value.trim() : '';
         const kopAlamat = inputKopAlamat ? inputKopAlamat.value.trim() : '';
         const kopLogo = inputKopLogo ? inputKopLogo.value.trim() : '';
-        const kopLogoSize = inputKopLogoSize ? inputKopLogoSize.value.trim() : '85';
+        const kopLogoWidth = inputKopLogoWidth ? inputKopLogoWidth.value.trim() : '85';
+        const kopLogoHeight = inputKopLogoHeight ? inputKopLogoHeight.value.trim() : '85';
 
         const btnSave = document.getElementById('btnSaveKopSurat');
         if (btnSave) btnSave.disabled = true;
@@ -592,7 +620,9 @@ if (formKopSurat) {
             formData.append('kop_sekolah', kopSekolah);
             formData.append('kop_alamat', kopAlamat);
             formData.append('kop_logo', kopLogo);
-            formData.append('kop_logo_size', kopLogoSize);
+            formData.append('kop_logo_width', kopLogoWidth);
+            formData.append('kop_logo_height', kopLogoHeight);
+            formData.append('kop_logo_size', kopLogoWidth);
 
             const result = await fetchWithRetry(SCRIPT_URL, {
                 method: 'POST',
@@ -600,7 +630,7 @@ if (formKopSurat) {
                 body: new URLSearchParams(formData).toString()
             }, 0);
 
-            const newConfig = { namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoSize };
+            const newConfig = { namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight, kopLogoSize: kopLogoWidth };
             updateAppSchoolConfigUI(newConfig);
             showToast("✅ Pengaturan Kop Surat Resmi PDF berhasil disimpan!", "success");
         } catch (err) {

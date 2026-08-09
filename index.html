@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Manajemen Absensi</title>
+    <title>SMARTAPP - Portal Siswa, Guru & Staf</title>
     <!-- Fonts & Font Awesome Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -52,8 +52,8 @@
 
         <div class="login-container glass-card">
             <div class="header">
-                <h1 id="loginSchoolTitle">Smart <span>School</span></h1>
-                <p id="loginSubText">Portal Absensi Guru & Staf • TP <span class="app-tp-text">2026-2027</span></p>
+                <h1 id="loginSchoolTitle">SMART<span>APP</span></h1>
+                <p id="loginSubText">Portal Siswa, Guru & Staf • TP <span class="app-tp-text">2026-2027</span></p>
                 <div id="connectionStatus" class="connection-status checking">
                     <span class="status-dot"></span>
                     <span id="statusText">Mengecek koneksi Google Sheets...</span>
@@ -75,7 +75,7 @@
                 </button>
             </form>
             <div class="login-hint" style="margin-bottom: 12px;">
-                <small>* Gunakan kredensial yang terdaftar di sistem. (Admin / Guru)</small>
+                <small>* Gunakan kredensial yang terdaftar di sistem (Admin / Guru / Siswa / Staf).</small>
             </div>
             <div style="padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.1); text-align: center; font-size: 0.76rem; color: var(--text-muted); line-height: 1.5;">
                 © <span class="app-current-year">2026</span> <strong class="app-school-name">SMA 1 Barunawati</strong>. Hak Cipta Dilindungi.<br>
@@ -113,9 +113,13 @@
                 <div class="user-details">
                     <h3 id="currentUserName">Nama Pengguna</h3>
                     <p id="currentUserRole" class="badge">Role</p>
-                    <div id="currentUserTelegramBadge" style="margin-top: 5px; font-size: 0.85rem; font-weight: 600; color: #94a3b8; display: none; align-items: center; gap: 5px;">
+                    <div id="currentUserTelegramBadge" style="margin-top: 5px; font-size: 0.85rem; font-weight: 600; color: #94a3b8; display: none; align-items: center; gap: 6px;">
                         <span id="currentUserTelegramIdText"></span>
                         <i class="fa-solid fa-circle-check" style="color: #22c55e; font-size: 0.95rem;" title="Terhubung Telegram"></i>
+                        <div id="notificationBellWrapper" class="notification-bell-btn" style="position: relative; display: inline-flex; align-items: center; cursor: pointer; margin-left: 6px;" title="Pengajuan Izin Perlu ACC (Klik untuk buka)">
+                            <i class="fa-solid fa-bell" style="color: #f59e0b; font-size: 1.05rem;"></i>
+                            <span id="notificationBadgeCount" class="notification-badge-count" style="position: absolute; top: -7px; right: -9px; background: #ef4444; color: #ffffff; font-size: 0.65rem; font-weight: 800; border-radius: 999px; padding: 1px 5px; min-width: 16px; text-align: center; border: 1.5px solid #1e293b; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5); display: none;">0</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1646,7 +1650,7 @@
                             </div>
 
                             <!-- KOP SURAT CONTENT PREVIEW -->
-                            <div id="kopPreviewBox" style="display: flex; align-items: center; gap: 20px; text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 14px; margin-top: 10px;">
+                            <div id="kopPreviewBox" style="display: flex; align-items: center; gap: 20px; text-align: center; border-bottom: 3px double #0f172a; padding-bottom: 4px; margin-top: 10px;">
                                 <div id="kopPreviewLogoContainer" style="width: 95px; height: 95px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; overflow: hidden;">
                                     <i id="kopPreviewLogoFallback" class="fa-solid fa-school" style="font-size: 2.8rem; color: #64748b;"></i>
                                     <img id="kopPreviewLogoImg" src="" alt="Logo Sekolah" style="width: 100%; height: 100%; object-fit: contain; display: none;">
@@ -1686,18 +1690,24 @@
                                 <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Alamat Lengkap & Kontak Sekolah:</label>
                                 <input type="text" id="inputKopAlamat" placeholder="Contoh: Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
                             </div>
-                            <div style="grid-column: 1 / -1; display: grid; grid-template-columns: 3fr 1fr; gap: 15px;">
+                            <div style="grid-column: 1 / -1; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px;">
                                 <div>
                                     <label style="font-size: 0.85rem; color: #c084fc; display: block; margin-bottom: 6px;">
-                                        <i class="fa-solid fa-image"></i> URL Gambar Logo Sekolah (Direct Link Image / Drive Image URL):
+                                        <i class="fa-solid fa-image"></i> URL Gambar Logo Sekolah (Direct Link / Drive URL):
                                     </label>
-                                    <input type="url" id="inputKopLogo" placeholder="https://example.com/logo-sekolah.png (Opsional, kosongkan jika tidak ada logo)" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+                                    <input type="url" id="inputKopLogo" placeholder="https://example.com/logo-sekolah.png (Opsional)" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
                                 </div>
                                 <div>
                                     <label style="font-size: 0.85rem; color: #c084fc; display: block; margin-bottom: 6px;">
-                                        <i class="fa-solid fa-up-right-and-down-left-from-center"></i> Ukuran Logo (px):
+                                        <i class="fa-solid fa-arrows-left-right"></i> Lebar Logo (px):
                                     </label>
-                                    <input type="number" id="inputKopLogoSize" min="40" max="160" value="85" placeholder="85" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; text-align: center;">
+                                    <input type="number" id="inputKopLogoWidth" min="30" max="250" value="85" placeholder="85" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; text-align: center;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.85rem; color: #c084fc; display: block; margin-bottom: 6px;">
+                                        <i class="fa-solid fa-arrows-up-down"></i> Tinggi Logo (px):
+                                    </label>
+                                    <input type="number" id="inputKopLogoHeight" min="30" max="250" value="85" placeholder="85" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; text-align: center;">
                                 </div>
                             </div>
                             <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end;">
@@ -2342,7 +2352,7 @@
 
             <!-- PANEL: APPROVAL IZIN SISWA (GURU / WALAS / ADMIN / KEPSEK) -->
             <section id="panel-approval-izin-siswa" class="panel" style="display: none;">
-                <div class="panel-header">
+                <div class="panel-header flex-between">
                     <div>
                         <h2><i class="fa-solid fa-user-check" style="color: #38bdf8;"></i> Approval & Data Permohonan Izin Siswa</h2>
                         <p class="panel-subtitle">Daftar permohonan izin/sakit (Wali Kelas) & antrean izin KBM (Guru/Piket).</p>

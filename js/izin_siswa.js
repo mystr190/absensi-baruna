@@ -250,6 +250,19 @@ async function handleFormIzinSiswaSubmit(e) {
  * Fetch all student leave requests from Backend
  */
 async function loadIzinSiswaData() {
+    const btns = [
+        document.getElementById('btnRefreshIzinSiswa'),
+        document.getElementById('btnRefreshApprovalIzinSiswa')
+    ];
+
+    btns.forEach(b => {
+        if (b) {
+            b.disabled = true;
+            const icon = b.querySelector('i');
+            if (icon) icon.classList.add('fa-spin');
+        }
+    });
+
     try {
         const url = `${SCRIPT_URL}?action=get_izin_siswa&_t=${Date.now()}`;
         const response = await fetch(url);
@@ -257,13 +270,23 @@ async function loadIzinSiswaData() {
 
         if (res.status === 'success' && Array.isArray(res.data)) {
             globalIzinSiswaLogs = res.data;
+            try { localStorage.setItem('smart_absen_izin_siswa_cache', JSON.stringify(res.data)); } catch(e){}
             pageIzinSiswa = 1;
             pageIzinWalas = 1;
             renderStudentIzinMyTable();
             renderWalasIzinApprovalTable();
+            if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge();
         }
     } catch (err) {
         console.error("Error loading izin siswa data:", err);
+    } finally {
+        btns.forEach(b => {
+            if (b) {
+                b.disabled = false;
+                const icon = b.querySelector('i');
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        });
     }
 }
 
@@ -466,7 +489,7 @@ function renderWalasIzinApprovalTable() {
 /**
  * Approve Izin Action
  */
-async function handleApproveIzinSiswaAction(id, rawNama) {
+async function handleApproveIzinSiswaAction(id, rawNama, btnEl) {
     const namaSiswa = decodeURIComponent(rawNama);
     const confirmed = await showCustomConfirm({
         title: 'Setujui Pengajuan Izin',
@@ -476,6 +499,18 @@ async function handleApproveIzinSiswaAction(id, rawNama) {
         cancelText: 'Batal'
     });
     if (!confirmed) return;
+
+    const targetBtn = btnEl || (window.event && window.event.target ? window.event.target.closest('button') : null);
+    const parentContainer = targetBtn ? targetBtn.parentElement : null;
+    const originalHtml = targetBtn ? targetBtn.innerHTML : '';
+
+    if (targetBtn) {
+        if (parentContainer) {
+            parentContainer.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+        targetBtn.disabled = true;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+    }
 
     const user = getLoggedUserSafely();
     const approverName = user ? (user.nama || user.namaLengkap || user.username) : 'Wali Kelas';
@@ -499,17 +534,31 @@ async function handleApproveIzinSiswaAction(id, rawNama) {
             loadIzinSiswaData();
         } else {
             if (typeof showToast === 'function') showToast('⚠️ ' + (res.message || 'Gagal menyetujui izin'), 'error');
+            if (targetBtn) {
+                if (parentContainer) {
+                    parentContainer.querySelectorAll('button').forEach(b => b.disabled = false);
+                }
+                targetBtn.disabled = false;
+                targetBtn.innerHTML = originalHtml;
+            }
         }
     } catch (err) {
         console.error("Error approving izin siswa:", err);
         if (typeof showToast === 'function') showToast('Gagal terhubung ke server', 'error');
+        if (targetBtn) {
+            if (parentContainer) {
+                parentContainer.querySelectorAll('button').forEach(b => b.disabled = false);
+            }
+            targetBtn.disabled = false;
+            targetBtn.innerHTML = originalHtml;
+        }
     }
 }
 
 /**
  * Reject Izin Action
  */
-async function handleRejectIzinSiswaAction(id, rawNama) {
+async function handleRejectIzinSiswaAction(id, rawNama, btnEl) {
     const namaSiswa = decodeURIComponent(rawNama);
     const confirmed = await showCustomConfirm({
         title: 'Tolak Pengajuan Izin',
@@ -520,6 +569,18 @@ async function handleRejectIzinSiswaAction(id, rawNama) {
         danger: true
     });
     if (!confirmed) return;
+
+    const targetBtn = btnEl || (window.event && window.event.target ? window.event.target.closest('button') : null);
+    const parentContainer = targetBtn ? targetBtn.parentElement : null;
+    const originalHtml = targetBtn ? targetBtn.innerHTML : '';
+
+    if (targetBtn) {
+        if (parentContainer) {
+            parentContainer.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+        targetBtn.disabled = true;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+    }
 
     const user = getLoggedUserSafely();
     const approverName = user ? (user.nama || user.namaLengkap || user.username) : 'Wali Kelas';
@@ -543,10 +604,24 @@ async function handleRejectIzinSiswaAction(id, rawNama) {
             loadIzinSiswaData();
         } else {
             if (typeof showToast === 'function') showToast('⚠️ ' + (res.message || 'Gagal menolak izin'), 'error');
+            if (targetBtn) {
+                if (parentContainer) {
+                    parentContainer.querySelectorAll('button').forEach(b => b.disabled = false);
+                }
+                targetBtn.disabled = false;
+                targetBtn.innerHTML = originalHtml;
+            }
         }
     } catch (err) {
         console.error("Error rejecting izin siswa:", err);
         if (typeof showToast === 'function') showToast('Gagal terhubung ke server', 'error');
+        if (targetBtn) {
+            if (parentContainer) {
+                parentContainer.querySelectorAll('button').forEach(b => b.disabled = false);
+            }
+            targetBtn.disabled = false;
+            targetBtn.innerHTML = originalHtml;
+        }
     }
 }
 

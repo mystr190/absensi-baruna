@@ -427,7 +427,8 @@ function doPost(e) {
         e.parameter.kop_sekolah,
         e.parameter.kop_alamat,
         e.parameter.kop_logo,
-        e.parameter.kop_logo_size
+        e.parameter.kop_logo_width || e.parameter.kop_logo_size,
+        e.parameter.kop_logo_height || e.parameter.kop_logo_size
       );
     }
     else if (action === 'setup_database' || action === 'initial_setup' || action === 'cleanup_and_repair_data' || action === 'fix_database') {
@@ -770,28 +771,26 @@ function cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, newNis, newNisn,
     const cIdMesin = String(newIdMesin || '').trim();
     const cIdTg = String(newIdTelegram || '').trim();
 
-    // 1. Update Sheet LogAbsen
+    // 1. Update Sheet LogAbsen (SHEET_LOG: Waktu[1], NISN[2], NIS[3], Nama[4], Kelas[5], Status[6], Petugas[7])
     const sheetLog = ss.getSheetByName(SHEET_LOG);
     if (sheetLog && sheetLog.getLastRow() > 1) {
-      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 11).getValues();
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
       for (let i = 0; i < lData.length; i++) {
-        const rNisn = String(lData[i][3] || '').trim().toLowerCase();
-        const rNis = String(lData[i][4] || '').trim().toLowerCase();
-        const rNama = String(lData[i][5] || '').trim().toLowerCase();
+        const rNisn = String(lData[i][1] || '').trim().toLowerCase();
+        const rNis = String(lData[i][2] || '').trim().toLowerCase();
+        const rNama = String(lData[i][3] || '').trim().toLowerCase();
 
         if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
           const rowIdx = i + 2;
-          if (cNisn) sheetLog.getRange(rowIdx, 4).setValue(cNisn);
-          if (cNis) sheetLog.getRange(rowIdx, 5).setValue(cNis);
-          if (cNama) sheetLog.getRange(rowIdx, 6).setValue(cNama);
-          if (cKelas) sheetLog.getRange(rowIdx, 7).setValue(cKelas);
-          if (cIdMesin) sheetLog.getRange(rowIdx, 10).setValue(cIdMesin);
-          if (cIdTg) sheetLog.getRange(rowIdx, 11).setValue(cIdTg);
+          if (cNisn) sheetLog.getRange(rowIdx, 2).setValue(cNisn);
+          if (cNis) sheetLog.getRange(rowIdx, 3).setValue(cNis);
+          if (cNama) sheetLog.getRange(rowIdx, 4).setValue(cNama);
+          if (cKelas) sheetLog.getRange(rowIdx, 5).setValue(cKelas);
         }
       }
     }
 
-    // 2. Update Sheet LogIzinSiswa
+    // 2. Update Sheet LogIzinSiswa (SHEET_IZIN_SISWA: ID[1], Waktu[2], Tanggal[3], NISN[4], NIS[5], Nama[6], Kelas[7])
     const sheetIzin = ss.getSheetByName(SHEET_IZIN_SISWA);
     if (sheetIzin && sheetIzin.getLastRow() > 1) {
       const izData = sheetIzin.getRange(2, 1, sheetIzin.getLastRow() - 1, 7).getValues();
@@ -810,38 +809,35 @@ function cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, newNis, newNisn,
       }
     }
 
-    // 3. Update Sheet LogPelanggaran
-    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
-    if (sheetPel && sheetPel.getLastRow() > 1) {
-      const pData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 5).getValues();
-      for (let i = 0; i < pData.length; i++) {
-        const rNis = String(pData[i][2] || '').trim().toLowerCase();
-        const rNama = String(pData[i][3] || '').trim().toLowerCase();
-
-        if ((oNisn && rNis === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+    // 3. Update Sheet DataIzin (SHEET_DATA_IZIN - EduIzin KBM: ID[1], Waktu[2], Nama[3], Kelas[4])
+    const sheetDataIzin = ss.getSheetByName(SHEET_DATA_IZIN);
+    if (sheetDataIzin && sheetDataIzin.getLastRow() > 1) {
+      const diData = sheetDataIzin.getRange(2, 1, sheetDataIzin.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < diData.length; i++) {
+        const rNama = String(diData[i][2] || '').trim().toLowerCase();
+        if (oNama && rNama === oNama) {
           const rowIdx = i + 2;
-          if (cNisn || cNis) sheetPel.getRange(rowIdx, 3).setValue(cNisn || cNis);
-          if (cNama) sheetPel.getRange(rowIdx, 4).setValue(cNama);
-          if (cKelas) sheetPel.getRange(rowIdx, 5).setValue(cKelas);
+          if (cNama) sheetDataIzin.getRange(rowIdx, 3).setValue(cNama);
+          if (cKelas) sheetDataIzin.getRange(rowIdx, 4).setValue(cKelas);
         }
       }
     }
 
-    // 4. Update Sheet User_Mesin
-    const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
-    if (sheetUM && sheetUM.getLastRow() > 1) {
-      const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 6).getValues();
-      for (let i = 0; i < umData.length; i++) {
-        const rIdM = String(umData[i][0] || '').trim().toLowerCase();
-        const rNama = String(umData[i][2] || '').trim().toLowerCase();
+    // 4. Update Sheet LogPelanggaran (SHEET_PELANGGARAN: ID[1], Waktu[2], Tanggal[3], NISN[4], NIS[5], Nama[6], Kelas[7])
+    const sheetPel = ss.getSheetByName(SHEET_PELANGGARAN);
+    if (sheetPel && sheetPel.getLastRow() > 1) {
+      const pData = sheetPel.getRange(2, 1, sheetPel.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < pData.length; i++) {
+        const rNisn = String(pData[i][3] || '').trim().toLowerCase();
+        const rNis = String(pData[i][4] || '').trim().toLowerCase();
+        const rNama = String(pData[i][5] || '').trim().toLowerCase();
 
-        if ((cIdMesin && rIdM === cIdMesin.toLowerCase()) || (oIdMesin && rIdM === oIdMesin) || (oNama && rNama === oNama)) {
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
           const rowIdx = i + 2;
-          if (cIdMesin) sheetUM.getRange(rowIdx, 1).setValue(cIdMesin);
-          if (cNama) sheetUM.getRange(rowIdx, 3).setValue(cNama);
-          sheetUM.getRange(rowIdx, 4).setValue('Siswa');
-          if (cKelas) sheetUM.getRange(rowIdx, 5).setValue(cKelas);
-          if (cIdTg) sheetUM.getRange(rowIdx, 6).setValue(cIdTg);
+          if (cNisn) sheetPel.getRange(rowIdx, 4).setValue(cNisn);
+          if (cNis) sheetPel.getRange(rowIdx, 5).setValue(cNis);
+          if (cNama) sheetPel.getRange(rowIdx, 6).setValue(cNama);
+          if (cKelas) sheetPel.getRange(rowIdx, 7).setValue(cKelas);
         }
       }
     }
@@ -864,6 +860,10 @@ function cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, newNis, newNisn,
         }
       }
     }
+
+    // 6. Sync Sheet User_Mesin
+    try { handleSyncDeviceUsers(); } catch(e) {}
+
   } catch (err) {
     Logger.log("Err cascadeUpdateStudentData: " + err.toString());
   }
@@ -982,7 +982,25 @@ function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama
       }
     }
 
-    // 7. Update Sheet User_Mesin
+    // 7. Update Sheet DataIzin (SHEET_DATA_IZIN - EduIzin KBM Guru & Piket sync)
+    const sheetDataIzin = ss.getSheetByName(SHEET_DATA_IZIN);
+    if (sheetDataIzin && sheetDataIzin.getLastRow() > 1) {
+      const diData = sheetDataIzin.getRange(2, 1, sheetDataIzin.getLastRow() - 1, 8).getValues();
+      for (let i = 0; i < diData.length; i++) {
+        const rGuru = String(diData[i][6] || '').trim().toLowerCase();
+        const rPiket = String(diData[i][7] || '').trim().toLowerCase();
+
+        const rowIdx = i + 2;
+        if (oNama && (rGuru === oNama || (oU && rGuru === oU)) && cNama) {
+          sheetDataIzin.getRange(rowIdx, 7).setValue(cNama);
+        }
+        if (oNama && (rPiket === oNama || (oU && rPiket === oU)) && cNama) {
+          sheetDataIzin.getRange(rowIdx, 8).setValue(cNama);
+        }
+      }
+    }
+
+    // 8. Update Sheet User_Mesin
     const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
     if (sheetUM && sheetUM.getLastRow() > 1) {
       const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 6).getValues();
@@ -1000,6 +1018,10 @@ function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama
         }
       }
     }
+
+    // 9. Sync Sheet User_Mesin
+    try { handleSyncDeviceUsers(); } catch(e) {}
+
   } catch (err) {
     Logger.log("Err cascadeUpdateTeacherData: " + err.toString());
   }
@@ -1512,6 +1534,8 @@ function getConfigObject(ss) {
     kopSekolah: 'SMA 1 BARUNAWATI',
     kopAlamat: 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083',
     kopLogo: '',
+    kopLogoWidth: '85',
+    kopLogoHeight: '85',
     kopLogoSize: '85'
   };
 
@@ -1529,6 +1553,8 @@ function getConfigObject(ss) {
     sheetConfig.appendRow(['KopSekolah', config.kopSekolah]);
     sheetConfig.appendRow(['KopAlamat', config.kopAlamat]);
     sheetConfig.appendRow(['KopLogo', config.kopLogo]);
+    sheetConfig.appendRow(['KopLogoWidth', config.kopLogoWidth]);
+    sheetConfig.appendRow(['KopLogoHeight', config.kopLogoHeight]);
     sheetConfig.appendRow(['KopLogoSize', config.kopLogoSize]);
     sheetConfig.getRange("A1:B1").setFontWeight("bold").setBackground("#d9ead3");
   } else {
@@ -1559,6 +1585,12 @@ function getConfigObject(ss) {
       if (normKey === 'koplogo' || normKey === 'logo') {
         if (val) config.kopLogo = val;
       }
+      if (normKey === 'koplogowidth' || normKey === 'logowidth') {
+        if (val) config.kopLogoWidth = val;
+      }
+      if (normKey === 'koplogoheight' || normKey === 'logoheight') {
+        if (val) config.kopLogoHeight = val;
+      }
       if (normKey === 'koplogosize' || normKey === 'logosize') {
         if (val) config.kopLogoSize = val;
       }
@@ -1572,7 +1604,7 @@ function handleGetConfig() {
   return jsonResponse('success', 'Config Loaded', getConfigObject(ss));
 }
 
-function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoSize) {
+function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight) {
   if (!namaSekolah || !tahunPelajaran) {
     return jsonResponse('error', 'Nama Sekolah dan Tahun Pelajaran wajib diisi.');
   }
@@ -1585,7 +1617,8 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
   const cSekolah = String(kopSekolah || namaSekolah || '').trim();
   const cAlamat = String(kopAlamat || '').trim();
   const cLogo = String(kopLogo || '').trim();
-  const cLogoSize = String(kopLogoSize || '85').trim();
+  const cLogoWidth = String(kopLogoWidth || '85').trim();
+  const cLogoHeight = String(kopLogoHeight || '85').trim();
 
   // Simpan ke Script Properties
   try {
@@ -1604,7 +1637,9 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
     sheetConfig.appendRow(['KopSekolah', cSekolah]);
     sheetConfig.appendRow(['KopAlamat', cAlamat]);
     sheetConfig.appendRow(['KopLogo', cLogo]);
-    sheetConfig.appendRow(['KopLogoSize', cLogoSize]);
+    sheetConfig.appendRow(['KopLogoWidth', cLogoWidth]);
+    sheetConfig.appendRow(['KopLogoHeight', cLogoHeight]);
+    sheetConfig.appendRow(['KopLogoSize', cLogoWidth]);
   } else {
     const data = sheetConfig.getDataRange().getValues();
     let foundNama = false;
@@ -1614,6 +1649,8 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
     let foundKopSekolah = false;
     let foundAlamat = false;
     let foundLogo = false;
+    let foundLogoWidth = false;
+    let foundLogoHeight = false;
     let foundLogoSize = false;
 
     for (let i = 1; i < data.length; i++) {
@@ -1648,8 +1685,16 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
         sheetConfig.getRange(i + 1, 2).setValue(cLogo);
         foundLogo = true;
       }
+      if (normKey === 'koplogowidth' || normKey === 'logowidth') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogoWidth);
+        foundLogoWidth = true;
+      }
+      if (normKey === 'koplogoheight' || normKey === 'logoheight') {
+        sheetConfig.getRange(i + 1, 2).setValue(cLogoHeight);
+        foundLogoHeight = true;
+      }
       if (normKey === 'koplogosize' || normKey === 'logosize') {
-        sheetConfig.getRange(i + 1, 2).setValue(cLogoSize);
+        sheetConfig.getRange(i + 1, 2).setValue(cLogoWidth);
         foundLogoSize = true;
       }
     }
@@ -1661,7 +1706,9 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
     if (!foundKopSekolah) sheetConfig.appendRow(['KopSekolah', cSekolah]);
     if (!foundAlamat) sheetConfig.appendRow(['KopAlamat', cAlamat]);
     if (!foundLogo) sheetConfig.appendRow(['KopLogo', cLogo]);
-    if (!foundLogoSize) sheetConfig.appendRow(['KopLogoSize', cLogoSize]);
+    if (!foundLogoWidth) sheetConfig.appendRow(['KopLogoWidth', cLogoWidth]);
+    if (!foundLogoHeight) sheetConfig.appendRow(['KopLogoHeight', cLogoHeight]);
+    if (!foundLogoSize) sheetConfig.appendRow(['KopLogoSize', cLogoWidth]);
   }
 
   return jsonResponse('success', 'Pengaturan sekolah & Kop Surat berhasil diperbarui.');
@@ -2068,7 +2115,7 @@ function handleDeleteJenisPelanggaran(idOrNama) {
 function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu('🚀 Smart Absensi')
+    ui.createMenu('🚀 SMARTAPP')
       .addItem('⚙️ Setup Database Otomatis', 'initialSetup')
       .addToUi();
   } catch (e) { }
@@ -2534,7 +2581,7 @@ function handleAddPengajuanIzin(dataRaw) {
     // === NOTIFIKASI TELEGRAM PENGAJUAN IZIN ===
     try {
       const config = getConfigObject(ss);
-      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMARTAPP';
 
       // 1. Notifikasi ke Kepala Sekolah
       const kepsekTgIds = getKepalaSekolahTelegramIds(ss);
@@ -2547,7 +2594,7 @@ function handleAddPengajuanIzin(dataRaw) {
         `<b>Keterangan:</b> ${item.keterangan || '-'}\n` +
         `<b>Status:</b> ${initialStatus === 'Disetujui' ? '✅ Disetujui Otomatis' : '⏳ Menunggu Persetujuan'}` +
         `</blockquote>\n\n` +
-        `<i>Mohon periksa dan berikan persetujuan pada portal Smart School.</i>`;
+        `<i>Mohon periksa dan berikan persetujuan pada portal SMARTAPP.</i>`;
 
       kepsekTgIds.forEach(tgId => {
         if (tgId) sendTelegramNotification(tgId, msgKepsek);
@@ -2641,11 +2688,11 @@ function handleApprovePengajuanIzin(id, approver) {
     // === NOTIFIKASI TELEGRAM KE GURU (DISETUJUI) ===
     try {
       const config = getConfigObject(ss);
-      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+      const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMARTAPP';
       const guruTgId = getUserTelegramIdByUsername(ss, item.username);
 
       if (guruTgId) {
-        const msgAcc = `<b>✅ PENGAJUAN IZIN DISETUJUI</b>\n` +
+        const msgAcc = `<b>PENGAJUAN IZIN DISETUJUI</b>\n` +
           `<b>${schoolTitle}</b>\n\n` +
           `<blockquote>` +
           `Halo <b>${item.nama}</b>, permohonan izin Anda telah <b>DISETUJUI</b>.\n\n` +
@@ -2709,11 +2756,11 @@ function handleRejectPengajuanIzin(id, approver) {
     try {
       if (item) {
         const config = getConfigObject(ss);
-        const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMART SCHOOL';
+        const schoolTitle = config.namaSekolah ? config.namaSekolah.toUpperCase() : 'SMARTAPP';
         const guruTgId = getUserTelegramIdByUsername(ss, item.username);
 
         if (guruTgId) {
-          const msgReject = `<b>❌ PENGAJUAN IZIN DITOLAK</b>\n` +
+          const msgReject = `<b>PENGAJUAN IZIN DITOLAK</b>\n` +
             `<b>${schoolTitle}</b>\n\n` +
             `<blockquote>` +
             `Halo <b>${item.nama}</b>, permohonan izin Anda pada tanggal <b>${item.tanggal}</b> telah <b>DITOLAK</b>.\n\n` +
@@ -4815,7 +4862,7 @@ function handleAddPengajuanIzinSiswa(dataObj) {
         `📅 Tanggal Izin: <b>${tanggal}</b>\n` +
         `📌 Kategori: <b>${kategori}</b>\n` +
         `💬 Keterangan: <i>${keterangan || '-'}</i>\n\n` +
-        `Silakan buka aplikasi Smart Absen untuk menyetujui / menolak permohonan ini.`;
+        `Silakan buka aplikasi SMARTAPP untuk menyetujui / menolak permohonan ini.`;
       sendTelegramNotification(walasTgId, msgWalas);
     }
 
@@ -4939,8 +4986,8 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
     }
 
     if (studentTgId) {
-      const msgSiswa = `✅ <b>PENGAJUAN IZIN DISETUJUI!</b>\n\n` +
-        `Pengajuan izin Anda untuk tanggal <b>${tanggal}</b> (Kategori: <b>${targetRowData[8]}</b>) telah <b>DISETUJUI</b> oleh Wali Kelas/Petugas <b>${nameStr}</b>.\n\n` +
+      const msgSiswa = `<b>[PENGAJUAN IZIN DISETUJUI]</b>\n\n` +
+        `Pengajuan izin Anda untuk tanggal <b>${tanggal}</b> (Kategori: <b>${targetRowData[8]}</b>) telah <b>DISETUJUI</b> oleh ${nameStr}.\n\n` +
         `Status presensi Anda pada tanggal tersebut otomatis dicatat sebagai <b>${targetRowData[8]}</b>.`;
       sendTelegramNotification(studentTgId, msgSiswa);
     }
@@ -4968,13 +5015,13 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
     }
 
     if (walasTgId) {
-      const msgWalas = `🛡️ <b>KONFIRMASI PERSETUJUAN IZIN SISWA</b>\n\n` +
+      const msgWalas = `<b>[KONFIRMASI PERSETUJUAN IZIN SISWA]</b>\n\n` +
         `Anda baru saja <b>MENYETUJUI</b> permohonan izin berikut:\n\n` +
-        `👤 Siswa: <b>${nama}</b> (${kelas})\n` +
-        `📅 Tanggal: <b>${tanggal}</b>\n` +
-        `📌 Kategori: <b>${targetRowData[8] || 'Izin'}</b>\n` +
-        `💬 Keterangan: <i>${targetRowData[9] || '-'}</i>\n` +
-        `⏰ Waktu ACC: <b>${timeNowStr}</b>\n\n` +
+        `- Siswa: <b>${nama}</b> (${kelas})\n` +
+        `- Tanggal: <b>${tanggal}</b>\n` +
+        `- Kategori: <b>${targetRowData[8] || 'Izin'}</b>\n` +
+        `- Keterangan: <i>${targetRowData[9] || '-'}</i>\n` +
+        `- Waktu ACC: <b>${timeNowStr}</b>\n\n` +
         `<i>Pesan keamanan ini dikirim ke Telegram Anda untuk mencegah penyalahgunaan akun.</i>`;
       sendTelegramNotification(walasTgId, msgWalas);
     }
@@ -5216,10 +5263,10 @@ function handleSubmitEduIzin(data) {
   // Notifikasi Telegram untuk SISWA (Konfirmasi Pengajuan Terkirim)
   const siswaTgId = findTelegramIdByNameOrUsername(ss, data.nama);
   if (siswaTgId) {
-    const msgSiswaSubmit = `⏳ <b>[PERMOHONAN IZIN KBM TERKIRIM]</b>\n\n` +
+    const msgSiswaSubmit = `<b>[PERMOHONAN IZIN KBM TERKIRIM]</b>\n\n` +
       `Halo <b>${data.nama}</b>, permohonan izin <b>${data.kategori}</b> Anda telah diajukan ke sistem.\n` +
-      `📌 Guru Pengajar: <b>${data.guru || 'Tidak ada guru'}</b>\n` +
-      `👮‍♂️ Petugas Piket: <b>${data.piket}</b>\n\n` +
+      `- Guru Pengajar: <b>${data.guru || 'Tidak ada guru'}</b>\n` +
+      `- Petugas Piket: <b>${data.piket}</b>\n\n` +
       `<i>Status saat ini sedang diproses. Anda akan menerima notifikasi Telegram saat izin disetujui.</i>`;
     sendTelegramNotification(siswaTgId, msgSiswaSubmit);
   }
@@ -5227,25 +5274,25 @@ function handleSubmitEduIzin(data) {
   if (statusGuru === 'Menunggu') {
     const guruTgId = findTelegramIdByNameOrUsername(ss, data.guru);
     if (guruTgId) {
-      const msgGuru = `📩 <b>[PENGAJUAN IZIN KBM SISWA BARU]</b>\n\n` +
-        `👤 Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
-        `📌 Kategori: <b>${data.kategori}</b>\n` +
-        `📝 Alasan: <i>${data.alasan}</i>\n` +
-        `📅 Waktu: ${waktuFormatted} WIB\n` +
-        `👮‍♂️ Petugas Piket: ${data.piket}\n\n` +
-        `👉 <i>Mohon masuk ke Aplikasi SmartApp untuk menyetujui atau menolak permohonan ini.</i>`;
+      const msgGuru = `<b>[PENGAJUAN IZIN KBM SISWA BARU]</b>\n\n` +
+        `- Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
+        `- Kategori: <b>${data.kategori}</b>\n` +
+        `- Alasan: <i>${data.alasan}</i>\n` +
+        `- Waktu: ${waktuFormatted} WIB\n` +
+        `- Petugas Piket: ${data.piket}\n\n` +
+        `<i>Mohon masuk ke Aplikasi SmartApp untuk menyetujui atau menolak permohonan ini.</i>`;
       sendTelegramNotification(guruTgId, msgGuru);
     }
   } else {
     const piketTgId = findTelegramIdByNameOrUsername(ss, data.piket);
     if (piketTgId) {
-      const msgPiket = `📩 <b>[PENGAJUAN IZIN KBM - ANTREAN PIKET]</b>\n\n` +
-        `👤 Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
-        `📌 Kategori: <b>${data.kategori}</b>\n` +
-        `📝 Alasan: <i>${data.alasan}</i>\n` +
-        `ℹ️ Status Guru: <b>Dilewati (Jam Kosong)</b>\n` +
-        `📅 Waktu: ${waktuFormatted} WIB\n\n` +
-        `👉 <i>Mohon masuk ke Aplikasi SmartApp untuk memproses izin di Meja Piket & mencetak PDF.</i>`;
+      const msgPiket = `<b>[PENGAJUAN IZIN KBM - ANTREAN PIKET]</b>\n\n` +
+        `- Siswa: <b>${data.nama}</b> (${data.kelas})\n` +
+        `- Kategori: <b>${data.kategori}</b>\n` +
+        `- Alasan: <i>${data.alasan}</i>\n` +
+        `- Status Guru: <b>Dilewati (Jam Kosong)</b>\n` +
+        `- Waktu: ${waktuFormatted} WIB\n\n` +
+        `<i>Mohon masuk ke Aplikasi SmartApp untuk memproses izin di Meja Piket & mencetak PDF.</i>`;
       sendTelegramNotification(piketTgId, msgPiket);
     }
   }
@@ -5307,18 +5354,18 @@ function handleApproveEduIzinGuru(id, approver) {
 
       const piketTgId = findTelegramIdByNameOrUsername(ss, namaPiket);
       if (piketTgId) {
-        const msgPiket = `✅ <b>[IZIN KBM SISWA DISETUJUI GURU -> ANTREAN PIKET]</b>\n\n` +
-          `👤 Siswa: <b>${namaSiswa}</b> (${kelasSiswa})\n` +
-          `📌 Kategori: <b>${kategori}</b>\n` +
-          `👨‍🏫 Disetujui Guru: <b>${namaGuru}</b>\n` +
-          `📝 Alasan: <i>${alasan}</i>\n\n` +
-          `👉 <i>Mohon buka Meja Piket di sistem SmartApp untuk memproses izin & cetak PDF.</i>`;
+        const msgPiket = `<b>[IZIN KBM DISETUJUI GURU - ANTREAN PIKET]</b>\n\n` +
+          `- Siswa: <b>${namaSiswa}</b> (${kelasSiswa})\n` +
+          `- Kategori: <b>${kategori}</b>\n` +
+          `- Disetujui Guru: <b>${namaGuru}</b>\n` +
+          `- Alasan: <i>${alasan}</i>\n\n` +
+          `<i>Mohon buka Meja Piket di sistem SmartApp untuk memproses izin & cetak PDF.</i>`;
         sendTelegramNotification(piketTgId, msgPiket);
       }
 
       const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
       if (siswaTgId) {
-        const msgSiswa = `✅ <b>[UPDATE PERMOHONAN IZIN KBM]</b>\n\n` +
+        const msgSiswa = `<b>[UPDATE PERMOHONAN IZIN KBM]</b>\n\n` +
           `Guru Pengajar (<b>${namaGuru}</b>) telah <b>MENYETUJUI</b> izin ${kategori} Anda.\n` +
           `Saat ini permohonan diteruskan ke Petugas Piket (<b>${namaPiket}</b>) untuk pengesahan & penerbitan PDF.`;
         sendTelegramNotification(siswaTgId, msgSiswa);
@@ -5358,23 +5405,35 @@ function handleApproveEduIzinPiket(id, approver) {
     const namaGuru = rowData[6];
     const namaPiket = rowData[7];
 
-    // 1. Notifikasi ke SISWA (Paling Utama: membawa link PDF Surat Izin)
+    // 1. Notifikasi ke SISWA (Anak: membawa link PDF Surat Izin)
     const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
     if (siswaTgId) {
-      const msgSiswa = `🎉 <b>[SURAT IZIN KBM RESMI DITERBITKAN]</b>\n\n` +
-        `Halo <b>${namaSiswa}</b>, permohonan izin <b>${kategori}</b> Anda telah DISAHKAN oleh Petugas Piket (<b>${namaPiket}</b>).\n\n` +
-        `📄 <b>Link Surat Bukti Izin (PDF):</b>\n${pdfUrl}\n\n` +
+      const msgSiswa = `<b>[SURAT BUKTI IZIN KBM DITERBITKAN]</b>\n\n` +
+        `Halo <b>${namaSiswa}</b>, permohonan izin <b>${kategori}</b> Anda telah DISAHKAN oleh Petugas Piket (<b>${approver || namaPiket}</b>).\n\n` +
+        `<b>Link Surat Bukti Izin (PDF):</b>\n${pdfUrl}\n\n` +
         `<i>Tunjukkan Surat Izin PDF ini kepada Satpam atau Guru jika diminta.</i>`;
       sendTelegramNotification(siswaTgId, msgSiswa);
     }
 
-    // 2. Notifikasi ke GURU PENGAJAR (Baik yang disetujui Guru maupun yang dilewati karena jam kosong)
+    // 2. Notifikasi ke GURU PIKET (Petugas Piket yang memproses / bertugas)
+    const targetPiket = approver || namaPiket;
+    const piketTgId = findTelegramIdByNameOrUsername(ss, targetPiket) || findTelegramIdByNameOrUsername(ss, namaPiket);
+    if (piketTgId) {
+      const msgPiket = `<b>[IZIN KBM DISAHKAN - KONFIRMASI PIKET]</b>\n\n` +
+        `Petugas Piket (<b>${targetPiket}</b>) telah menyetujui izin <b>${kategori}</b> & menerbitkan Surat Izin PDF.\n\n` +
+        `- Siswa: <b>${namaSiswa}</b> (${kelasSiswa})\n` +
+        `- Guru Pengajar: <b>${namaGuru}</b>\n` +
+        `- Link Dokumen PDF:\n${pdfUrl}`;
+      sendTelegramNotification(piketTgId, msgPiket);
+    }
+
+    // 3. Notifikasi ke GURU PENGAJAR (Baik yang disetujui Guru maupun yang dilewati karena jam kosong)
     if (namaGuru && namaGuru !== 'Tidak ada guru') {
       const guruTgId = findTelegramIdByNameOrUsername(ss, namaGuru);
       if (guruTgId) {
-        const msgGuru = `ℹ️ <b>[INFORMASI IZIN KBM SELESAI]</b>\n\n` +
-          `Siswa <b>${namaSiswa}</b> (${kelasSiswa}) telah resmi diberikan izin <b>${kategori}</b> oleh Petugas Piket (<b>${namaPiket}</b>).\n` +
-          `📄 <b>Link Bukti PDF:</b> ${pdfUrl}`;
+        const msgGuru = `<b>[INFORMASI IZIN KBM SELESAI]</b>\n\n` +
+          `Siswa <b>${namaSiswa}</b> (${kelasSiswa}) telah resmi diberikan izin <b>${kategori}</b> oleh Petugas Piket (<b>${targetPiket}</b>).\n` +
+          `Link Bukti PDF: ${pdfUrl}`;
         sendTelegramNotification(guruTgId, msgGuru);
       }
     }
@@ -5410,9 +5469,9 @@ function handleRejectEduIzin(id, tipe, alasan, approver) {
       // Notifikasi ke SISWA
       const siswaTgId = findTelegramIdByNameOrUsername(ss, namaSiswa);
       if (siswaTgId) {
-        const msgReject = `❌ <b>[PERMOHONAN IZIN KBM DITOLAK]</b>\n\n` +
+        const msgReject = `<b>[PERMOHONAN IZIN KBM DITOLAK]</b>\n\n` +
           `Halo <b>${namaSiswa}</b>, permohonan <b>${kategori}</b> Anda DITOLAK oleh ${tipe === 'guru' ? 'Guru Pengajar' : 'Petugas Piket'} (<b>${penolak}</b>).\n` +
-          `💬 <b>Alasan Penolakan:</b> <i>${alasan || '-'}</i>`;
+          `Alasan Penolakan: <i>${alasan || '-'}</i>`;
         sendTelegramNotification(siswaTgId, msgReject);
       }
 
@@ -5420,9 +5479,9 @@ function handleRejectEduIzin(id, tipe, alasan, approver) {
       if (tipe === 'piket' && namaGuru && namaGuru !== 'Tidak ada guru') {
         const guruTgId = findTelegramIdByNameOrUsername(ss, namaGuru);
         if (guruTgId) {
-          const msgGuruReject = `ℹ️ <b>[INFORMASI PENOLAKAN IZIN KBM]</b>\n\n` +
+          const msgGuruReject = `<b>[INFORMASI PENOLAKAN IZIN KBM]</b>\n\n` +
             `Permohonan izin <b>${kategori}</b> untuk siswa <b>${namaSiswa}</b> (${kelasSiswa}) telah DITOLAK oleh Petugas Piket (<b>${penolak}</b>).\n` +
-            `💬 <b>Alasan:</b> <i>${alasan || '-'}</i>`;
+            `Alasan: <i>${alasan || '-'}</i>`;
           sendTelegramNotification(guruTgId, msgGuruReject);
         }
       }
@@ -5450,60 +5509,105 @@ function generateEduIzinPDF(rowData) {
   const kopSekolah = String(cfg.kopSekolah || cfg.namaSekolah || 'SMA 1 BARUNAWATI').trim();
   const kopAlamat = String(cfg.kopAlamat || 'Jl. X-III Aipda KS Tubun II/III No.7, Slipi Palmerah, Jakarta Barat | Telp/Fax : (021) 5303083').trim();
   const kopLogo = String(cfg.kopLogo || '').trim();
-  const kopLogoSize = parseInt(cfg.kopLogoSize || '85', 10) || 85;
+  const kopLogoWidth = parseInt(cfg.kopLogoWidth || cfg.kopLogoSize || '85', 10) || 85;
+  const kopLogoHeight = parseInt(cfg.kopLogoHeight || cfg.kopLogoSize || '85', 10) || 85;
 
   // HEADING KOP SURAT RESMI
+  let logoBlob = null;
   if (kopLogo) {
     try {
-      const logoBlob = UrlFetchApp.fetch(kopLogo).getBlob();
-      const kopTable = body.appendTable();
-      kopTable.setBorderWidth(0);
-      const kopRow = kopTable.appendTableRow();
-      
-      const cellLogo = kopRow.appendTableCell();
-      cellLogo.setWidth(kopLogoSize + 10);
-      const pImg = cellLogo.appendParagraph('');
-      pImg.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-      const inlineLogo = pImg.appendInlineImage(logoBlob);
-      inlineLogo.setWidth(kopLogoSize).setHeight(kopLogoSize);
+      logoBlob = UrlFetchApp.fetch(kopLogo).getBlob();
+    } catch (errLogo) {
+      Logger.log("Gagal fetch logo kop: " + errLogo.toString());
+      logoBlob = null;
+    }
+  }
 
-      const cellText = kopRow.appendTableCell();
-      if (kopYayasan) {
-        const pYys = cellText.appendParagraph(kopYayasan.toUpperCase());
-        pYys.setFontFamily('Arial').setFontSize(10.5).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-      }
+  if (logoBlob) {
+    const kopTable = body.appendTable();
+    kopTable.setBorderWidth(0);
+    const kopRow = kopTable.appendTableRow();
+    
+    const cellLogo = kopRow.appendTableCell();
+    cellLogo.setWidth(kopLogoWidth + 15);
+    cellLogo.setVerticalAlignment(DocumentApp.VerticalAlignment.MIDDLE);
+
+    const pImg = cellLogo.getChild(0).asParagraph();
+    pImg.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    pImg.setSpacingBefore(0);
+    pImg.setSpacingAfter(0);
+    const inlineLogo = pImg.appendInlineImage(logoBlob);
+    inlineLogo.setWidth(kopLogoWidth).setHeight(kopLogoHeight);
+
+    const cellText = kopRow.appendTableCell();
+    cellText.setWidth(390);
+    cellText.setVerticalAlignment(DocumentApp.VerticalAlignment.MIDDLE);
+
+    const pYys = cellText.getChild(0).asParagraph();
+    if (kopYayasan) {
+      pYys.setText(kopYayasan.toUpperCase());
+      pYys.setFontFamily('Arial');
+      pYys.setFontSize(10.5);
+      pYys.setBold(true);
+      pYys.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pYys.setSpacingBefore(0);
+      pYys.setSpacingAfter(2);
+
       const pSek = cellText.appendParagraph(kopSekolah.toUpperCase());
-      pSek.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-      
-      if (kopAlamat) {
-        const pAlm = cellText.appendParagraph(kopAlamat);
-        pAlm.setFontFamily('Arial').setFontSize(8.5).setItalic(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-      }
-    } catch(e) {
-      if (kopYayasan) {
-        const pYys = body.appendParagraph(kopYayasan.toUpperCase());
-        pYys.setFontFamily('Arial').setFontSize(10.5).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-      }
-      const pSek = body.appendParagraph(kopSekolah.toUpperCase());
-      pSek.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-      if (kopAlamat) {
-        const pAlm = body.appendParagraph(kopAlamat);
-        pAlm.setFontFamily('Arial').setFontSize(8.5).setItalic(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-      }
+      pSek.setFontFamily('Arial');
+      pSek.setFontSize(14);
+      pSek.setBold(true);
+      pSek.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pSek.setSpacingBefore(0);
+      pSek.setSpacingAfter(2);
+    } else {
+      pYys.setText(kopSekolah.toUpperCase());
+      pYys.setFontFamily('Arial');
+      pYys.setFontSize(14);
+      pYys.setBold(true);
+      pYys.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pYys.setSpacingBefore(0);
+      pYys.setSpacingAfter(2);
+    }
+    
+    if (kopAlamat) {
+      const pAlm = cellText.appendParagraph(kopAlamat);
+      pAlm.setFontFamily('Arial');
+      pAlm.setFontSize(8.5);
+      pAlm.setItalic(true);
+      pAlm.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pAlm.setSpacingBefore(0);
+      pAlm.setSpacingAfter(0);
     }
   } else {
     if (kopYayasan) {
       const pYys = body.appendParagraph(kopYayasan.toUpperCase());
-      pYys.setFontFamily('Arial').setFontSize(10.5).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pYys.setFontFamily('Arial');
+      pYys.setFontSize(10.5);
+      pYys.setBold(true);
+      pYys.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pYys.setSpacingBefore(0);
+      pYys.setSpacingAfter(2);
     }
     const pSek = body.appendParagraph(kopSekolah.toUpperCase());
-    pSek.setFontFamily('Arial').setFontSize(14).setBold(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    pSek.setFontFamily('Arial');
+    pSek.setFontSize(14);
+    pSek.setBold(true);
+    pSek.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    pSek.setSpacingBefore(0);
+    pSek.setSpacingAfter(2);
     if (kopAlamat) {
       const pAlm = body.appendParagraph(kopAlamat);
-      pAlm.setFontFamily('Arial').setFontSize(8.5).setItalic(true).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pAlm.setFontFamily('Arial');
+      pAlm.setFontSize(8.5);
+      pAlm.setItalic(true);
+      pAlm.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+      pAlm.setSpacingBefore(0);
+      pAlm.setSpacingAfter(0);
     }
   }
 
+  // Jarak dari Kop ke Garis Pemisah (Horizontal Rule) terpaut 1 enter saja
   body.appendHorizontalRule();
   body.appendParagraph('');
 

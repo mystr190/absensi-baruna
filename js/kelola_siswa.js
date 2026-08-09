@@ -310,6 +310,17 @@ async function handleSaveStudentSingle(e) {
     const isEdit = Boolean(oldNis || oldNisn);
     const action = isEdit ? 'update_student' : 'add_student';
 
+    if (isEdit) {
+        const confirmed = await showCustomConfirm({
+            title: 'Simpan Perubahan Siswa?',
+            message: `Apakah Anda yakin ingin memperbarui data siswa <strong>"${nama}"</strong> (${nis || nisn})?<br><small style="color: var(--text-muted);">Seluruh log presensi, perizinan, dan pelanggaran siswa akan otomatis mengikuti perubahan ini.</small>`,
+            icon: 'warning',
+            confirmText: 'Ya, Simpan Perubahan',
+            cancelText: 'Batal'
+        });
+        if (!confirmed) return;
+    }
+
     if (btnSave) {
         btnSave.disabled = true;
         btnSave.textContent = 'Menyimpan...';

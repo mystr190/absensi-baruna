@@ -188,9 +188,32 @@ function loadEduIzinData() {
 
     checkAndShowEduIzinApprovalSections();
 
+    const btns = [
+        document.getElementById('btnRefreshEduIzinSiswa'),
+        document.getElementById('btnRefreshApprovalIzinSiswa')
+    ];
+
+    btns.forEach(b => {
+        if (b) {
+            b.disabled = true;
+            const icon = b.querySelector('i');
+            if (icon) icon.classList.add('fa-spin');
+        }
+    });
+
     callGAS('get_edu_izin', null, (res) => {
+        btns.forEach(b => {
+            if (b) {
+                b.disabled = false;
+                const icon = b.querySelector('i');
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        });
+
         if (res && res.status === 'success') {
+            try { localStorage.setItem('smart_absen_edu_izin_cache', JSON.stringify(res.data || [])); } catch(e){}
             renderEduIzinTables(res.data || []);
+            if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge();
         } else {
             console.error('Gagal memuat data Izin KBM', res);
         }
@@ -334,47 +357,73 @@ function renderEduIzinTables(data) {
     if (tbodyPiketHistory) tbodyPiketHistory.innerHTML = htmlPiketHistory || '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Belum ada dokumen yang diproses.</td></tr>';
 }
 
-async function approveEduIzin(id, tipe) {
+async function approveEduIzin(id, tipe, btnEl) {
     const currentUser = getLoggedUserSafely();
     if (!currentUser) {
         showToast('Session expired, silahkan login ulang.', 'error');
         return;
     }
 
-    let confirmTitle = tipe === 'guru' ? 'Persetujuan Guru Pengajar' : 'Persetujuan Petugas Piket';
-    let confirmMsg = tipe === 'guru' ? "Yakin ingin mengizinkan siswa ini?" : "Yakin setujui dan Cetak Surat Izin PDF?";
+    const targetBtn = btnEl || (window.event && window.event.target ? window.event.target.closest('button') : null);
+    const parentContainer = targetBtn ? targetBtn.parentElement : null;
+    const originalHtml = targetBtn ? targetBtn.innerHTML : '';
+
+    let confirmTitle = tipe === 'guru' ? 'Konfirmasi Persetujuan Guru Pengajar' : 'Konfirmasi Persetujuan Petugas Piket';
+    let confirmMsg = tipe === 'guru' 
+        ? "Apakah Anda yakin ingin menyetujui permohonan izin siswa ini?" 
+        : "Apakah Anda yakin ingin menyetujui izin ini dan memproses penerbitan Surat Izin PDF resmi?";
     
     const confirmed = typeof showCustomConfirm === 'function'
         ? await showCustomConfirm({
             title: confirmTitle,
             message: confirmMsg,
-            icon: 'info',
-            confirmText: tipe === 'guru' ? 'Ya, Izinkan Siswa' : 'Ya, Setujui & Cetak PDF'
+            icon: 'question',
+            confirmText: tipe === 'guru' ? 'Ya, Setujui Izin' : 'Ya, Setujui & Cetak PDF',
+            cancelText: 'Batal'
         })
         : confirm(confirmMsg);
 
-    if (confirmed) {
-        showToast('Memproses izin & Telegram bot sedang bekerja...', 'info');
-        
-        let action = tipe === 'guru' ? 'approve_edu_izin_guru' : 'approve_edu_izin_piket';
-        
-        callGAS(action, { id: id, approver: currentUser.nama }, (res) => {
-            if (res && res.status === 'success') {
-                showToast(res.message, 'success');
-                loadEduIzinData();
-            } else {
-                showToast((res ? res.message : null) || 'Gagal menyetujui izin.', 'error');
-            }
-        });
+    if (!confirmed) return;
+
+    if (targetBtn) {
+        if (parentContainer) {
+            parentContainer.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+        targetBtn.disabled = true;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
     }
+
+    showToast('Memproses persetujuan izin...', 'info');
+    
+    let action = tipe === 'guru' ? 'approve_edu_izin_guru' : 'approve_edu_izin_piket';
+    
+    callGAS(action, { id: id, approver: currentUser.nama }, (res) => {
+        if (res && res.status === 'success') {
+            showToast(res.message, 'success');
+            loadEduIzinData();
+        } else {
+            showToast((res ? res.message : null) || 'Gagal menyetujui izin.', 'error');
+            if (targetBtn) {
+                if (parentContainer) {
+                    parentContainer.querySelectorAll('button').forEach(b => b.disabled = false);
+                }
+                targetBtn.disabled = false;
+                targetBtn.innerHTML = originalHtml;
+            }
+        }
+    });
 }
 
-async function rejectEduIzin(id, tipe) {
+async function rejectEduIzin(id, tipe, btnEl) {
     const currentUser = getLoggedUserSafely();
     if (!currentUser) {
         showToast('Session expired, silahkan login ulang.', 'error');
         return;
     }
+
+    const targetBtn = btnEl || (window.event && window.event.target ? window.event.target.closest('button') : null);
+    const parentContainer = targetBtn ? targetBtn.parentElement : null;
+    const originalHtml = targetBtn ? targetBtn.innerHTML : '';
 
     const alasan = typeof showCustomPrompt === 'function'
         ? await showCustomPrompt({
@@ -385,20 +434,35 @@ async function rejectEduIzin(id, tipe) {
         })
         : prompt("Masukkan alasan penolakan:");
 
-    if (alasan !== null) {
-        if (!String(alasan).trim()) {
-            showToast('Alasan penolakan wajib diisi!', 'warning');
-            return;
-        }
-        
-        showToast('Memproses penolakan & Telegram bot sedang bekerja...', 'info');
-        callGAS('reject_edu_izin', { id: id, tipe: tipe, alasan: alasan, approver: currentUser.nama }, (res) => {
-            if (res && res.status === 'success') {
-                showToast(res.message, 'success');
-                loadEduIzinData();
-            } else {
-                showToast((res ? res.message : null) || 'Gagal menolak izin.', 'error');
-            }
-        });
+    if (alasan === null) return;
+
+    if (!String(alasan).trim()) {
+        showToast('Alasan penolakan wajib diisi!', 'warning');
+        return;
     }
+    
+    if (targetBtn) {
+        if (parentContainer) {
+            parentContainer.querySelectorAll('button').forEach(b => b.disabled = true);
+        }
+        targetBtn.disabled = true;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+    }
+
+    showToast('Memproses penolakan & Telegram bot sedang bekerja...', 'info');
+    callGAS('reject_edu_izin', { id: id, tipe: tipe, alasan: alasan, approver: currentUser.nama }, (res) => {
+        if (res && res.status === 'success') {
+            showToast(res.message, 'success');
+            loadEduIzinData();
+        } else {
+            showToast((res ? res.message : null) || 'Gagal menolak izin.', 'error');
+            if (targetBtn) {
+                if (parentContainer) {
+                    parentContainer.querySelectorAll('button').forEach(b => b.disabled = false);
+                }
+                targetBtn.disabled = false;
+                targetBtn.innerHTML = originalHtml;
+            }
+        }
+    });
 }

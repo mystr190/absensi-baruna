@@ -30,6 +30,7 @@ async function renderOverviewDashboard(forceServer = false) {
     const btnRefresh = document.getElementById('btnRefreshOverview');
     const iconBtn = btnRefresh ? btnRefresh.querySelector('i') : null;
     if (iconBtn) iconBtn.classList.add('fa-spin');
+    if (btnRefresh) btnRefresh.disabled = true;
 
     // 1. Instant load from local cache if available (0ms delay UI render)
     loadLocalOverviewStats();
@@ -50,6 +51,7 @@ async function renderOverviewDashboard(forceServer = false) {
         console.warn("Failed loading live overview stats from server, fallback to local data:", e);
     } finally {
         if (iconBtn) iconBtn.classList.remove('fa-spin');
+        if (btnRefresh) btnRefresh.disabled = false;
     }
 
     // Auto-refresh interval (every 30 seconds) when Overview is active
