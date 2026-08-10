@@ -363,6 +363,21 @@ async function handleSaveStudentSingle(e) {
             localMasterStudents = students;
             localStorage.setItem('smart_absen_students', JSON.stringify(students));
 
+            // Sync otomatis dengan modal Kelola Anggota Kokurikuler jika sedang digunakan
+            if (typeof masterStudentsCacheForKokurikuler !== 'undefined' && Array.isArray(masterStudentsCacheForKokurikuler)) {
+                const formattedNISN = typeof formatNISN === 'function' ? formatNISN(nisn || nis) : (nisn || nis);
+                const exists = masterStudentsCacheForKokurikuler.some(s => (s.nisn || s.nis) === formattedNISN);
+                if (!exists) {
+                    masterStudentsCacheForKokurikuler.push({ nisn: formattedNISN, nis, nama, kelas, gender, id_mesin, id_telegram });
+                }
+                if (typeof selectedMemberNISNs !== 'undefined' && formattedNISN) {
+                    selectedMemberNISNs.add(formattedNISN);
+                }
+                if (typeof populateModalClassDropdown === 'function') populateModalClassDropdown();
+                if (typeof renderModalStudentList === 'function') renderModalStudentList();
+                if (typeof updateSelectedCountLabel === 'function') updateSelectedCountLabel();
+            }
+
             closeModalSiswa();
             renderTableSiswa();
         } else {

@@ -69,15 +69,19 @@ function initKokurikulerModule() {
     }
 
     // Tab Navigation Event Listeners
-    const btnTabInput = document.getElementById('btnKokurikulerTabInput');
-    const btnTabReport = document.getElementById('btnKokurikulerTabReport');
-    const tabContentInput = document.getElementById('kokurikulerTabContentInput');
-    const tabContentReport = document.getElementById('kokurikulerTabContentReport');
+    const btnTabInput = document.getElementById('tabBtnKokurikulerInput') || document.getElementById('btnKokurikulerTabInput');
+    const btnTabReport = document.getElementById('tabBtnKokurikulerReport') || document.getElementById('btnKokurikulerTabReport');
+    const tabContentInput = document.getElementById('tabContentKokurikulerInput') || document.getElementById('kokurikulerTabContentInput');
+    const tabContentReport = document.getElementById('tabContentKokurikulerReport') || document.getElementById('kokurikulerTabContentReport');
 
     if (btnTabInput && btnTabReport && tabContentInput && tabContentReport) {
         btnTabInput.addEventListener('click', () => {
             btnTabInput.classList.add('active');
             btnTabReport.classList.remove('active');
+            btnTabInput.style.color = '#38bdf8';
+            btnTabInput.style.borderBottom = '3px solid #38bdf8';
+            btnTabReport.style.color = '#94a3b8';
+            btnTabReport.style.borderBottom = 'none';
             tabContentInput.style.display = 'block';
             tabContentReport.style.display = 'none';
         });
@@ -85,6 +89,10 @@ function initKokurikulerModule() {
         btnTabReport.addEventListener('click', () => {
             btnTabReport.classList.add('active');
             btnTabInput.classList.remove('active');
+            btnTabReport.style.color = '#38bdf8';
+            btnTabReport.style.borderBottom = '3px solid #38bdf8';
+            btnTabInput.style.color = '#94a3b8';
+            btnTabInput.style.borderBottom = 'none';
             tabContentReport.style.display = 'block';
             tabContentInput.style.display = 'none';
             loadKokurikulerReport();
@@ -276,6 +284,8 @@ function renderKokurikulerAbsenForm() {
     const tableBody = document.getElementById('tableBodyKokurikulerAbsen');
     const lblCount = document.getElementById('lblKokurikulerCount');
     const inputDate = document.getElementById('inputDateKokurikuler');
+    const btnSave = document.getElementById('btnSaveAbsenKokurikuler');
+    const btnSetAllHadir = document.getElementById('btnSetAllKokurikulerHadir');
 
     if (!selectAct || !tableBody) return;
 
@@ -283,6 +293,10 @@ function renderKokurikulerAbsenForm() {
     if (!idK) {
         tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 25px; color: var(--text-muted);">Tidak ada kegiatan kokurikuler yang dipilih.</td></tr>`;
         if (lblCount) lblCount.textContent = '0';
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Kokurikuler`;
+        }
         return;
     }
 
@@ -291,6 +305,7 @@ function renderKokurikulerAbsenForm() {
 
     if (members.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 25px; color: var(--text-muted);">Belum ada siswa yang terdaftar di kelompok kokurikuler ini.<br><small>Mintalah Admin untuk mendaftarkan siswa bimbingan.</small></td></tr>`;
+        if (btnSave) btnSave.disabled = true;
         return;
     }
 
@@ -298,19 +313,59 @@ function renderKokurikulerAbsenForm() {
 
     // Map existing logs for this group & date
     const logMap = {};
+    let savedLogsCount = 0;
+
     kokurikulerLogs.forEach(l => {
         if (String(l.id_kokurikuler) === String(idK) && l.tanggal === selectedDate) {
-            logMap[formatNISN(l.nisn || l.nis)] = l;
+            const key = formatNISN(l.nisn || l.nis);
+            if (key) {
+                logMap[key] = l;
+                savedLogsCount++;
+            }
         }
     });
+
+    const isAlreadySaved = savedLogsCount > 0;
+
+    // Render Alert Banner above table if already saved
+    const alertContainer = document.getElementById('alertKokurikulerStatusContainer');
+    if (alertContainer) {
+        if (isAlreadySaved) {
+            alertContainer.style.display = 'block';
+            alertContainer.innerHTML = `
+                <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); color: #10b981; padding: 12px 18px; border-radius: 10px; font-weight: 600; font-size: 0.88rem; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-circle-check" style="font-size: 1.1rem;"></i> 
+                        Presensi tanggal <strong>${selectedDate}</strong> sudah disimpan (${savedLogsCount} siswa ter-absen). Form terkunci otomatis.
+                    </span>
+                    <button type="button" id="btnUnlockKokurikulerAbsen" style="background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 8px; padding: 5px 14px; font-size: 0.82rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='rgba(234,179,8,0.35)'" onmouseout="this.style.background='rgba(234,179,8,0.2)'">
+                        <i class="fa-solid fa-lock-open"></i> Edit Presensi
+                    </button>
+                </div>
+            `;
+
+            setTimeout(() => {
+                const btnUnlock = document.getElementById('btnUnlockKokurikulerAbsen');
+                if (btnUnlock) {
+                    btnUnlock.addEventListener('click', () => {
+                        enableKokurikulerForm(true);
+                    });
+                }
+            }, 50);
+        } else {
+            alertContainer.style.display = 'none';
+            alertContainer.innerHTML = '';
+        }
+    }
 
     let html = '';
     members.forEach((m, index) => {
         const nisnFormatted = formatNISN(m.nisn);
         const key = nisnFormatted || formatNISN(m.nis);
         const existing = logMap[key];
-        const status = existing ? existing.status : 'HADIR';
+        const status = existing ? String(existing.status).toUpperCase() : 'HADIR';
         const ket = existing ? existing.keterangan : '';
+        const disabledAttr = isAlreadySaved ? 'disabled' : '';
 
         html += `
             <tr data-nisn="${nisnFormatted}" data-nis="${m.nis}" data-nama="${m.nama}" data-kelas="${m.kelas}" style="border-bottom: 1px solid var(--card-border, #1e293b);">
@@ -319,7 +374,7 @@ function renderKokurikulerAbsenForm() {
                 <td style="padding: 10px; color: #f8fafc; font-weight: 700;">${m.nama}</td>
                 <td style="padding: 10px; text-align: center;"><span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">${m.kelas}</span></td>
                 <td style="padding: 10px; text-align: center;">
-                    <select class="form-input select-status-kokurikuler" style="width: 100%; max-width: 160px; font-weight: 700;">
+                    <select class="form-input select-status-kokurikuler" ${disabledAttr} style="width: 100%; max-width: 160px; font-weight: 700;">
                         <option value="HADIR" ${status === 'HADIR' ? 'selected' : ''} style="color: #22c55e;">Hadir (H)</option>
                         <option value="SAKIT" ${status === 'SAKIT' ? 'selected' : ''} style="color: #eab308;">Sakit (S)</option>
                         <option value="IZIN" ${status === 'IZIN' ? 'selected' : ''} style="color: #3b82f6;">Izin (I)</option>
@@ -328,13 +383,58 @@ function renderKokurikulerAbsenForm() {
                     </select>
                 </td>
                 <td style="padding: 10px;">
-                    <input type="text" class="form-input input-ket-kokurikuler" style="width: 100%;" placeholder="Catatan opsional..." value="${ket}">
+                    <input type="text" class="form-input input-ket-kokurikuler" ${disabledAttr} style="width: 100%;" placeholder="Catatan opsional..." value="${ket}">
                 </td>
             </tr>
         `;
     });
 
     tableBody.innerHTML = html;
+
+    // Update Save button & Set All Hadir button state
+    if (btnSave) {
+        if (isAlreadySaved) {
+            btnSave.disabled = true;
+            btnSave.style.background = '#334155';
+            btnSave.style.cursor = 'not-allowed';
+            btnSave.style.opacity = '0.7';
+            btnSave.innerHTML = `<i class="fa-solid fa-lock"></i> Presensi Sudah Disimpan`;
+        } else {
+            btnSave.disabled = false;
+            btnSave.style.background = '';
+            btnSave.style.cursor = 'pointer';
+            btnSave.style.opacity = '1';
+            btnSave.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Kokurikuler`;
+        }
+    }
+
+    if (btnSetAllHadir) {
+        btnSetAllHadir.disabled = isAlreadySaved;
+    }
+}
+
+function enableKokurikulerForm(isUnlock) {
+    const selects = document.querySelectorAll('.select-status-kokurikuler');
+    const inputs = document.querySelectorAll('.input-ket-kokurikuler');
+    const btnSave = document.getElementById('btnSaveAbsenKokurikuler');
+    const btnSetAllHadir = document.getElementById('btnSetAllKokurikulerHadir');
+
+    selects.forEach(s => s.disabled = false);
+    inputs.forEach(i => i.disabled = false);
+
+    if (btnSetAllHadir) btnSetAllHadir.disabled = false;
+
+    if (btnSave) {
+        btnSave.disabled = false;
+        btnSave.style.background = '';
+        btnSave.style.cursor = 'pointer';
+        btnSave.style.opacity = '1';
+        btnSave.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan Presensi`;
+    }
+
+    if (isUnlock) {
+        showToast('Form presensi dibuka. Anda dapat mengubah status dan mengeklik Simpan Perubahan.', 'info');
+    }
 }
 
 async function saveAbsenKokurikuler() {
@@ -451,42 +551,55 @@ function renderReportTable(logs, idK) {
     const tableBody = document.getElementById('tableBodyKokurikulerReport');
     if (!tableBody) return;
 
-    const members = kokurikulerMembersMap[idK] || [];
-    if (members.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 25px; color: var(--text-muted);">Tidak ada anggota siswa terdaftar untuk kegiatan ini.</td></tr>`;
-        return;
-    }
-
+    const members = (kokurikulerMembersMap && kokurikulerMembersMap[idK]) ? kokurikulerMembersMap[idK] : [];
+    
     // Group logs by Student NISN/NIS
     const summary = {};
+
     members.forEach(m => {
-        const nisnFormatted = formatNISN(m.nisn);
-        const key = nisnFormatted || formatNISN(m.nis);
+        const nisnFormatted = formatNISN(m.nisn || m.nis);
+        const key = nisnFormatted || String(m.nama || '').toLowerCase();
         summary[key] = {
             nisn: nisnFormatted,
-            nama: m.nama,
-            kelas: m.kelas,
+            nama: m.nama || 'Siswa',
+            kelas: m.kelas || '-',
             H: 0, S: 0, I: 0, A: 0, T: 0, Total: 0
         };
     });
 
-    logs.forEach(l => {
-        const nisnFormatted = formatNISN(l.nisn);
-        const key = nisnFormatted || formatNISN(l.nis);
-        if (summary[key]) {
-            const st = String(l.status).toUpperCase();
+    if (logs && logs.length > 0) {
+        logs.forEach(l => {
+            const nisnFormatted = formatNISN(l.nisn || l.nis);
+            const key = nisnFormatted || String(l.nama_siswa || '').toLowerCase();
+
+            if (!summary[key]) {
+                summary[key] = {
+                    nisn: nisnFormatted,
+                    nama: l.nama_siswa || 'Siswa',
+                    kelas: l.kelas || '-',
+                    H: 0, S: 0, I: 0, A: 0, T: 0, Total: 0
+                };
+            }
+
+            const st = String(l.status || '').toUpperCase();
             if (st === 'HADIR') summary[key].H++;
             else if (st === 'SAKIT') summary[key].S++;
             else if (st === 'IZIN') summary[key].I++;
             else if (st === 'ALPA') summary[key].A++;
             else if (st === 'TELAT') summary[key].T++;
             summary[key].Total++;
-        }
-    });
+        });
+    }
+
+    const summaryKeys = Object.keys(summary);
+    if (summaryKeys.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 25px; color: var(--text-muted);">Tidak ada data presensi atau anggota terdaftar untuk kegiatan ini pada bulan ini.</td></tr>`;
+        return;
+    }
 
     let html = '';
     let index = 1;
-    for (const key in summary) {
+    summaryKeys.forEach(key => {
         const s = summary[key];
         const pct = s.Total > 0 ? Math.round(((s.H + s.T) / s.Total) * 100) : 0;
         const pctColor = pct >= 80 ? '#22c55e' : (pct >= 60 ? '#eab308' : '#ef4444');
@@ -494,7 +607,7 @@ function renderReportTable(logs, idK) {
         html += `
             <tr style="border-bottom: 1px solid var(--card-border, #1e293b);">
                 <td style="padding: 10px; text-align: center;">${index++}</td>
-                <td style="padding: 10px; font-weight: 600;">${s.nisn || '-'}</td>
+                <td style="padding: 10px; font-weight: 600; font-family: monospace;">${s.nisn || '-'}</td>
                 <td style="padding: 10px; color: #f8fafc; font-weight: 700;">${s.nama}</td>
                 <td style="padding: 10px; text-align: center;"><span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">${s.kelas}</span></td>
                 <td style="padding: 10px; text-align: center; font-weight: 700; color: #22c55e;">${s.H}</td>
@@ -506,7 +619,7 @@ function renderReportTable(logs, idK) {
                 <td style="padding: 10px; text-align: center; font-weight: 800; color: ${pctColor};">${pct}%</td>
             </tr>
         `;
-    }
+    });
 
     tableBody.innerHTML = html;
 }
@@ -520,22 +633,30 @@ function printKokurikulerReport() {
     if (!printArea || !selectAct) return;
 
     const actName = selectAct.options[selectAct.selectedIndex] ? selectAct.options[selectAct.selectedIndex].text : 'Kokurikuler';
-    const monthName = selectMonth ? selectMonth.options[selectMonth.selectedIndex].text : '';
+    const monthName = selectMonth && selectMonth.options[selectMonth.selectedIndex] ? selectMonth.options[selectMonth.selectedIndex].text : '';
     const year = inputYear ? inputYear.value : '';
 
     const printWin = window.open('', '_blank');
+    if (!printWin) {
+        showToast('Pop-up terblokir oleh browser. Harap izinkan pop-up untuk mencetak laporan.', 'warning');
+        return;
+    }
+
     printWin.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
             <title>Laporan Presensi Kokurikuler - ${actName}</title>
             <style>
-                body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
-                h2, h4 { text-align: center; margin: 5px 0; }
+                body { font-family: Arial, sans-serif; padding: 20px; color: #000; background: #fff; }
+                h2, h4 { text-align: center; margin: 4px 0; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
                 th, td { border: 1px solid #000; padding: 8px; text-align: left; }
                 th { background-color: #f2f2f2; text-align: center; }
                 .text-center { text-align: center; }
+                @media print {
+                    @page { size: landscape; margin: 15mm; }
+                }
             </style>
         </head>
         <body>
@@ -544,20 +665,21 @@ function printKokurikulerReport() {
             <h4 style="font-weight: normal;">Periode: ${monthName} ${year}</h4>
             <hr style="margin-top: 15px; border: 1px solid #000;">
             ${printArea.innerHTML}
-            <div style="margin-top: 40px; float: right; text-align: center; width: 200px;">
+            <div style="margin-top: 40px; float: right; text-align: center; width: 220px;">
                 <p>Pembimbing Kokurikuler</p>
-                <br><br><br>
+                <br><br><br><br>
                 <p>____________________</p>
             </div>
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(function() { window.close(); }, 500);
+                };
+            </script>
         </body>
         </html>
     `);
     printWin.document.close();
-    printWin.focus();
-    setTimeout(() => {
-        printWin.print();
-        printWin.close();
-    }, 500);
 }
 
 /**
