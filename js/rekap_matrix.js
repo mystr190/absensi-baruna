@@ -243,7 +243,7 @@ async function renderMatrixReport() {
 
         const nisn = String(log.nisn || '').trim();
         const nis = String(log.nis || '').trim();
-        const nama = String(log.nama || '').trim().toLowerCase().replace(/\s+/g, '');
+        const nama = String(log.nama || '').trim().toLowerCase().replace(/[\s\-]/g, '');
         const normNisn = nisn.replace(/^0+/, '');
         const normNis = nis.replace(/^0+/, '');
 
@@ -268,21 +268,26 @@ async function renderMatrixReport() {
     }
 }
 
-// Helper untuk mencocokkan log siswa secara presisi
+// Helper untuk mencocokkan log siswa secara presisi dengan menggabungkan semua identifier (NISN, NIS, Nama)
 function getStudentLogs(student, logMap) {
     if (!student || !logMap) return {};
     const nisn = String(student.nisn || '').trim();
     const nis = String(student.nis || '').trim();
-    const nama = String(student.nama || '').trim().toLowerCase().replace(/\s+/g, '');
+    const nama = String(student.nama || '').trim().toLowerCase().replace(/[\s\-]/g, '');
     const normNisn = nisn.replace(/^0+/, '');
     const normNis = nis.replace(/^0+/, '');
 
-    const foundMap = (nisn && logMap[nisn]) || 
-                     (nis && logMap[nis]) || 
-                     (normNisn && logMap[normNisn]) || 
-                     (normNis && logMap[normNis]) || 
-                     (nama && logMap[nama]) || {};
-    return foundMap;
+    const keys = [nisn, nis, normNisn, normNis, nama].filter(Boolean);
+    const mergedMap = {};
+
+    // Gabungkan seluruh log yang cocok dengan NISN, NIS, maupun Nama siswa
+    keys.forEach(k => {
+        if (logMap[k]) {
+            Object.assign(mergedMap, logMap[k]);
+        }
+    });
+
+    return mergedMap;
 }
 
 async function fetchServerMatrixLogs(mStart, mEnd, year, targetKelas) {

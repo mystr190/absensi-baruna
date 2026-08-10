@@ -2818,75 +2818,77 @@
                 <!-- ============================================== -->
                 <!-- IZIN TIDAK HADIR / SAKIT (WALI KELAS) -->
                 <!-- ============================================== -->
-                <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-bed" style="color: #38bdf8;"></i> Antrean Izin Tidak Hadir / Sakit (Sebagai Wali Kelas)
-                </h3>
+                <div id="sectionWalasIzinSiswa" style="display: none; margin-bottom: 30px;">
+                    <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-bed" style="color: #38bdf8;"></i> Antrean Izin Tidak Hadir / Sakit (Sebagai Wali Kelas)
+                    </h3>
 
-                <!-- CARD 1: PERMOHONAN MENUNGGU APPROVAL (PENDING) -->
-                <div class="glass-card" style="padding: 24px; margin-bottom: 25px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-hourglass-half" style="color: #fbbf24;"></i> Permohonan Menunggu Persetujuan (Pending)
-                        </h3>
-                        <span id="badgePendingIzinSiswaCount" class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 14px; font-weight: 700;">0 Menunggu</span>
+                    <!-- CARD 1: PERMOHONAN MENUNGGU APPROVAL (PENDING) -->
+                    <div class="glass-card" style="padding: 24px; margin-bottom: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-hourglass-half" style="color: #fbbf24;"></i> Permohonan Menunggu Persetujuan (Pending)
+                            </h3>
+                            <span id="badgePendingIzinSiswaCount" class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 14px; font-weight: 700;">0 Menunggu</span>
+                        </div>
+
+                        <div class="modern-table-container" style="overflow-x: auto;">
+                            <table class="data-table" style="font-size: 0.83rem; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 35px; text-align: center;">No</th>
+                                        <th>Tanggal</th>
+                                        <th>Nama Siswa</th>
+                                        <th style="text-align: center;">Kelas</th>
+                                        <th style="text-align: center;">Kategori</th>
+                                        <th>Keterangan</th>
+                                        <th style="text-align: center;">Foto Bukti</th>
+                                        <th style="text-align: center;">Aksi Approval</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyPendingIzinSiswa">
+                                    <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Tidak ada permohonan izin yang menunggu persetujuan.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
-                    <div class="modern-table-container" style="overflow-x: auto;">
-                        <table class="data-table" style="font-size: 0.83rem; width: 100%;">
-                            <thead>
-                                <tr>
-                                    <th style="width: 35px; text-align: center;">No</th>
-                                    <th>Tanggal</th>
-                                    <th>Nama Siswa</th>
-                                    <th style="text-align: center;">Kelas</th>
-                                    <th style="text-align: center;">Kategori</th>
-                                    <th>Keterangan</th>
-                                    <th style="text-align: center;">Foto Bukti</th>
-                                    <th style="text-align: center;">Aksi Approval</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbodyPendingIzinSiswa">
-                                <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Tidak ada permohonan izin yang menunggu persetujuan.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                    <!-- CARD 2: RIWAYAT KEPUTUSAN IZIN SISWA BERPAGINASI (MAX 10 BARIS) -->
+                    <div class="glass-card" style="padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-clock-rotate-left" style="color: #34d399;"></i> Riwayat Keputusan Permohonan Izin Siswa
+                            </h3>
+                        </div>
 
-                <!-- CARD 2: RIWAYAT KEPUTUSAN IZIN SISWA BERPAGINASI (MAX 10 BARIS) -->
-                <div class="glass-card" style="padding: 24px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-clock-rotate-left" style="color: #34d399;"></i> Riwayat Keputusan Permohonan Izin Siswa
-                        </h3>
-                    </div>
+                        <div class="modern-table-container" style="overflow-x: auto;">
+                            <table class="data-table" style="font-size: 0.83rem; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 35px; text-align: center;">No</th>
+                                        <th>Tanggal</th>
+                                        <th>Nama Siswa</th>
+                                        <th style="text-align: center;">Kelas</th>
+                                        <th style="text-align: center;">Kategori</th>
+                                        <th>Keterangan</th>
+                                        <th style="text-align: center;">Foto Bukti</th>
+                                        <th style="text-align: center;">Status</th>
+                                        <th>Disetujui / Ditolak Oleh</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyHistoryIzinSiswaWalas">
+                                    <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Belum ada riwayat keputusan.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
 
-                    <div class="modern-table-container" style="overflow-x: auto;">
-                        <table class="data-table" style="font-size: 0.83rem; width: 100%;">
-                            <thead>
-                                <tr>
-                                    <th style="width: 35px; text-align: center;">No</th>
-                                    <th>Tanggal</th>
-                                    <th>Nama Siswa</th>
-                                    <th style="text-align: center;">Kelas</th>
-                                    <th style="text-align: center;">Kategori</th>
-                                    <th>Keterangan</th>
-                                    <th style="text-align: center;">Foto Bukti</th>
-                                    <th style="text-align: center;">Status</th>
-                                    <th>Disetujui / Ditolak Oleh</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbodyHistoryIzinSiswaWalas">
-                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Belum ada riwayat keputusan.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- PAGINASI CONTROL (MAKSIMAL 10 BARIS) -->
-                    <div id="paginationHistoryIzinSiswaWalas" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--card-border); flex-wrap: wrap; gap: 10px;">
-                        <span id="infoPaginationIzinSiswaWalas" style="font-size: 0.78rem; color: var(--text-muted);">Halaman 1 dari 1 (Total 0 data)</span>
-                        <div style="display: flex; gap: 6px;">
-                            <button type="button" id="btnPrevIzinSiswaWalas" class="btn-secondary" style="padding: 4px 12px; font-size: 0.78rem;" disabled><i class="fa-solid fa-chevron-left"></i> Prev</button>
-                            <button type="button" id="btnNextIzinSiswaWalas" class="btn-secondary" style="padding: 4px 12px; font-size: 0.78rem;" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+                        <!-- PAGINASI CONTROL (MAKSIMAL 10 BARIS) -->
+                        <div id="paginationHistoryIzinSiswaWalas" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--card-border); flex-wrap: wrap; gap: 10px;">
+                            <span id="infoPaginationIzinSiswaWalas" style="font-size: 0.78rem; color: var(--text-muted);">Halaman 1 dari 1 (Total 0 data)</span>
+                            <div style="display: flex; gap: 6px;">
+                                <button type="button" id="btnPrevIzinSiswaWalas" class="btn-secondary" style="padding: 4px 12px; font-size: 0.78rem;" disabled><i class="fa-solid fa-chevron-left"></i> Prev</button>
+                                <button type="button" id="btnNextIzinSiswaWalas" class="btn-secondary" style="padding: 4px 12px; font-size: 0.78rem;" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>

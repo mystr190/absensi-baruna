@@ -148,10 +148,16 @@ function checkAndShowEduIzinApprovalSections() {
     
     const roles = String(currentUser.role).toLowerCase();
     const tugasPiket = String(currentUser.tugas_piket || currentUser.piket || '').toLowerCase();
+    const userKelas = String(currentUser.kelas || currentUser.walas_kelas || currentUser.wali_kelas || '').trim();
+    const isWalasFlag = currentUser.isWalas === true || String(currentUser.isWalas) === 'true';
 
     const isKepsekOrAdmin = roles.includes('kepala sekolah') || roles.includes('kepsek') || roles.includes('admin');
+    const isWaliKelas = isKepsekOrAdmin || roles.includes('walas') || roles.includes('wali kelas') || isWalasFlag || (Boolean(userKelas) && userKelas !== '-' && userKelas !== 'Umum');
     const isGuru = isKepsekOrAdmin || roles.includes('guru') || roles.includes('walas');
     const isPiket = isKepsekOrAdmin || roles.includes('piket') || tugasPiket.includes('piket') || roles.includes('guru');
+
+    const secWalas = document.getElementById('sectionWalasIzinSiswa');
+    if (secWalas) secWalas.style.display = isWaliKelas ? 'block' : 'none';
 
     const secGuru = document.getElementById('sectionGuruPengajarEduIzin');
     if (secGuru) secGuru.style.display = isGuru ? 'block' : 'none';

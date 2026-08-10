@@ -219,12 +219,12 @@ function renderWidgetGuruTidakHadirHariIni() {
         if (item.tanggal === todayStr && item.status) {
             const stUpper = item.status.toUpperCase();
             const ketLower = String(item.keterangan || '').toLowerCase();
-            const isDuty = ketLower.includes('tugas') || ketLower.includes('dinas');
+            const isDuty = stUpper === 'DINAS' || stUpper === 'TUGAS DINAS' || ketLower.includes('dinas') || ketLower.includes('tugas dinas') || ketLower.includes('tugas luar');
             
             if (stUpper !== 'HADIR' || isDuty) {
                 let displayStatus = stUpper;
                 if (isDuty) {
-                    displayStatus = item.keterangan.match(/\[([^\]]+)\]/)?.[1] || 'TUGAS';
+                    displayStatus = item.keterangan.match(/\[([^\]]+)\]/)?.[1] || 'TUGAS DINAS';
                 }
                 absentMap.set(item.username || item.nama, {
                     nama: item.nama,
@@ -255,7 +255,7 @@ function renderWidgetGuruTidakHadirHariIni() {
         let badgeColor = '#f59e0b';
         const stUpper = String(g.status || '').toUpperCase();
         const ketLower = String(g.keterangan || '').toLowerCase();
-        const isDuty = stUpper.includes('TUGAS') || stUpper.includes('DINAS') || ketLower.includes('tugas') || ketLower.includes('dinas');
+        const isDuty = stUpper === 'DINAS' || stUpper === 'TUGAS DINAS' || ketLower.includes('dinas') || ketLower.includes('tugas dinas') || ketLower.includes('tugas luar');
         
         if (isDuty) badgeColor = '#38bdf8';
         else if (stUpper === 'SAKIT') badgeColor = '#ec4899';
@@ -1060,12 +1060,17 @@ function renderTableLogAbsenGuru() {
     filtered.forEach((item, idx) => {
         let badgeColor = '#22c55e'; // HADIR
         const st = (item.status || 'HADIR').toUpperCase();
-        const ket = (item.keterangan || '').toUpperCase();
-        if (st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS')) {
-            badgeColor = (ket.includes('TUGAS') || ket.includes('DINAS')) ? '#38bdf8' : '#22c55e';
+        const ket = (item.keterangan || '').toLowerCase();
+
+        if (st === 'IZIN' || st === 'SAKIT' || st === 'CUTI') {
+            badgeColor = '#f59e0b';
+        } else if (st === 'ALPHA' || st === 'ALPA' || st === 'TIDAK HADIR') {
+            badgeColor = '#ef4444';
+        } else if (st === 'DINAS' || st === 'TUGAS DINAS' || ket.includes('dinas') || ket.includes('tugas dinas') || ket.includes('tugas luar')) {
+            badgeColor = '#38bdf8';
+        } else {
+            badgeColor = '#22c55e';
         }
-        else if (st === 'IZIN' || st === 'DINAS' || st === 'SAKIT' || st === 'CUTI') badgeColor = '#f59e0b';
-        else if (st === 'ALPHA' || st === 'ALPA' || st === 'TIDAK HADIR') badgeColor = '#ef4444';
 
         html += `
             <tr>
@@ -1223,8 +1228,16 @@ function renderRekapMatrixGuru() {
         const name = staff.namaLengkap || staff.nama || uname;
         const role = staff.role || 'Guru';
 
-        // Filter log milik staff ini di bulan terpilih
-        const userLogs = filteredLogs.filter(l => (l.username === uname || l.nama === name));
+        // Filter log milik staff ini di bulan terpilih (pencocokan username / nama bebas dari gelar)
+        const userLogs = filteredLogs.filter(l => {
+            if (uname && l.username && String(l.username).trim().toLowerCase() === String(uname).trim().toLowerCase()) return true;
+            if (l.nama && name) {
+                const normL = String(l.nama).toLowerCase().replace(/,.*$/, '').replace(/[\s\.]/g, '');
+                const normN = String(name).toLowerCase().replace(/,.*$/, '').replace(/[\s\.]/g, '');
+                if (normL && normN && (normL === normN || normL.includes(normN) || normN.includes(normL))) return true;
+            }
+            return false;
+        });
 
         let hadirCount = 0;
         let izinCount = 0;
@@ -1232,15 +1245,15 @@ function renderRekapMatrixGuru() {
 
         userLogs.forEach(l => {
             const st = String(l.status || '').toUpperCase();
-            const ket = String(l.keterangan || '').toUpperCase();
-            const isHadirDuty = st === 'HADIR' || ket.includes('TUGAS') || ket.includes('DINAS');
+            const ket = String(l.keterangan || '').toLowerCase();
 
-            if (isHadirDuty) {
-                hadirCount++;
-            } else if (st === 'ALPHA' || st === 'ALPA') {
+            if (st === 'ALPHA' || st === 'ALPA' || st === 'TIDAK HADIR') {
                 alpaCount++;
+            } else if (st === 'IZIN' || st === 'SAKIT' || st === 'CUTI') {
+                izinCount++;
+            } else if (st === 'HADIR' || st === 'DINAS' || st === 'TUGAS DINAS' || ket.includes('dinas') || ket.includes('tugas dinas') || ket.includes('tugas luar')) {
+                hadirCount++;
             } else {
-                // IZIN, SAKIT, DINAS, TIDAK HADIR
                 izinCount++;
             }
         });
@@ -1250,13 +1263,19 @@ function renderRekapMatrixGuru() {
         sumTotalAlpa += alpaCount;
 
         const totalRecorded = hadirCount + izinCount + alpaCount;
-        let pct = totalRecorded > 0 ? Math.round((hadirCount / totalRecorded) * 100) : 100;
+        // Kehadiran Sah = Hadir + Izin/Sakit Resmi (Hanya Alpa/Alpha yang mengurangi persentase & evaluasi kedisiplinan)
+        const totalKehadiranSah = hadirCount + izinCount;
+        let pct = totalRecorded > 0 ? Math.round((totalKehadiranSah / totalRecorded) * 100) : 100;
 
         let evalBadge = '';
-        if (pct === 100) {
-            evalBadge = `<span class="badge" style="background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.35);"><i class="fa-solid fa-star"></i> 100% Sangat Baik</span>`;
+        if (alpaCount === 0) {
+            if (izinCount > 0) {
+                evalBadge = `<span class="badge" style="background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.35);"><i class="fa-solid fa-circle-check"></i> Baik (Izin Resmi)</span>`;
+            } else {
+                evalBadge = `<span class="badge" style="background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.35);"><i class="fa-solid fa-star"></i> 100% Sangat Baik</span>`;
+            }
         } else if (pct >= 85) {
-            evalBadge = `<span class="badge" style="background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.35);"><i class="fa-solid fa-thumbs-up"></i> Baik</span>`;
+            evalBadge = `<span class="badge" style="background:rgba(234,179,8,0.15); color:#facc15; border:1px solid rgba(234,179,8,0.35);"><i class="fa-solid fa-thumbs-up"></i> Cukup</span>`;
         } else {
             evalBadge = `<span class="badge" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.35);"><i class="fa-solid fa-triangle-exclamation"></i> Perlu Perhatian</span>`;
         }
@@ -1284,7 +1303,7 @@ function renderRekapMatrixGuru() {
     if (elIzin) elIzin.innerText = sumTotalIzin + sumTotalAlpa;
     
     const overallRecorded = sumTotalHadir + sumTotalIzin + sumTotalAlpa;
-    const avgPct = overallRecorded > 0 ? Math.round((sumTotalHadir / overallRecorded) * 100) : 100;
+    const avgPct = overallRecorded > 0 ? Math.round(((sumTotalHadir + sumTotalIzin) / overallRecorded) * 100) : 100;
     if (elPct) elPct.innerText = `${avgPct}%`;
 
     // Render Matrix HTML Table

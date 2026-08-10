@@ -2617,7 +2617,7 @@ function handleAddPengajuanIzin(dataRaw) {
         sheetLogGuru = ss.getSheetByName(SHEET_LOG_GURU);
       }
       const rawKat = String(item.kategori || 'IZIN').trim().toLowerCase();
-      const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
+      const isDutyHadir = rawKat.includes('dinas') || rawKat.includes('tugas dinas') || rawKat.includes('tugas luar');
       const statusAbsenGuru = isDutyHadir ? 'HADIR' : rawKat.toUpperCase();
       const ketGuru = isDutyHadir ? `[${item.kategori}] ${item.keterangan || ''}` : (item.keterangan || '');
 
@@ -2725,7 +2725,7 @@ function handleApprovePengajuanIzin(id, approver) {
     }
 
     const rawKat = String(item.kategori || 'IZIN').trim().toLowerCase();
-    const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
+    const isDutyHadir = rawKat.includes('dinas') || rawKat.includes('tugas dinas') || rawKat.includes('tugas luar');
     const statusAbsenGuru = isDutyHadir ? 'HADIR' : rawKat.toUpperCase();
     const ketGuru = isDutyHadir ? `[${item.kategori}] ${item.keterangan || ''}` : (item.keterangan || '');
 

@@ -401,14 +401,36 @@ function renderWalasIzinApprovalTable() {
     let filteredLogs = globalIzinSiswaLogs;
 
     const isKepsekOrAdmin = uRole.includes('kepala sekolah') || uRole.includes('kepsek') || uRole.includes('admin');
+    const uKelas = String(user.kelas || user.walas_kelas || user.wali_kelas || '').trim();
+    const isWalasFlag = user.isWalas === true || String(user.isWalas) === 'true';
+    const isWaliKelas = isKepsekOrAdmin || uRole.includes('walas') || uRole.includes('wali kelas') || isWalasFlag || (Boolean(uKelas) && uKelas !== '-' && uKelas !== 'Umum');
+
+    const secWalas = document.getElementById('sectionWalasIzinSiswa');
+    if (secWalas) {
+        secWalas.style.display = isWaliKelas ? 'block' : 'none';
+    }
 
     if (!isKepsekOrAdmin && (uRole.includes('guru') || uRole.includes('walas') || uRole.includes('wali kelas'))) {
         const myCleanName = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(uName) : uName;
+        const myKelasClean = uKelas.toLowerCase();
+
         filteredLogs = globalIzinSiswaLogs.filter(item => {
-            const walasName = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(item.waliKelas || '') : String(item.waliKelas || '').trim().toLowerCase();
-            if (!walasName || walasName === '-') return true;
-            if (!myCleanName) return true;
-            return walasName === myCleanName || walasName.includes(myCleanName) || myCleanName.includes(walasName);
+            const walasNameRaw = String(item.waliKelas || item.walas || '').trim();
+            const walasNameClean = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(walasNameRaw) : walasNameRaw.toLowerCase();
+            const itemKelasClean = String(item.kelas || '').trim().toLowerCase();
+
+            // Match 1: Nama Wali Kelas cocok dengan nama guru login
+            if (myCleanName && walasNameClean && walasNameClean !== '-' && (walasNameClean === myCleanName || walasNameClean.includes(myCleanName) || myCleanName.includes(walasNameClean))) {
+                return true;
+            }
+
+            // Match 2: Kelas siswa cocok dengan kelas yang di-walikan oleh guru login
+            if (myKelasClean && myKelasClean !== '-' && myKelasClean !== 'umum' && itemKelasClean && itemKelasClean === myKelasClean) {
+                return true;
+            }
+
+            // Jika tidak cocok keduanya, bukan siswa dari Wali Kelas ini
+            return false;
         });
     }
 
