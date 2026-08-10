@@ -402,12 +402,10 @@ function renderWalasIzinApprovalTable() {
 
     const isKepsekOrAdmin = uRole.includes('kepala sekolah') || uRole.includes('kepsek') || uRole.includes('admin');
     const uKelas = String(user.kelas || user.walas_kelas || user.wali_kelas || '').trim();
-    const isWalasFlag = user.isWalas === true || String(user.isWalas) === 'true';
-    const isWaliKelas = isKepsekOrAdmin || uRole.includes('walas') || uRole.includes('wali kelas') || isWalasFlag || (Boolean(uKelas) && uKelas !== '-' && uKelas !== 'Umum');
 
     const secWalas = document.getElementById('sectionWalasIzinSiswa');
     if (secWalas) {
-        secWalas.style.display = isWaliKelas ? 'block' : 'none';
+        secWalas.style.display = 'block';
     }
 
     if (!isKepsekOrAdmin && (uRole.includes('guru') || uRole.includes('walas') || uRole.includes('wali kelas'))) {
