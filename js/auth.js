@@ -181,6 +181,8 @@ function showApp(user) {
     const navIzinGuru = document.getElementById('nav-izin-guru');
     const navIzinSiswa = document.getElementById('nav-izin-siswa');
     const navApprovalIzinSiswa = document.getElementById('nav-approval-izin-siswa');
+    const navKokurikuler = document.getElementById('nav-kokurikuler');
+    const navKelolaKokurikuler = document.getElementById('nav-kelola-kokurikuler');
 
     const navScan = document.querySelector('.sidebar-nav .nav-item[data-target="panel-scan"]');
     const navRekap = document.querySelector('.sidebar-nav .nav-item[data-target="panel-dashboard"]');
@@ -199,6 +201,8 @@ function showApp(user) {
     if (navIzinGuru) navIzinGuru.style.display = 'flex';
     if (navIzinSiswa) navIzinSiswa.style.display = 'none';
     if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex'; // Default for Guru
+    if (navKokurikuler) navKokurikuler.style.display = 'flex'; // Visible for Guru & Admin
+    if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'none';
 
     if (navScan) navScan.style.display = 'flex';
     if (navRekap) navRekap.style.display = 'flex';
@@ -214,6 +218,7 @@ function showApp(user) {
         if (navUserMesin) navUserMesin.style.display = 'flex';
         if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'flex';
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
+        if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'flex';
         if (btnManageJenis) btnManageJenis.style.display = 'inline-flex';
         if (navIzinGuru) navIzinGuru.style.display = 'none';
         if (navIzinSiswa) navIzinSiswa.style.display = 'none';
@@ -222,6 +227,7 @@ function showApp(user) {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         if (navUserMesin) navUserMesin.style.display = 'flex';
+        if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'flex';
         if (navIzinSiswa) navIzinSiswa.style.display = 'none';
         if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex';
     } else if (uRole === 'siswa') {
@@ -236,6 +242,8 @@ function showApp(user) {
         if (navUserMesin) navUserMesin.style.display = 'none';
         if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'none';
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'none';
+        if (navKokurikuler) navKokurikuler.style.display = 'none';
+        if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'none';
         if (navIzinSiswa) navIzinSiswa.style.display = 'flex';
         if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'none';
 
@@ -394,6 +402,8 @@ navItems.forEach(nav => {
             if(typeof renderTableSiswa === 'function') renderTableSiswa();
         } else if (nav.dataset.target === 'panel-broadcast-telegram') {
             if(typeof initBroadcastTelegramModule === 'function') initBroadcastTelegramModule();
+        } else if (nav.dataset.target === 'panel-kokurikuler' || nav.dataset.target === 'panel-kelola-kokurikuler') {
+            if(typeof loadKokurikulerData === 'function') loadKokurikulerData();
         } else if (nav.dataset.target === 'panel-profile') {
             renderSelfProfilePanel();
         }

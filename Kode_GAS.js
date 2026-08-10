@@ -18,6 +18,9 @@ const SHEET_MAPEL = 'Mapel';
 const SHEET_KELAS = 'DataKelas';
 const SHEET_IZIN_SISWA = 'LogIzinSiswa';
 const SHEET_DATA_IZIN = 'DataIzin';
+const SHEET_KOKURIKULER = 'DataKokurikuler';
+const SHEET_KOKURIKULER_MEMBERS = 'AnggotaKokurikuler';
+const SHEET_LOG_KOKURIKULER = 'LogAbsenKokurikuler';
 const TIMEZONE = 'Asia/Jakarta'; // Menggunakan Timezone WIB Indonesia
 
 /**
@@ -189,6 +192,13 @@ function doGet(e) {
       ensureUserMesinSheet(SpreadsheetApp.getActiveSpreadsheet());
       handleSyncDeviceUsers();
       return jsonResponse('success', 'Setup & Sinkronisasi Sheet User_Mesin berhasil dikonfigurasi!');
+    }
+
+    else if (action === 'get_kokurikuler_data') {
+      return handleGetKokurikulerData(e.parameter.username, e.parameter.role);
+    }
+    else if (action === 'get_kokurikuler_report') {
+      return handleGetAbsenKokurikulerReport(e.parameter.id_kokurikuler, e.parameter.bulan, e.parameter.tahun);
     }
 
     return jsonResponse('success', 'API Active');
@@ -369,6 +379,43 @@ function doPost(e) {
     }
     else if (action === 'update_self_profile') {
       return handleUpdateSelfProfile(e.parameter.old_username, e.parameter.username, e.parameter.password, e.parameter.nama, e.parameter.id_mesin, e.parameter.id_telegram);
+    }
+    // === KOKURIKULER DISPATCHER POST ===
+    else if (action === 'save_kokurikuler') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleSaveKokurikuler(dataObj);
+    }
+    else if (action === 'delete_kokurikuler') {
+      return handleDeleteKokurikuler(e.parameter.id);
+    }
+    else if (action === 'save_kokurikuler_members') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleSaveKokurikulerMembers(dataObj.id_kokurikuler, dataObj.members);
+    }
+    else if (action === 'save_absen_kokurikuler') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleSaveAbsenKokurikuler(dataObj);
     }
     else if (action === 'get_self_profile') {
       return handleGetSelfProfile(e.parameter.username);
@@ -1258,9 +1305,13 @@ function getStudentsForClass(ss, normTargetKelas, rawTargetKelas) {
     if (k === rawTargetKelas || k.replace(/[\s\-]/g, '') === normTargetKelas) {
       const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
       const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
+      let rawNisn = String(dataSiswa[i][0] || '').trim();
+      if (rawNisn && /^\d+$/.test(rawNisn) && rawNisn.length < 10) {
+        rawNisn = rawNisn.padStart(10, '0');
+      }
       students.push({
-        nisn: String(dataSiswa[i][0] || ''),
-        nis: String(dataSiswa[i][1] || ''),
+        nisn: rawNisn,
+        nis: String(dataSiswa[i][1] || '').trim(),
         nama: nama,
         kelas: String(dataSiswa[i][3] || ''),
         gender: gender
@@ -1396,9 +1447,13 @@ function handleGetAllMasterData() {
       if (!nama) continue;
       const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
       const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
+      let rawNisn = String(dataSiswa[i][0] || '').trim();
+      if (rawNisn && /^\d+$/.test(rawNisn) && rawNisn.length < 10) {
+        rawNisn = rawNisn.padStart(10, '0');
+      }
       students.push({
-        nisn: String(dataSiswa[i][0] || ''),
-        nis: String(dataSiswa[i][1] || ''),
+        nisn: rawNisn,
+        nis: String(dataSiswa[i][1] || '').trim(),
         nama: nama,
         kelas: String(dataSiswa[i][3] || ''),
         gender: gender,
@@ -3029,8 +3084,12 @@ function handleGetStudents() {
       if (!nama) continue;
       const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
       const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
+      let rawNisn = String(dataSiswa[i][0] || '').trim();
+      if (rawNisn && /^\d+$/.test(rawNisn) && rawNisn.length < 10) {
+        rawNisn = rawNisn.padStart(10, '0');
+      }
       students.push({
-        nisn: String(dataSiswa[i][0] || '').trim(),
+        nisn: rawNisn,
         nis: String(dataSiswa[i][1] || '').trim(),
         nama: nama,
         kelas: String(dataSiswa[i][3] || '').trim(),
@@ -5787,4 +5846,361 @@ function generateEduIzinRecapPDF(selectedIds) {
   pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   DriveApp.getFileById(doc.getId()).setTrashed(true);
   return pdfFile.getUrl();
+}
+
+// =========================================================================
+// FITUR MODUL KOKURIKULER (Data, Anggota Lintas Kelas, Absensi, & Rekap)
+// =========================================================================
+
+function ensureKokurikulerSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  let sheetData = ss.getSheetByName(SHEET_KOKURIKULER);
+  if (!sheetData) {
+    sheetData = ss.insertSheet(SHEET_KOKURIKULER);
+    sheetData.appendRow(['ID', 'Nama_Kokurikuler', 'Username_Pembimbing', 'Nama_Pembimbing', 'Keterangan']);
+  }
+
+  let sheetMembers = ss.getSheetByName(SHEET_KOKURIKULER_MEMBERS);
+  if (!sheetMembers) {
+    sheetMembers = ss.insertSheet(SHEET_KOKURIKULER_MEMBERS);
+    sheetMembers.appendRow(['ID_Kokurikuler', 'NISN', 'NIS', 'Nama_Siswa', 'Kelas']);
+    sheetMembers.getRange("B:C").setNumberFormat("@");
+  }
+
+  let sheetLog = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
+  if (!sheetLog) {
+    sheetLog = ss.insertSheet(SHEET_LOG_KOKURIKULER);
+    sheetLog.appendRow(['ID_Log', 'Waktu', 'Tanggal', 'ID_Kokurikuler', 'Nama_Kokurikuler', 'Username_Pembimbing', 'NISN', 'NIS', 'Nama_Siswa', 'Kelas', 'Status', 'Keterangan']);
+    sheetLog.getRange("G:H").setNumberFormat("@");
+  }
+}
+
+function handleGetKokurikulerData(username, role) {
+  try {
+    ensureKokurikulerSheets();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // 1. Fetch Data Kokurikuler
+    const sheetData = ss.getSheetByName(SHEET_KOKURIKULER);
+    const kData = sheetData.getLastRow() > 1 ? sheetData.getRange(2, 1, sheetData.getLastRow() - 1, 5).getValues() : [];
+    
+    const userRole = String(role || '').trim().toLowerCase();
+    const uName = String(username || '').trim().toLowerCase();
+
+    let listKokurikuler = [];
+    for (let i = 0; i < kData.length; i++) {
+      const id = String(kData[i][0] || '').trim();
+      const nama = String(kData[i][1] || '').trim();
+      const uPembimbing = String(kData[i][2] || '').trim();
+      const nPembimbing = String(kData[i][3] || '').trim();
+      const ket = String(kData[i][4] || '').trim();
+
+      if (!id) continue;
+
+      // Filter: Admin/Kepsek bisa lihat semua, Guru hanya kelompok bimbingannya
+      if (userRole === 'admin' || userRole === 'kepsek' || uPembimbing.toLowerCase() === uName) {
+        listKokurikuler.push({ id, nama, username_pembimbing: uPembimbing, nama_pembimbing: nPembimbing, keterangan: ket });
+      }
+    }
+
+    // 2. Fetch Anggota Kokurikuler
+    const sheetMembers = ss.getSheetByName(SHEET_KOKURIKULER_MEMBERS);
+    const mData = sheetMembers.getLastRow() > 1 ? sheetMembers.getRange(2, 1, sheetMembers.getLastRow() - 1, 5).getValues() : [];
+    
+    let membersMap = {};
+    for (let i = 0; i < mData.length; i++) {
+      const idK = String(mData[i][0] || '').trim();
+      if (!idK) continue;
+
+      let nisnVal = String(mData[i][1] || '').trim().replace(/^'/, '');
+      if (nisnVal && /^\d+$/.test(nisnVal) && nisnVal.length < 10) {
+        nisnVal = nisnVal.padStart(10, '0');
+      }
+
+      if (!membersMap[idK]) membersMap[idK] = [];
+      membersMap[idK].push({
+        nisn: nisnVal,
+        nis: String(mData[i][2] || '').trim().replace(/^'/, ''),
+        nama: String(mData[i][3] || '').trim(),
+        kelas: String(mData[i][4] || '').trim()
+      });
+    }
+
+    // 3. Fetch Recent Logs Kokurikuler
+    const sheetLog = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
+    const lData = sheetLog.getLastRow() > 1 ? sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 12).getValues() : [];
+    
+    let logsList = [];
+    for (let i = Math.max(0, lData.length - 1000); i < lData.length; i++) {
+      const tgl = lData[i][2];
+      if (!tgl) continue;
+
+      let nisnVal = String(lData[i][6] || '').trim().replace(/^'/, '');
+      if (nisnVal && /^\d+$/.test(nisnVal) && nisnVal.length < 10) {
+        nisnVal = nisnVal.padStart(10, '0');
+      }
+
+      logsList.push({
+        id_log: String(lData[i][0] || ''),
+        waktu: String(lData[i][1] || ''),
+        tanggal: getFormattedDate(tgl),
+        id_kokurikuler: String(lData[i][3] || ''),
+        nama_kokurikuler: String(lData[i][4] || ''),
+        username_pembimbing: String(lData[i][5] || ''),
+        nisn: nisnVal,
+        nis: String(lData[i][7] || '').trim().replace(/^'/, ''),
+        nama_siswa: String(lData[i][8] || ''),
+        kelas: String(lData[i][9] || ''),
+        status: String(lData[i][10] || ''),
+        keterangan: String(lData[i][11] || '')
+      });
+    }
+
+    return jsonResponse('success', 'Data Kokurikuler berhasil dimuat.', {
+      kokurikuler: listKokurikuler,
+      members: membersMap,
+      logs: logsList
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal memuat data kokurikuler: ' + err.toString());
+  }
+}
+
+function handleSaveKokurikuler(dataObj) {
+  try {
+    ensureKokurikulerSheets();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetData = ss.getSheetByName(SHEET_KOKURIKULER);
+    
+    const id = dataObj.id ? String(dataObj.id).trim() : ('KOKU-' + Date.now());
+    const nama = String(dataObj.nama || '').trim();
+    const uPembimbing = String(dataObj.username_pembimbing || '').trim();
+    const nPembimbing = String(dataObj.nama_pembimbing || '').trim();
+    const ket = String(dataObj.keterangan || '').trim();
+
+    if (!nama || !uPembimbing) {
+      return jsonResponse('error', 'Nama Kegiatan dan Guru Pembimbing wajib diisi.');
+    }
+
+    const data = sheetData.getLastRow() > 1 ? sheetData.getRange(2, 1, sheetData.getLastRow() - 1, 5).getValues() : [];
+    let targetRow = -1;
+
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]) === id) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+
+    if (targetRow > 1) {
+      sheetData.getRange(targetRow, 1, 1, 5).setValues([[id, nama, uPembimbing, nPembimbing, ket]]);
+    } else {
+      sheetData.appendRow([id, nama, uPembimbing, nPembimbing, ket]);
+    }
+
+    return jsonResponse('success', 'Data Kokurikuler berhasil disimpan.', { id, nama });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyimpan kokurikuler: ' + err.toString());
+  }
+}
+
+function handleDeleteKokurikuler(id) {
+  try {
+    if (!id) return jsonResponse('error', 'ID Kokurikuler tidak valid.');
+    ensureKokurikulerSheets();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    const sheetData = ss.getSheetByName(SHEET_KOKURIKULER);
+    const data = sheetData.getLastRow() > 1 ? sheetData.getRange(2, 1, sheetData.getLastRow() - 1, 1).getValues() : [];
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (String(data[i][0]) === String(id)) {
+        sheetData.deleteRow(i + 2);
+        break;
+      }
+    }
+
+    // Delete members
+    const sheetMembers = ss.getSheetByName(SHEET_KOKURIKULER_MEMBERS);
+    const mData = sheetMembers.getLastRow() > 1 ? sheetMembers.getRange(2, 1, sheetMembers.getLastRow() - 1, 1).getValues() : [];
+    for (let i = mData.length - 1; i >= 0; i--) {
+      if (String(mData[i][0]) === String(id)) {
+        sheetMembers.deleteRow(i + 2);
+      }
+    }
+
+    return jsonResponse('success', 'Kegiatan Kokurikuler berhasil dihapus.');
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menghapus kokurikuler: ' + err.toString());
+  }
+}
+
+function handleSaveKokurikulerMembers(idKokurikuler, membersArray) {
+  try {
+    if (!idKokurikuler) return jsonResponse('error', 'ID Kokurikuler tidak ditemukan.');
+    ensureKokurikulerSheets();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetMembers = ss.getSheetByName(SHEET_KOKURIKULER_MEMBERS);
+    sheetMembers.getRange("B:C").setNumberFormat("@");
+
+    // Hapus anggota lama untuk idKokurikuler ini
+    const mData = sheetMembers.getLastRow() > 1 ? sheetMembers.getRange(2, 1, sheetMembers.getLastRow() - 1, 1).getValues() : [];
+    for (let i = mData.length - 1; i >= 0; i--) {
+      if (String(mData[i][0]) === String(idKokurikuler)) {
+        sheetMembers.deleteRow(i + 2);
+      }
+    }
+
+    // Insert anggota baru dengan format teks tunggal
+    if (Array.isArray(membersArray) && membersArray.length > 0) {
+      const newRows = membersArray.map(m => {
+        let nisnVal = String(m.nisn || m.nis || '').trim();
+        if (nisnVal && /^\d+$/.test(nisnVal) && nisnVal.length < 10) {
+          nisnVal = nisnVal.padStart(10, '0');
+        }
+        let nisVal = String(m.nis || '').trim();
+
+        return [
+          idKokurikuler,
+          "'" + nisnVal,
+          "'" + nisVal,
+          String(m.nama || '').trim(),
+          String(m.kelas || '').trim()
+        ];
+      });
+      sheetMembers.getRange(sheetMembers.getLastRow() + 1, 1, newRows.length, 5).setValues(newRows);
+    }
+
+    return jsonResponse('success', `Berhasil memperbarui ${membersArray.length} anggota kokurikuler.`);
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyimpan anggota kokurikuler: ' + err.toString());
+  }
+}
+
+function handleSaveAbsenKokurikuler(dataObj) {
+  try {
+    if (!dataObj || !dataObj.id_kokurikuler || !dataObj.tanggal || !Array.isArray(dataObj.logs)) {
+      return jsonResponse('error', 'Data presensi tidak lengkap.');
+    }
+
+    const todayStr = getFormattedDate(new Date());
+    const inputDate = getFormattedDate(dataObj.tanggal);
+
+    // VALIDASI TANGGAL: Tidak boleh absensi di masa depan
+    if (inputDate > todayStr) {
+      return jsonResponse('error', `Absensi tidak dapat dilakukan untuk tanggal di masa depan (${inputDate}). Maksimal tanggal hari ini (${todayStr}).`);
+    }
+
+    ensureKokurikulerSheets();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetLog = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
+    sheetLog.getRange("G:H").setNumberFormat("@");
+
+    const timeNow = Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss");
+    const idK = String(dataObj.id_kokurikuler).trim();
+    const namaK = String(dataObj.nama_kokurikuler || '').trim();
+    const uPemb = String(dataObj.username_pembimbing || '').trim();
+
+    // Dapatkan data log yang ada untuk idK & tanggal yang sama (untuk replace/upsert)
+    const existingLogs = sheetLog.getLastRow() > 1 ? sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 12).getValues() : [];
+    
+    // Hapus log yang lama jika pernah diabsen pada tanggal ini untuk kelompok ini
+    for (let i = existingLogs.length - 1; i >= 0; i--) {
+      const rowTgl = getFormattedDate(existingLogs[i][2]);
+      const rowIdK = String(existingLogs[i][3]).trim();
+      if (rowIdK === idK && rowTgl === inputDate) {
+        sheetLog.deleteRow(i + 2);
+      }
+    }
+
+    // Insert log presensi baru
+    const rowsToAdd = [];
+    dataObj.logs.forEach((item, index) => {
+      const status = String(item.status || 'HADIR').trim().toUpperCase();
+      const ket = String(item.keterangan || '').trim();
+      let nisnVal = String(item.nisn || item.nis || '').trim();
+      if (nisnVal && /^\d+$/.test(nisnVal) && nisnVal.length < 10) {
+        nisnVal = nisnVal.padStart(10, '0');
+      }
+      let nisVal = String(item.nis || '').trim();
+
+      rowsToAdd.push([
+        'LOKO-' + Date.now() + '-' + index,
+        timeNow,
+        inputDate,
+        idK,
+        namaK,
+        uPemb,
+        "'" + nisnVal,
+        "'" + nisVal,
+        String(item.nama || '').trim(),
+        String(item.kelas || '').trim(),
+        status,
+        ket
+      ]);
+    });
+
+    if (rowsToAdd.length > 0) {
+      sheetLog.getRange(sheetLog.getLastRow() + 1, 1, rowsToAdd.length, 12).setValues(rowsToAdd);
+    }
+
+    return jsonResponse('success', `Berhasil menyimpan presensi kokurikuler untuk ${rowsToAdd.length} siswa pada tanggal ${inputDate}.`);
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyimpan presensi kokurikuler: ' + err.toString());
+  }
+}
+
+function handleGetAbsenKokurikulerReport(idKokurikuler, bulan, tahun) {
+  try {
+    ensureKokurikulerSheets();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetLog = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
+    if (sheetLog.getLastRow() <= 1) return jsonResponse('success', 'Belum ada log presensi.', []);
+
+    const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 12).getValues();
+    const targetBulan = parseInt(bulan, 10);
+    const targetTahun = parseInt(tahun, 10);
+
+    const result = [];
+    for (let i = 0; i < lData.length; i++) {
+      const rowIdK = String(lData[i][3] || '').trim();
+      if (idKokurikuler && idKokurikuler !== 'Semua' && rowIdK !== String(idKokurikuler)) continue;
+
+      const rawDate = lData[i][2];
+      if (!rawDate) continue;
+
+      const formatted = getFormattedDate(rawDate);
+      const parts = formatted.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (targetTahun && y !== targetTahun) continue;
+        if (targetBulan && m !== targetBulan) continue;
+      }
+
+      let nisnVal = String(lData[i][6] || '').trim().replace(/^'/, '');
+      if (nisnVal && /^\d+$/.test(nisnVal) && nisnVal.length < 10) {
+        nisnVal = nisnVal.padStart(10, '0');
+      }
+
+      result.push({
+        id_log: String(lData[i][0] || ''),
+        waktu: String(lData[i][1] || ''),
+        tanggal: formatted,
+        id_kokurikuler: String(lData[i][3] || ''),
+        nama_kokurikuler: String(lData[i][4] || ''),
+        username_pembimbing: String(lData[i][5] || ''),
+        nisn: nisnVal,
+        nis: String(lData[i][7] || '').trim().replace(/^'/, ''),
+        nama_siswa: String(lData[i][8] || ''),
+        kelas: String(lData[i][9] || ''),
+        status: String(lData[i][10] || ''),
+        keterangan: String(lData[i][11] || '')
+      });
+    }
+
+    return jsonResponse('success', 'Data laporan presensi kokurikuler ditarik.', result);
+  } catch (err) {
+    return jsonResponse('error', 'Gagal memuat rekap kokurikuler: ' + err.toString());
+  }
 }

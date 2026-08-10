@@ -175,6 +175,13 @@
                 <button class="nav-item" data-target="panel-user-mesin" id="nav-user-mesin" style="display:none;">
                     <span class="nav-icon"><i class="fa-solid fa-fingerprint"></i></span> <span class="nav-label">Data User Mesin</span>
                 </button>
+                <!-- Menu Kokurikuler -->
+                <button class="nav-item" data-target="panel-kokurikuler" id="nav-kokurikuler" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-shapes"></i></span> <span class="nav-label">Absen Kokurikuler</span>
+                </button>
+                <button class="nav-item" data-target="panel-kelola-kokurikuler" id="nav-kelola-kokurikuler" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-layer-group"></i></span> <span class="nav-label">Kelola Kokurikuler</span>
+                </button>
                 <button class="nav-item" data-target="panel-profile" id="nav-profile">
                     <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> <span class="nav-label">Profil & Pengaturan Akun</span>
                 </button>
@@ -1496,6 +1503,292 @@
             </section>
 
             <!-- PANEL PROFIL SAYA / PENGATURAN MANDIRI GURU, TU, KEPSEK & ADMIN -->
+            <!-- PANEL ABSEN & REKAP KOKURIKULER (Guru Pembimbing & Admin) -->
+            <section id="panel-kokurikuler" class="panel" style="display:none;">
+                <div class="panel-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h2 style="display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin: 0; color: #f8fafc;">
+                            <i class="fa-solid fa-shapes" style="color: #38bdf8;"></i> Presensi & Rekap Kokurikuler
+                        </h2>
+                        <p style="margin-top: 4px; font-size: 0.88rem; color: var(--text-muted);">
+                            Input absensi siswa bimbingan kokurikuler serta cetak rekapitulasi presensi bulanan.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Control Bar Kokurikuler -->
+                <div class="glass-card" style="padding: 18px; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Pilih Kegiatan Kokurikuler:</label>
+                            <select id="selectKokurikulerAct" class="form-input" style="width: 100%;">
+                                <option value="">-- Memuat Kokurikuler --</option>
+                            </select>
+                        </div>
+                        <div style="width: 180px;">
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Tanggal Presensi:</label>
+                            <input type="date" id="inputDateKokurikuler" class="form-input" style="width: 100%;">
+                        </div>
+                        <div>
+                            <button type="button" id="btnRefreshKokurikuler" class="btn-secondary" style="padding: 10px 16px; border-radius: 8px;">
+                                <i class="fa-solid fa-rotate-right"></i> Muat Ulang
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs: Input Presensi vs Rekap & Cetak -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--card-border, #334155);">
+                    <button type="button" id="tabBtnKokurikulerInput" class="tab-btn active" style="padding: 10px 20px; font-weight: 700; background: none; border: none; color: #38bdf8; border-bottom: 3px solid #38bdf8; cursor: pointer;">
+                        <i class="fa-solid fa-pen-to-square"></i> Input Presensi
+                    </button>
+                    <button type="button" id="tabBtnKokurikulerReport" class="tab-btn" style="padding: 10px 20px; font-weight: 700; background: none; border: none; color: #94a3b8; cursor: pointer;">
+                        <i class="fa-solid fa-file-invoice"></i> Rekap & Cetak Laporan
+                    </button>
+                </div>
+
+                <!-- TAB 1: FORM INPUT PRESENSI -->
+                <div id="tabContentKokurikulerInput">
+                    <div class="glass-card" style="padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4 style="margin: 0; color: #f8fafc; font-size: 1.05rem;">
+                                <i class="fa-solid fa-users" style="color: #10b981; margin-right: 6px;"></i> Daftar Siswa Bimbingan (<span id="lblKokurikulerCount">0</span> Siswa)
+                            </h4>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" id="btnSetAllKokurikulerHadir" class="btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; border-radius: 6px;">
+                                    <i class="fa-solid fa-check-double" style="color: #4ade80;"></i> Set Semua Hadir
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="overflow-x: auto;">
+                            <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                                <thead>
+                                    <tr style="background: rgba(15, 23, 42, 0.8); color: #cbd5e1; text-align: left;">
+                                        <th style="padding: 10px; width: 40px; text-align: center;">No</th>
+                                        <th style="padding: 10px;">NISN / NIS</th>
+                                        <th style="padding: 10px;">Nama Siswa</th>
+                                        <th style="padding: 10px; width: 80px; text-align: center;">Kelas</th>
+                                        <th style="padding: 10px; text-align: center; width: 220px;">Status Kehadiran</th>
+                                        <th style="padding: 10px;">Catatan / Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBodyKokurikulerAbsen">
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; padding: 25px; color: var(--text-muted);">
+                                            Pilih kegiatan kokurikuler di atas untuk menampilkan siswa bimbingan.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                            <button type="button" id="btnSaveAbsenKokurikuler" class="btn-primary" style="padding: 12px 24px; font-weight: 700; font-size: 0.95rem; border-radius: 10px;">
+                                <i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Kokurikuler
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: REKAP & CETAK LAPORAN -->
+                <div id="tabContentKokurikulerReport" style="display: none;">
+                    <div class="glass-card" style="padding: 20px;">
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px;">
+                            <div style="width: 150px;">
+                                <label style="display: block; font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px;">Pilih Bulan:</label>
+                                <select id="selectKokurikulerReportMonth" class="form-input" style="width: 100%;"></select>
+                            </div>
+                            <div style="width: 120px;">
+                                <label style="display: block; font-size: 0.82rem; color: #94a3b8; margin-bottom: 6px;">Tahun:</label>
+                                <input type="number" id="inputKokurikulerReportYear" class="form-input" style="width: 100%;" value="2026">
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" id="btnFilterKokurikulerReport" class="btn-primary" style="padding: 10px 18px; border-radius: 8px;">
+                                    <i class="fa-solid fa-filter"></i> Tampilkan Rekap
+                                </button>
+                                <button type="button" id="btnPrintKokurikulerReport" class="btn-secondary" style="padding: 10px 18px; border-radius: 8px;">
+                                    <i class="fa-solid fa-print"></i> Cetak Laporan
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Print Friendly Container -->
+                        <div id="kokurikulerReportPrintArea">
+                            <div style="overflow-x: auto;">
+                                <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                                    <thead>
+                                        <tr style="background: rgba(15, 23, 42, 0.9); color: #f8fafc; text-align: left;">
+                                            <th style="padding: 10px; text-align: center; width: 40px;">No</th>
+                                            <th style="padding: 10px;">NISN</th>
+                                            <th style="padding: 10px;">Nama Siswa</th>
+                                            <th style="padding: 10px; text-align: center;">Kelas</th>
+                                            <th style="padding: 10px; text-align: center; background: #22c55e; color: black;">Hadir (H)</th>
+                                            <th style="padding: 10px; text-align: center; background: #eab308; color: black;">Sakit (S)</th>
+                                            <th style="padding: 10px; text-align: center; background: #3b82f6; color: white;">Izin (I)</th>
+                                            <th style="padding: 10px; text-align: center; background: #ef4444; color: white;">Alpa (A)</th>
+                                            <th style="padding: 10px; text-align: center; background: #a855f7; color: white;">Telat (T)</th>
+                                            <th style="padding: 10px; text-align: center;">Total Pertemuan</th>
+                                            <th style="padding: 10px; text-align: center;">% Kehadiran</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tableBodyKokurikulerReport">
+                                        <tr>
+                                            <td colspan="11" style="text-align: center; padding: 25px; color: var(--text-muted);">
+                                                Klik tombol "Tampilkan Rekap" untuk memuat data.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL KELOLA KOKURIKULER (Admin Only) -->
+            <section id="panel-kelola-kokurikuler" class="panel" style="display:none;">
+                <div class="panel-header" style="margin-bottom: 20px;">
+                    <h2 style="display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin: 0; color: #f8fafc;">
+                        <i class="fa-solid fa-layer-group" style="color: #38bdf8;"></i> Kelola Kegiatan & Anggota Kokurikuler
+                    </h2>
+                    <p style="margin-top: 4px; font-size: 0.88rem; color: var(--text-muted);">
+                        Daftarkan kelompok/kegiatan kokurikuler, tentukan Guru Pembimbing, dan atur anggota siswa bimbingan lintas kelas.
+                    </p>
+                </div>
+
+                <!-- Form Tambah / Edit Kegiatan Kokurikuler -->
+                <div class="glass-card" style="padding: 20px; margin-bottom: 25px;">
+                    <h4 style="margin: 0 0 15px 0; color: #f8fafc; font-size: 1.05rem;" id="titleFormKokurikuler">
+                        <i class="fa-solid fa-plus-circle" style="color: #38bdf8; margin-right: 6px;"></i> Tambah Kegiatan Kokurikuler Baru
+                    </h4>
+                    <input type="hidden" id="inputEditKokurikulerId">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 220px;">
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Nama Kegiatan / Kelompok:</label>
+                            <input type="text" id="inputNamaKokurikuler" class="form-input" style="width: 100%;" placeholder="Contoh: Pramuka, Basket, OSIS, Karya Tulis">
+                        </div>
+                        <div style="flex: 1; min-width: 220px;">
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Pilih Guru Pembimbing:</label>
+                            <select id="selectPembimbingKokurikuler" class="form-input" style="width: 100%;">
+                                <option value="">-- Memuat Guru --</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Keterangan / Jadwal (Opsional):</label>
+                            <input type="text" id="inputKetKokurikuler" class="form-input" style="width: 100%;" placeholder="Contoh: Setiap Hari Jumat 14.00 WIB">
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" id="btnCancelEditKokurikuler" class="btn-secondary" style="display: none; padding: 10px 18px; border-radius: 8px;">
+                            Batal Edit
+                        </button>
+                        <button type="button" id="btnSaveKokurikulerGroup" class="btn-primary" style="padding: 10px 20px; border-radius: 8px;">
+                            <i class="fa-solid fa-floppy-disk"></i> Simpan Kegiatan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabel Daftar Kegiatan Kokurikuler -->
+                <div class="glass-card" style="padding: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #f8fafc; font-size: 1.05rem;">
+                        <i class="fa-solid fa-list-check" style="color: #10b981; margin-right: 6px;"></i> Daftar Kegiatan Kokurikuler Terdaftar
+                    </h4>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                            <thead>
+                                <tr style="background: rgba(15, 23, 42, 0.8); color: #cbd5e1; text-align: left;">
+                                    <th style="padding: 10px; width: 40px; text-align: center;">No</th>
+                                    <th style="padding: 10px;">Nama Kegiatan</th>
+                                    <th style="padding: 10px;">Guru Pembimbing</th>
+                                    <th style="padding: 10px;">Jadwal / Ket</th>
+                                    <th style="padding: 10px; text-align: center;">Jumlah Anggota</th>
+                                    <th style="padding: 10px; text-align: center; width: 220px;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyKelolaKokurikuler">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 25px; color: var(--text-muted);">
+                                        Belum ada kegiatan kokurikuler terdaftar.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODAL KELOLA ANGGOTA KOKURIKULER LINTAS KELAS -->
+            <div id="modalKokurikulerMembers" class="modal-overlay" style="display: none;">
+                <div class="modal-card" style="max-width: 850px; width: 92%; max-height: 88vh; display: flex; flex-direction: column;">
+                    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border, #334155); padding-bottom: 12px; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #f8fafc; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-user-plus" style="color: #38bdf8;"></i> Kelola Anggota Siswa Lintas Kelas
+                        </h3>
+                        <button type="button" class="btn-close-modal" id="btnCloseModalKokurikulerMembers" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; line-height: 1.6; margin-bottom: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px;">
+                            <div><span style="color: #94a3b8; font-weight: 600;">Kegiatan:</span> <strong id="lblModalKokurikulerName" style="color: #38bdf8; font-size: 1rem; margin-left: 4px;">-</strong></div>
+                            <div><span style="color: #94a3b8; font-weight: 600;">Guru Pembimbing:</span> <strong id="lblModalKokurikulerPembimbing" style="color: #f8fafc; margin-left: 4px;">-</strong></div>
+                        </div>
+
+                        <!-- Filter Kelas & Search -->
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+                            <div style="display: flex; gap: 12px; flex: 1; flex-wrap: wrap; min-width: 280px;">
+                                <div style="width: 220px;">
+                                    <select id="selectModalFilterKelas" class="form-input" style="width: 100%;">
+                                        <option value="Semua">-- Semua Kelas --</option>
+                                        <option value="TERPILIH">⭐ Hanya Anggota Terpilih</option>
+                                    </select>
+                                </div>
+                                <div style="flex: 1; min-width: 200px;">
+                                    <input type="text" id="inputModalSearchSiswa" class="form-input" style="width: 100%;" placeholder="Cari nama siswa atau NISN...">
+                                </div>
+                            </div>
+                            <div style="font-size: 0.88rem; color: #f8fafc; font-weight: 700; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 7px 16px; border-radius: 20px; white-space: nowrap;">
+                                <i class="fa-solid fa-user-check" style="color: #10b981; margin-right: 6px;"></i> Terpilih: <span id="lblModalSelectedCount" style="color: #10b981; font-weight: 800;">0</span> Siswa
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="flex: 1; overflow-y: auto; border: 1px solid var(--card-border, #334155); border-radius: 10px; margin-bottom: 15px;">
+                        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="background: rgba(15, 23, 42, 0.95); color: #cbd5e1; text-align: left; position: sticky; top: 0; z-index: 2;">
+                                    <th style="padding: 10px; width: 40px; text-align: center;">
+                                        <input type="checkbox" id="checkModalSelectAll" style="width: 17px; height: 17px; cursor: pointer;">
+                                    </th>
+                                    <th style="padding: 10px;">NISN / NIS</th>
+                                    <th style="padding: 10px;">Nama Siswa</th>
+                                    <th style="padding: 10px; width: 90px; text-align: center;">Kelas</th>
+                                    <th style="padding: 10px; width: 140px; text-align: center;">Status Anggota</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyModalKokurikulerMembers">
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 25px; color: var(--text-muted);">
+                                        Memuat master data siswa...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" id="btnCancelModalKokurikulerMembers" class="btn-secondary" style="padding: 10px 18px; border-radius: 8px;">
+                            Batal
+                        </button>
+                        <button type="button" id="btnSaveKokurikulerMembers" class="btn-primary" style="padding: 10px 22px; border-radius: 8px;">
+                            <i class="fa-solid fa-floppy-disk"></i> Simpan Anggota Siswa
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <section id="panel-profile" class="panel">
                 <div class="panel-header" style="margin-bottom: 20px;">
                     <h2 style="display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin: 0; color: #f8fafc;">
@@ -2665,6 +2958,7 @@
     <script src="js/overview_dashboard.js?v=1.0"></script>
     <script src="js/izin_siswa.js?v=7.0"></script>
     <script src="js/izin_kbm.js?v=10.0"></script>
+    <script src="js/absen_kokurikuler.js?v=1.0"></script>
 </body>
 
 </html>
