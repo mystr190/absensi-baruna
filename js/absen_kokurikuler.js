@@ -64,7 +64,7 @@ function initKokurikulerModule() {
     const btnRefresh = document.getElementById('btnRefreshKokurikuler');
     if (btnRefresh) {
         btnRefresh.addEventListener('click', () => {
-            loadKokurikulerData(true);
+            fetchKokurikulerData(true);
         });
     }
 
@@ -228,6 +228,9 @@ async function fetchKokurikulerData() {
         populateKokurikulerDropdowns();
     }
 }
+
+// Global Alias for backwards compatibility
+window.loadKokurikulerData = fetchKokurikulerData;
 
 function populateKokurikulerDropdowns() {
     const selectAct = document.getElementById('selectKokurikulerAct');
@@ -400,12 +403,12 @@ async function saveAbsenKokurikuler() {
 
         if (res && res.status === 'success') {
             showToast(res.message, 'success');
-            loadKokurikulerData(true);
+            fetchKokurikulerData(true);
         } else {
             showToast(res ? res.message : 'Gagal menyimpan presensi.', 'error');
         }
     } catch (err) {
-        showToast('Error koneksi saat menyimpan presensi.', 'error');
+        showToast('Gagal: ' + (err.message || 'Error koneksi server.'), 'error');
     } finally {
         btnSave.disabled = false;
         btnSave.innerHTML = origText;
@@ -642,12 +645,12 @@ async function saveKokurikulerGroup() {
         if (res && res.status === 'success') {
             showToast(res.message, 'success');
             resetKokurikulerGroupForm();
-            loadKokurikulerData(true);
+            fetchKokurikulerData(true);
         } else {
             showToast(res ? res.message : 'Gagal menyimpan kegiatan.', 'error');
         }
     } catch (err) {
-        showToast('Error koneksi server.', 'error');
+        showToast('Gagal: ' + (err.message || 'Error koneksi server.'), 'error');
     } finally {
         btnSave.disabled = false;
         btnSave.innerHTML = origText;
@@ -688,12 +691,12 @@ async function deleteKokurikulerGroup(id) {
 
         if (res && res.status === 'success') {
             showToast(res.message, 'success');
-            loadKokurikulerData(true);
+            fetchKokurikulerData(true);
         } else {
             showToast(res ? res.message : 'Gagal menghapus kegiatan.', 'error');
         }
     } catch (err) {
-        showToast('Error koneksi server.', 'error');
+        showToast('Gagal: ' + (err.message || 'Error koneksi server.'), 'error');
     }
 }
 
@@ -741,7 +744,7 @@ async function fetchMasterStudentsForKokurikuler() {
             tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa.</td></tr>`;
         }
     } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 25px; color: #ef4444;">Error koneksi server.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa: ${err.message || 'Error koneksi server.'}</td></tr>`;
     }
 }
 
@@ -883,12 +886,12 @@ async function saveKokurikulerMembers() {
         if (res && res.status === 'success') {
             showToast(res.message, 'success');
             modal.style.display = 'none';
-            loadKokurikulerData(true);
+            fetchKokurikulerData(true);
         } else {
             showToast(res ? res.message : 'Gagal memperbarui anggota.', 'error');
         }
     } catch (err) {
-        showToast('Error koneksi server.', 'error');
+        showToast('Gagal: ' + (err.message || 'Error koneksi server.'), 'error');
     } finally {
         btnSave.disabled = false;
         btnSave.innerHTML = origText;

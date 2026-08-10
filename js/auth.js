@@ -403,7 +403,8 @@ navItems.forEach(nav => {
         } else if (nav.dataset.target === 'panel-broadcast-telegram') {
             if(typeof initBroadcastTelegramModule === 'function') initBroadcastTelegramModule();
         } else if (nav.dataset.target === 'panel-kokurikuler' || nav.dataset.target === 'panel-kelola-kokurikuler') {
-            if(typeof loadKokurikulerData === 'function') loadKokurikulerData();
+            if(typeof fetchKokurikulerData === 'function') fetchKokurikulerData();
+            else if(typeof loadKokurikulerData === 'function') loadKokurikulerData();
         } else if (nav.dataset.target === 'panel-profile') {
             renderSelfProfilePanel();
         }

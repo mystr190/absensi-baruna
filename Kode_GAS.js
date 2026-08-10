@@ -5865,14 +5865,14 @@ function ensureKokurikulerSheets() {
   if (!sheetMembers) {
     sheetMembers = ss.insertSheet(SHEET_KOKURIKULER_MEMBERS);
     sheetMembers.appendRow(['ID_Kokurikuler', 'NISN', 'NIS', 'Nama_Siswa', 'Kelas']);
-    sheetMembers.getRange("B:C").setNumberFormat("@");
+    sheetMembers.getRange(1, 2, Math.max(sheetMembers.getMaxRows(), 100), 2).setNumberFormat("@");
   }
 
   let sheetLog = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
   if (!sheetLog) {
     sheetLog = ss.insertSheet(SHEET_LOG_KOKURIKULER);
     sheetLog.appendRow(['ID_Log', 'Waktu', 'Tanggal', 'ID_Kokurikuler', 'Nama_Kokurikuler', 'Username_Pembimbing', 'NISN', 'NIS', 'Nama_Siswa', 'Kelas', 'Status', 'Keterangan']);
-    sheetLog.getRange("G:H").setNumberFormat("@");
+    sheetLog.getRange(1, 7, Math.max(sheetLog.getMaxRows(), 100), 2).setNumberFormat("@");
   }
 }
 
@@ -6041,7 +6041,7 @@ function handleSaveKokurikulerMembers(idKokurikuler, membersArray) {
     ensureKokurikulerSheets();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheetMembers = ss.getSheetByName(SHEET_KOKURIKULER_MEMBERS);
-    sheetMembers.getRange("B:C").setNumberFormat("@");
+    sheetMembers.getRange(1, 2, Math.max(sheetMembers.getMaxRows(), 100), 2).setNumberFormat("@");
 
     // Hapus anggota lama untuk idKokurikuler ini
     const mData = sheetMembers.getLastRow() > 1 ? sheetMembers.getRange(2, 1, sheetMembers.getLastRow() - 1, 1).getValues() : [];
@@ -6094,7 +6094,7 @@ function handleSaveAbsenKokurikuler(dataObj) {
     ensureKokurikulerSheets();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheetLog = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
-    sheetLog.getRange("G:H").setNumberFormat("@");
+    sheetLog.getRange(1, 7, Math.max(sheetLog.getMaxRows(), 100), 2).setNumberFormat("@");
 
     const timeNow = Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss");
     const idK = String(dataObj.id_kokurikuler).trim();
