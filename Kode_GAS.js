@@ -3282,6 +3282,7 @@ function handleDeviceAttendanceScan(pin, waktuScan, statusScan, namaMesin) {
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const config = getConfigObject(ss);
     const cleanPin = String(pin).trim();
     const cleanNamaMesin = namaMesin ? String(namaMesin).trim() : '';
     const now = new Date();
@@ -4218,7 +4219,7 @@ function handleGetOverviewStats(forceServer) {
   if (sheetLogGuru && sheetLogGuru.getLastRow() > 1) {
     const gData = sheetLogGuru.getRange(2, 1, sheetLogGuru.getLastRow() - 1, 7).getValues();
     for (let i = 0; i < gData.length; i++) {
-      const rawDate = gData[i][1];
+      const rawDate = gData[i][2];
       if (!rawDate) continue;
       const logDateFormatted = getFormattedDate(rawDate);
       if (logDateFormatted !== todayFormatted) continue;
@@ -4228,7 +4229,7 @@ function handleGetOverviewStats(forceServer) {
       if (uName) attendedGuruUsernames.add(uName);
       if (nama) attendedGuruNames.add(nama);
 
-      const st = String(gData[i][6] || '').trim().toUpperCase();
+      const st = String(gData[i][5] || '').trim().toUpperCase();
       if (!st) continue;
       totalGuruLog++;
       if (st.includes('HADIR') || st === 'H') guruAbsenSummary.Hadir++;

@@ -180,6 +180,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Helper untuk Retry otomatis jika jaringan/Google Apps Script tersendat
 async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 800) {
+    if (!options.method || options.method.toUpperCase() === 'GET') {
+        const separator = url.includes('?') ? '&' : '?';
+        url += `${separator}_cb=${Date.now()}`;
+    }
     const fetchOptions = { redirect: 'follow', ...options };
     for (let i = 0; i <= retries; i++) {
         const controller = new AbortController();
