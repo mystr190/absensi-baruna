@@ -934,7 +934,203 @@ select option { background: var(--bg-color); color: var(--text-main); }
     /* Main Content Area Padding Bottom for Mobile Bottom Bar */
     .main-content {
         margin-left: 0 !important;
-        padding: 15px 14px 90px 14px !important;
+        padding: 15px 12px 95px 12px !important;
+    }
+
+    /* Panel Bodies & Glass Cards on Mobile */
+    .panel-body {
+        padding: 14px 10px !important;
+    }
+
+    .styled-card {
+        padding: 16px 12px !important;
+        border-radius: 14px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .glass-card {
+        border-radius: 14px !important;
+    }
+
+    /* Panel Headers & Titles on Mobile */
+    .panel-header {
+        margin-bottom: 16px !important;
+    }
+
+    .panel-header h2 {
+        font-size: 1.35rem !important;
+        line-height: 1.3 !important;
+    }
+
+    .panel-header p {
+        font-size: 0.8rem !important;
+    }
+
+    .styled-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        padding-bottom: 10px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .styled-card-title {
+        font-size: 1.05rem !important;
+    }
+
+    /* Flex-between & Layout Containers on Mobile */
+    .flex-between {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .flex-between > div {
+        width: 100% !important;
+    }
+
+    .flex-between > div > button,
+    .flex-between > div > a,
+    .flex-between > button {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    /* Filter Groups, Dropdowns & Controls on Mobile */
+    .filter-group,
+    .filter-card,
+    div[style*="display: flex"][style*="gap"][style*="align-items: center"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        padding: 10px !important;
+        gap: 8px !important;
+    }
+
+    .filter-group select,
+    .filter-group input,
+    .filter-group button,
+    .styled-select,
+    .styled-input,
+    .form-input {
+        width: 100% !important;
+        font-size: 0.88rem !important;
+        padding: 10px 12px !important;
+    }
+
+    /* Dashboard Stats Grid on Mobile */
+    .stats-container,
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .stat-card {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+        border-radius: 12px !important;
+    }
+
+    .stat-icon {
+        width: 38px !important;
+        height: 38px !important;
+        font-size: 1.15rem !important;
+        border-radius: 10px !important;
+    }
+
+    .stat-info h3 {
+        font-size: 0.75rem !important;
+    }
+
+    .stat-value {
+        font-size: 1.25rem !important;
+    }
+
+    /* Universal Mobile Table Horizontal Scrolling & Cell Sizing */
+    .modern-table-container,
+    .table-responsive,
+    div[style*="overflow-x"],
+    div[style*="overflow-y"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        max-width: 100% !important;
+        margin-bottom: 12px !important;
+        border-radius: 12px !important;
+    }
+
+    .data-table,
+    .matrix-table,
+    table {
+        min-width: 560px !important;
+        font-size: 0.82rem !important;
+    }
+
+    .data-table th,
+    .data-table td,
+    .matrix-table th,
+    .matrix-table td {
+        padding: 8px 8px !important;
+        font-size: 0.8rem !important;
+    }
+
+    .data-table td .btn-icon,
+    .data-table td button {
+        padding: 4px 8px !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* Universal Modal Responsiveness on Mobile */
+    .modal-backdrop,
+    .modal-overlay,
+    [id^="modal"] {
+        padding: 10px !important;
+        align-items: center !important;
+    }
+
+    .modal-card,
+    .modal-content,
+    .custom-alert-box,
+    div[id^="modal"] > div {
+        max-width: 96vw !important;
+        width: 100% !important;
+        max-height: 88vh !important;
+        overflow-y: auto !important;
+        padding: 16px 12px !important;
+        border-radius: 16px !important;
+        margin: auto !important;
+    }
+
+    /* Form Grid Layouts on Mobile */
+    div[style*="display: grid"][style*="grid-template-columns"],
+    div[style*="display:grid"][style*="grid-template-columns"],
+    #overviewChartsRow1,
+    #overviewChartsRow2,
+    #formInputPelanggaran,
+    #pelanggaranLayoutGrid,
+    #formConfigSekolah,
+    #formKopSurat,
+    #formAddHoliday {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    #overviewKpiGrid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    /* Radio Status Buttons in Presensi KBM */
+    #tableBodySiswa td div[style*="display: flex"],
+    #tbodySiswa td div[style*="display: flex"] {
+        gap: 4px !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+    }
+
+    #tableBodySiswa label,
+    #tbodySiswa label {
+        font-size: 0.8rem !important;
+        margin-right: 4px !important;
     }
 }
 
