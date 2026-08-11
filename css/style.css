@@ -683,15 +683,16 @@ select option { background: var(--bg-color); color: var(--text-main); }
     /* Mobile Top Header Bar - Fixed Sticky Header */
     .mobile-top-bar {
         display: flex !important;
-        align-items: center;
-        justify-content: space-between;
-        padding: 8px 12px !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        padding: 10px 12px !important;
         position: sticky !important;
         top: 0 !important;
-        z-index: 9999 !important;
-        margin: -15px -12px 14px -12px !important;
-        width: calc(100% + 24px) !important;
-        border-radius: 0 0 16px 16px !important;
+        z-index: 999 !important;
+        margin: -15px -12px 18px -12px !important;
+        border-radius: 0 0 16px 16px;
         background: rgba(15, 23, 42, 0.92) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
@@ -699,9 +700,8 @@ select option { background: var(--bg-color); color: var(--text-main); }
         border-left: none !important;
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
         transition: all 0.3s ease;
-        gap: 6px !important;
     }
 
     .mobile-header-brand {
@@ -713,8 +713,8 @@ select option { background: var(--bg-color); color: var(--text-main); }
 
     .mobile-header-brand .mobile-brand-title {
         font-weight: 800;
-        font-size: 1.02rem;
-        letter-spacing: -0.4px;
+        font-size: 1rem;
+        letter-spacing: -0.5px;
         color: var(--text-main);
     }
 
@@ -731,8 +731,9 @@ select option { background: var(--bg-color); color: var(--text-main); }
     }
 
     .mobile-header-user .avatar-sm {
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         background: rgba(255, 255, 255, 0.12);
+        padding: 4px;
         border-radius: 50%;
         color: #818cf8;
         display: flex;
@@ -744,42 +745,39 @@ select option { background: var(--bg-color); color: var(--text-main); }
     }
 
     .mobile-user-details {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-end !important;
-        min-width: 0 !important;
-        flex-shrink: 1 !important;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        min-width: 0;
     }
 
     .mobile-user-name {
         font-size: 0.78rem !important;
-        font-weight: 700 !important;
+        font-weight: 700;
         color: var(--text-main);
-        max-width: 90px !important;
+        max-width: 88px !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
-        line-height: 1.2 !important;
     }
 
     .mobile-user-details .badge {
-        font-size: 0.6rem !important;
+        font-size: 0.62rem !important;
         padding: 1px 5px !important;
-        line-height: 1 !important;
     }
 
     .btn-mobile-logout-icon {
         background: rgba(239, 68, 68, 0.2);
         color: #ef4444;
         border: 1px solid rgba(239, 68, 68, 0.35);
-        width: 30px;
-        height: 30px;
-        border-radius: 8px;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        font-size: 0.88rem;
+        font-size: 0.95rem;
         transition: all 0.2s ease;
         flex-shrink: 0;
     }
