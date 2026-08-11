@@ -23,33 +23,86 @@ let localRecentLogs = JSON.parse(localStorage.getItem('smart_absen_recent_logs')
 
 // PWA Installation Handler
 let deferredPwaPrompt = null;
+
+function isAppStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function initPwaInstallButton() {
+    const btnInstall = document.getElementById('btnInstallPwa');
+    if (!btnInstall) return;
+
+    if (isAppStandalone()) {
+        btnInstall.style.display = 'none';
+        return;
+    }
+
+    btnInstall.style.display = 'inline-flex';
+    btnInstall.onclick = async () => {
+        if (deferredPwaPrompt) {
+            deferredPwaPrompt.prompt();
+            const choiceResult = await deferredPwaPrompt.userChoice;
+            if (choiceResult && choiceResult.outcome === 'accepted') {
+                console.log('User accepted PWA prompt');
+            }
+            deferredPwaPrompt = null;
+        } else {
+            showPwaInstallTutorial();
+        }
+    };
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPwaPrompt = e;
-    const btnInstall = document.getElementById('btnInstallPwa');
-    if (btnInstall) {
-        btnInstall.style.display = 'inline-flex';
-        btnInstall.onclick = async () => {
-            if (deferredPwaPrompt) {
-                deferredPwaPrompt.prompt();
-                const choiceResult = await deferredPwaPrompt.userChoice;
-                if (choiceResult && choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the PWA install prompt');
-                }
-                deferredPwaPrompt = null;
-                btnInstall.style.display = 'none';
-            }
-        };
-    }
+    initPwaInstallButton();
 });
 
-// Hide Install button once installed
 window.addEventListener('appinstalled', () => {
-    console.log('PWA installed successfully!');
     const btnInstall = document.getElementById('btnInstallPwa');
     if (btnInstall) btnInstall.style.display = 'none';
     deferredPwaPrompt = null;
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    initPwaInstallButton();
+});
+
+function showPwaInstallTutorial() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    let textInfo = '';
+    
+    if (isIOS) {
+        textInfo = `
+            <div style="text-align: left; font-size: 0.85rem; line-height: 1.5; color: var(--text-main);">
+                <p style="margin-bottom: 8px;"><strong>Cara Pasang Aplikasi di iPhone / iPad (Safari):</strong></p>
+                <ol style="padding-left: 18px; margin: 8px 0;">
+                    <li style="margin-bottom:6px;">Ketuk tombol <strong>Bagikan (Share)</strong> <i class="fa-solid fa-arrow-up-from-bracket" style="color:#38bdf8;"></i> di bagian bawah Safari.</li>
+                    <li style="margin-bottom:6px;">Pilih <strong>"Add to Home Screen" (Tambahkan ke Layar Utama)</strong>.</li>
+                    <li>Ketuk <strong>Tambah</strong> di kanan atas.</li>
+                </ol>
+            </div>
+        `;
+    } else {
+        textInfo = `
+            <div style="text-align: left; font-size: 0.85rem; line-height: 1.5; color: var(--text-main);">
+                <p style="margin-bottom: 8px;"><strong>Cara Pasang Aplikasi di HP Android (Chrome / Edge):</strong></p>
+                <ol style="padding-left: 18px; margin: 8px 0;">
+                    <li style="margin-bottom:6px;">Ketuk <strong>titik 3 <i class="fa-solid fa-ellipsis-vertical" style="color:#38bdf8;"></i></strong> di pojok kanan atas browser.</li>
+                    <li style="margin-bottom:6px;">Pilih menu <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Install Aplikasi"</strong>.</li>
+                    <li>Klik <strong>Install</strong>.</li>
+                </ol>
+                <p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 10px;"><em>Catatan: Tombol install otomatis browser muncul ketika web diakses melalui server HTTPS.</em></p>
+            </div>
+        `;
+    }
+
+    if (typeof showCustomModal === 'function') {
+        showCustomModal('Panduan Install Aplikasi PWA', textInfo);
+    } else {
+        alert("Buka menu titik 3 browser -> Tambahkan ke Layar Utama / Install Aplikasi.");
+    }
+}
 
 // Background Sync Master Data 1x saat aplikasi dibuka (Non-blocking)
 async function syncMasterDataInBackground() {
