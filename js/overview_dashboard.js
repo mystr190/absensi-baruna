@@ -73,6 +73,49 @@ function loadLocalOverviewStats() {
             try {
                 const parsed = JSON.parse(cachedOverview);
                 if (parsed && typeof parsed === 'object' && parsed.totalSiswa !== undefined) {
+                    let guruAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
+                    const rawLogGuru = localStorage.getItem('smart_absen_log_guru');
+                    const rawIzinGuru = localStorage.getItem('smart_absen_pengajuan_izin');
+                    const logGuru = rawLogGuru ? JSON.parse(rawLogGuru) : [];
+                    const izinGuru = rawIzinGuru ? JSON.parse(rawIzinGuru) : [];
+                    const todayStr = typeof getTodayYYYYMMDD === 'function' ? getTodayYYYYMMDD() : new Date().toISOString().substring(0, 10);
+                    const seenGuru = new Set();
+
+                    logGuru.forEach(l => {
+                        const lTgl = typeof formatToYYYYMMDD === 'function' ? formatToYYYYMMDD(l.tanggal) : String(l.tanggal || '').substring(0, 10);
+                        if (lTgl === todayStr && l.status) {
+                            const u = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(l.nama) : String(l.username || l.nama || '').trim().toLowerCase();
+                            if (u) seenGuru.add(u);
+
+                            const stUpper = String(l.status).toUpperCase();
+                            const ketLower = String(l.keterangan || '').toLowerCase();
+                            const isDuty = stUpper === 'DINAS' || stUpper === 'TUGAS DINAS' || ketLower.includes('dinas') || ketLower.includes('tugas dinas') || ketLower.includes('tugas luar');
+
+                            if (isDuty) guruAbsenSummary.DinasLuar++;
+                            else if (stUpper === 'HADIR') guruAbsenSummary.Hadir++;
+                            else if (stUpper === 'SAKIT') guruAbsenSummary.Sakit++;
+                            else if (stUpper === 'IZIN') guruAbsenSummary.Izin++;
+                            else if (stUpper === 'ALPHA' || stUpper === 'ALPA' || stUpper === 'TIDAK HADIR') guruAbsenSummary.Alpa++;
+                            else guruAbsenSummary.Hadir++;
+                        }
+                    });
+
+                    izinGuru.forEach(i => {
+                        const iTgl = typeof formatToYYYYMMDD === 'function' ? formatToYYYYMMDD(i.tanggal) : String(i.tanggal || '').substring(0, 10);
+                        if (i.status === 'Disetujui' && iTgl === todayStr) {
+                            const u = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(i.nama) : String(i.username || i.nama || '').trim().toLowerCase();
+                            if (u && !seenGuru.has(u)) {
+                                seenGuru.add(u);
+                                const katUpper = String(i.kategori || 'IZIN').toUpperCase();
+                                if (katUpper.includes('SAKIT')) guruAbsenSummary.Sakit++;
+                                else if (katUpper.includes('DINAS') || katUpper.includes('TUGAS')) guruAbsenSummary.DinasLuar++;
+                                else guruAbsenSummary.Izin++;
+                            }
+                        }
+                    });
+
+                    parsed.guruAbsenSummary = guruAbsenSummary;
+                    parsed.totalGuruLog = seenGuru.size;
                     updateOverviewUI(parsed);
                     return;
                 }
@@ -120,6 +163,48 @@ function loadLocalOverviewStats() {
             } catch(e){}
         }
 
+        // Compute Guru Absen Summary from Local Storage
+        let guruAbsenSummary = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 };
+        const rawLogGuru = localStorage.getItem('smart_absen_log_guru');
+        const rawIzinGuru = localStorage.getItem('smart_absen_pengajuan_izin');
+        const logGuru = rawLogGuru ? JSON.parse(rawLogGuru) : [];
+        const izinGuru = rawIzinGuru ? JSON.parse(rawIzinGuru) : [];
+
+        const seenGuru = new Set();
+
+        logGuru.forEach(l => {
+            const lTgl = typeof formatToYYYYMMDD === 'function' ? formatToYYYYMMDD(l.tanggal) : String(l.tanggal || '').substring(0, 10);
+            if (lTgl === todayStr && l.status) {
+                const u = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(l.nama) : String(l.username || l.nama || '').trim().toLowerCase();
+                if (u) seenGuru.add(u);
+
+                const stUpper = String(l.status).toUpperCase();
+                const ketLower = String(l.keterangan || '').toLowerCase();
+                const isDuty = stUpper === 'DINAS' || stUpper === 'TUGAS DINAS' || ketLower.includes('dinas') || ketLower.includes('tugas dinas') || ketLower.includes('tugas luar');
+
+                if (isDuty) guruAbsenSummary.DinasLuar++;
+                else if (stUpper === 'HADIR') guruAbsenSummary.Hadir++;
+                else if (stUpper === 'SAKIT') guruAbsenSummary.Sakit++;
+                else if (stUpper === 'IZIN') guruAbsenSummary.Izin++;
+                else if (stUpper === 'ALPHA' || stUpper === 'ALPA' || stUpper === 'TIDAK HADIR') guruAbsenSummary.Alpa++;
+                else guruAbsenSummary.Hadir++;
+            }
+        });
+
+        izinGuru.forEach(i => {
+            const iTgl = typeof formatToYYYYMMDD === 'function' ? formatToYYYYMMDD(i.tanggal) : String(i.tanggal || '').substring(0, 10);
+            if (i.status === 'Disetujui' && iTgl === todayStr) {
+                const u = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(i.nama) : String(i.username || i.nama || '').trim().toLowerCase();
+                if (u && !seenGuru.has(u)) {
+                    seenGuru.add(u);
+                    const katUpper = String(i.kategori || 'IZIN').toUpperCase();
+                    if (katUpper.includes('SAKIT')) guruAbsenSummary.Sakit++;
+                    else if (katUpper.includes('DINAS') || katUpper.includes('TUGAS')) guruAbsenSummary.DinasLuar++;
+                    else guruAbsenSummary.Izin++;
+                }
+            }
+        });
+
         const initialData = {
             totalSiswa: totalSiswa,
             totalLaki: totalLaki,
@@ -129,8 +214,8 @@ function loadLocalOverviewStats() {
             studentAbsenSummary: studentAbsenSummary,
             totalViolations: 0,
             violationSummary: {},
-            totalGuruLog: 0,
-            guruAbsenSummary: { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0, DinasLuar: 0 }
+            totalGuruLog: seenGuru.size,
+            guruAbsenSummary: guruAbsenSummary
         };
 
         updateOverviewUI(initialData);

@@ -131,10 +131,54 @@ function initAbsenGuruEventListeners() {
     }
 }
 
+function formatToYYYYMMDD(dateVal) {
+    if (!dateVal) return '';
+    let str = String(dateVal).trim();
+    if (str.includes('T')) str = str.split('T')[0];
+    if (str.includes(' ')) str = str.split(' ')[0];
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(str)) {
+        const parts = str.split(/[\/\-]/);
+        const dd = parts[0].padStart(2, '0');
+        const mm = parts[1].padStart(2, '0');
+        const yyyy = parts[2];
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(str)) {
+        const parts = str.split(/[\/\-]/);
+        const yyyy = parts[0];
+        const mm = parts[1].padStart(2, '0');
+        const dd = parts[2].padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    try {
+        const parsed = new Date(dateVal);
+        if (!isNaN(parsed.getTime())) {
+            const yyyy = parsed.getFullYear();
+            const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+            const dd = String(parsed.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+    } catch(e){}
+
+    return str;
+}
+
 function applyCachedAbsenGuruData() {
     renderIzinGuruPanel();
     renderApprovalKepsekPanel();
     renderAbsenGuruAdminPanel();
+    renderAbsenGuruBatchTable();
+    renderTableLogAbsenGuru();
+    renderRekapMatrixGuru();
+    renderWidgetGuruTidakHadirHariIni();
+    if (typeof renderOverviewDashboard === 'function') {
+        renderOverviewDashboard();
+    }
 }
 
 function cleanKeterangan(ket) {
@@ -206,7 +250,8 @@ function renderWidgetGuruTidakHadirHariIni() {
     const absentMap = new Map();
 
     localPengajuanIzin.forEach(item => {
-        if (item.status === 'Disetujui' && item.tanggal === todayStr) {
+        const itemTgl = formatToYYYYMMDD(item.tanggal);
+        if (item.status === 'Disetujui' && itemTgl === todayStr) {
             const keyName = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(item.nama) : String(item.nama || item.username || '').toLowerCase();
             absentMap.set(keyName, {
                 nama: item.nama,
@@ -217,7 +262,8 @@ function renderWidgetGuruTidakHadirHariIni() {
     });
 
     localLogAbsenGuru.forEach(item => {
-        if (item.tanggal === todayStr && item.status) {
+        const itemTgl = formatToYYYYMMDD(item.tanggal);
+        if (itemTgl === todayStr && item.status) {
             const stUpper = item.status.toUpperCase();
             const ketLower = String(item.keterangan || '').toLowerCase();
             const isDuty = stUpper === 'DINAS' || stUpper === 'TUGAS DINAS' || ketLower.includes('dinas') || ketLower.includes('tugas dinas') || ketLower.includes('tugas luar');
@@ -831,7 +877,9 @@ function renderAbsenGuruBatchTable() {
 
         // Cek pengajuan izin disetujui untuk tanggal terpilih (mengabaikan gelar akademis)
         const approvedLeave = localPengajuanIzin.find(p => {
-            if (p.status !== 'Disetujui' || p.tanggal !== selectedDate) return false;
+            if (p.status !== 'Disetujui') return false;
+            const pTgl = formatToYYYYMMDD(p.tanggal);
+            if (pTgl !== selectedDate) return false;
             const pUname = String(p.username || '').trim().toLowerCase();
             const pNamaClean = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(p.nama) : String(p.nama || '').trim().toLowerCase();
             if (uname && pUname && uname === pUname) return true;
@@ -841,7 +889,8 @@ function renderAbsenGuruBatchTable() {
         
         // Cek apakah guru sudah pernah presensi pada tanggal terpilih (Mesin Solution / Scan Wajah / Manual)
         const existingLog = localLogAbsenGuru.find(l => {
-            if (l.tanggal !== selectedDate) return false;
+            const lTgl = formatToYYYYMMDD(l.tanggal);
+            if (lTgl !== selectedDate) return false;
             const lUname = String(l.username || '').trim().toLowerCase();
             const lNamaClean = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(l.nama) : String(l.nama || '').trim().toLowerCase();
             if (uname && lUname && uname === lUname) return true;
