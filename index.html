@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SMARTAPP - Portal Siswa, Guru & Staf</title>
+
+    <!-- PWA Manifest & Mobile App Configuration -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Presensi">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2991/2991106.png">
+
     <!-- Fonts & Font Awesome Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -30,6 +39,17 @@
                 document.documentElement.setAttribute('data-theme', 'light');
             }
         })();
+
+        // Register PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('./sw.js').then(function(reg) {
+                    console.log('PWA ServiceWorker registered successfully:', reg.scope);
+                }).catch(function(err) {
+                    console.warn('PWA ServiceWorker registration failed:', err);
+                });
+            });
+        }
     </script>
 </head>
 
@@ -198,6 +218,9 @@
             <div id="mobileTopBar" class="mobile-top-bar glass-card">
                 <div class="mobile-header-brand" style="display: flex; align-items: center; gap: 8px;">
                     <span class="mobile-brand-title">SMART<span>APP</span></span>
+                    <button id="btnInstallPwa" class="btn-primary" style="display: none; padding: 3px 8px; font-size: 0.7rem; border-radius: 8px; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-download"></i> Install App
+                    </button>
                     <button type="button" class="btn-theme-toggle btn-mobile-theme-toggle" title="Ubah Mode Terang / Gelap">
                         <i class="fa-solid fa-moon theme-icon-toggle" style="color: #38bdf8; font-size: 0.95rem;"></i>
                     </button>

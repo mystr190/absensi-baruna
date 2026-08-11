@@ -21,6 +21,36 @@ let currentAlreadySubmitted = false;
 let localMasterStudents = JSON.parse(localStorage.getItem('smart_absen_master_students') || '[]');
 let localRecentLogs = JSON.parse(localStorage.getItem('smart_absen_recent_logs') || '[]');
 
+// PWA Installation Handler
+let deferredPwaPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPwaPrompt = e;
+    const btnInstall = document.getElementById('btnInstallPwa');
+    if (btnInstall) {
+        btnInstall.style.display = 'inline-flex';
+        btnInstall.onclick = async () => {
+            if (deferredPwaPrompt) {
+                deferredPwaPrompt.prompt();
+                const choiceResult = await deferredPwaPrompt.userChoice;
+                if (choiceResult && choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the PWA install prompt');
+                }
+                deferredPwaPrompt = null;
+                btnInstall.style.display = 'none';
+            }
+        };
+    }
+});
+
+// Hide Install button once installed
+window.addEventListener('appinstalled', () => {
+    console.log('PWA installed successfully!');
+    const btnInstall = document.getElementById('btnInstallPwa');
+    if (btnInstall) btnInstall.style.display = 'none';
+    deferredPwaPrompt = null;
+});
+
 // Background Sync Master Data 1x saat aplikasi dibuka (Non-blocking)
 async function syncMasterDataInBackground() {
     try {
