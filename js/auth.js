@@ -144,10 +144,17 @@ function showApp(user) {
     if (currentNameElem) currentNameElem.innerText = user.nama || user.username || 'User';
     if (currentRoleElem) currentRoleElem.innerText = roleText;
 
+    const hasTg = Boolean(user.id_telegram && String(user.id_telegram).trim() !== '' && String(user.id_telegram).trim() !== '-');
     const mobileNameElem = document.getElementById('mobileCurrentUserName');
     const mobileRoleElem = document.getElementById('mobileCurrentUserRole');
     if (mobileNameElem) mobileNameElem.innerText = user.nama || user.username || 'User';
-    if (mobileRoleElem) mobileRoleElem.innerText = roleText;
+    if (mobileRoleElem) {
+        if (hasTg) {
+            mobileRoleElem.innerHTML = `${roleText} <i class="fa-solid fa-circle-check" style="color: #38bdf8; font-size: 0.72rem; margin-left: 2px;" title="Terverifikasi Telegram (${user.id_telegram})"></i>`;
+        } else {
+            mobileRoleElem.innerHTML = `${roleText} <i class="fa-solid fa-circle-xmark" style="color: #ef4444; font-size: 0.72rem; margin-left: 2px;" title="Belum Terhubung Telegram"></i>`;
+        }
+    }
     
     // Update Badge Verified / Unverified Telegram di Sidebar bawah profil
     const badgeTgSidebar = document.getElementById('currentUserTelegramBadge');
@@ -481,7 +488,7 @@ function updateTelegramBadgeUI(idTelegram) {
     const boxUnverified = document.getElementById('profileTelegramUnverifiedBox');
     const dispTg = document.getElementById('profileTelegramIdDisplay');
 
-    const hasTg = idTelegram && String(idTelegram).trim() !== '' && String(idTelegram).trim() !== '-';
+    const hasTg = Boolean(idTelegram && String(idTelegram).trim() !== '' && String(idTelegram).trim() !== '-');
 
     if (boxTg && dispTg && boxUnverified) {
         if (hasTg) {
@@ -491,6 +498,28 @@ function updateTelegramBadgeUI(idTelegram) {
         } else {
             boxTg.style.display = 'none';
             boxUnverified.style.display = 'flex';
+        }
+    }
+
+    const mobileRoleElem = document.getElementById('mobileCurrentUserRole');
+    if (mobileRoleElem) {
+        let iconElem = mobileRoleElem.querySelector('i');
+        if (!iconElem) {
+            iconElem = document.createElement('i');
+            mobileRoleElem.appendChild(iconElem);
+        }
+        if (hasTg) {
+            iconElem.className = 'fa-solid fa-circle-check';
+            iconElem.style.color = '#38bdf8';
+            iconElem.style.fontSize = '0.72rem';
+            iconElem.style.marginLeft = '2px';
+            iconElem.title = `Terverifikasi Telegram (${idTelegram})`;
+        } else {
+            iconElem.className = 'fa-solid fa-circle-xmark';
+            iconElem.style.color = '#ef4444';
+            iconElem.style.fontSize = '0.72rem';
+            iconElem.style.marginLeft = '2px';
+            iconElem.title = 'Belum Terhubung Telegram';
         }
     }
 }
