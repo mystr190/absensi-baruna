@@ -809,17 +809,18 @@ select option { background: var(--bg-color); color: var(--text-main); }
         display: none !important;
     }
 
-    /* Horizontal Scrollable Bottom Navigation Bar */
+    /* Fixed Proportional Bottom Navigation Bar (Tidak Berjalan/Bergeser) */
     .sidebar-nav {
         display: flex !important;
         flex-direction: row !important;
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        padding: 8px 10px !important;
-        gap: 6px !important;
+        justify-content: space-around !important;
+        align-items: center !important;
+        overflow-x: hidden !important;
+        padding: 6px 4px !important;
+        gap: 2px !important;
+        width: 100% !important;
         scrollbar-width: none !important; /* Firefox */
         -ms-overflow-style: none !important;  /* IE and Edge */
-        touch-action: pan-x !important;
     }
 
     .sidebar-nav::-webkit-scrollbar {
@@ -827,15 +828,16 @@ select option { background: var(--bg-color); color: var(--text-main); }
     }
 
     .nav-item {
-        flex: 0 0 auto !important;
+        flex: 1 1 0px !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        padding: 8px 12px !important;
-        min-width: 72px !important;
+        padding: 6px 2px !important;
         text-align: center !important;
-        border-radius: 12px !important;
-        gap: 3px !important;
+        border-radius: 10px !important;
+        gap: 2px !important;
         transition: all 0.2s ease !important;
         cursor: pointer !important;
         user-select: none !important;
