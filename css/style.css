@@ -809,18 +809,17 @@ select option { background: var(--bg-color); color: var(--text-main); }
         display: none !important;
     }
 
-    /* Fixed Proportional Bottom Navigation Bar (Tidak Berjalan/Bergeser) */
+    /* Horizontal Scrollable Bottom Navigation Bar */
     .sidebar-nav {
         display: flex !important;
         flex-direction: row !important;
-        justify-content: space-around !important;
-        align-items: center !important;
-        overflow-x: hidden !important;
-        padding: 6px 4px !important;
-        gap: 2px !important;
-        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 8px 10px !important;
+        gap: 6px !important;
         scrollbar-width: none !important; /* Firefox */
         -ms-overflow-style: none !important;  /* IE and Edge */
+        touch-action: pan-x !important;
     }
 
     .sidebar-nav::-webkit-scrollbar {
@@ -828,16 +827,15 @@ select option { background: var(--bg-color); color: var(--text-main); }
     }
 
     .nav-item {
-        flex: 1 1 0px !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
+        flex: 0 0 auto !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        padding: 6px 2px !important;
+        padding: 8px 12px !important;
+        min-width: 72px !important;
         text-align: center !important;
-        border-radius: 10px !important;
-        gap: 2px !important;
+        border-radius: 12px !important;
+        gap: 3px !important;
         transition: all 0.2s ease !important;
         cursor: pointer !important;
         user-select: none !important;
@@ -936,130 +934,135 @@ select option { background: var(--bg-color); color: var(--text-main); }
     /* Main Content Area Padding Bottom for Mobile Bottom Bar */
     .main-content {
         margin-left: 0 !important;
-        padding: 15px 14px 90px 14px !important;
+        padding: 12px 10px 90px 10px !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
     }
 
-    /* Mobile Panel & Card Layout Improvements */
+    /* ENHANCED RESPONSIVE CONTENT LAYOUTS FOR ALL MENUS (MOBILE) */
     .panel-header {
         margin-bottom: 16px !important;
     }
-
-    .panel-header h2 {
-        font-size: 1.35rem !important;
-    }
-
-    .styled-card, .glass-card, .panel-body, .card {
-        padding: 16px 14px !important;
-        margin-bottom: 16px !important;
-        border-radius: 14px !important;
-    }
-
-    /* Flex-between & Header Layouts in Panels */
-    .flex-between, .styled-card-header {
+    .panel-header[style*="display: flex"],
+    .panel-header.flex-between {
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 12px !important;
     }
-
-    .styled-card-title {
-        font-size: 1.05rem !important;
-    }
-
-    /* Filter Groups & Action Toolbars */
-    .filter-group {
-        flex-direction: column !important;
-        width: 100% !important;
-        padding: 0 !important;
-        gap: 10px !important;
-    }
-
-    .filter-group select, 
-    .filter-group input, 
-    .filter-group button {
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Stats Grids on Mobile */
-    .stats-container, .stats-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 10px !important;
-    }
-
-    @media (max-width: 480px) {
-        .stats-container, .stats-grid {
-            grid-template-columns: 1fr !important;
-        }
-    }
-
-    .stat-card {
-        padding: 12px 14px !important;
-        gap: 10px !important;
-        border-radius: 12px !important;
-    }
-
-    .stat-icon {
-        width: 40px !important;
-        height: 40px !important;
-        font-size: 1.2rem !important;
-        border-radius: 10px !important;
-    }
-
-    .stat-value {
+    .panel-header h2 {
         font-size: 1.35rem !important;
+        line-height: 1.3 !important;
     }
-
-    /* Table Wrappers & Touch Scroll */
-    .modern-table-container, 
-    .table-responsive, 
-    div[style*="overflow-x: auto"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        border-radius: 12px !important;
-        margin-bottom: 14px !important;
-    }
-
-    .data-table, .matrix-table, .pelanggaran-table {
+    .panel-header p {
         font-size: 0.82rem !important;
+        line-height: 1.4 !important;
+    }
+    .panel-header button,
+    .panel-header .btn-primary,
+    .panel-header .btn-secondary {
+        width: 100% !important;
+        justify-content: center !important;
     }
 
-    .data-table th, .data-table td,
-    .matrix-table th, .matrix-table td,
-    .pelanggaran-table th, .pelanggaran-table td {
-        padding: 10px 10px !important;
+    .glass-card,
+    .panel-body,
+    .styled-card {
+        padding: 15px 12px !important;
+        border-radius: 14px !important;
+        margin-top: 14px !important;
+    }
+    .styled-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
     }
 
-    /* Form Container & Inputs on Mobile */
-    .form-container, .grid-2, .grid-3, .grid-4 {
+    #overviewKpiGrid,
+    .stats-container,
+    .stats-grid,
+    .pelanggaran-layout-grid {
         grid-template-columns: 1fr !important;
         gap: 12px !important;
     }
 
-    .input-group input, .input-group select,
-    .styled-input, .styled-select, .styled-textarea, .form-input {
+    .stat-card {
         padding: 12px 14px !important;
-        font-size: 0.9rem !important;
+        border-radius: 12px !important;
     }
 
-    /* Modals & Dialog Boxes on Mobile */
-    .modal-card, .modal-box, .custom-alert-box {
-        max-width: 95vw !important;
-        width: 95vw !important;
-        padding: 20px 16px !important;
-        border-radius: 18px !important;
+    .data-table-container,
+    .table-responsive,
+    .glass-card[style*="overflow-x: auto"],
+    div[style*="overflow-x: auto"] {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        border-radius: 12px !important;
+        margin-top: 10px !important;
     }
 
-    /* Tabs & Scanner Controls */
-    .tabs {
-        flex-wrap: wrap !important;
-        gap: 4px !important;
+    .data-table,
+    .matrix-table {
+        min-width: 600px !important;
+        font-size: 0.82rem !important;
     }
 
-    .tab-btn {
-        padding: 10px 8px !important;
+    .data-table th, .data-table td,
+    .matrix-table th, .matrix-table td {
+        padding: 8px 8px !important;
         font-size: 0.8rem !important;
+    }
+
+    .modal-backdrop,
+    .modal-overlay {
+        padding: 10px !important;
+    }
+
+    .modal-content,
+    .modal-box,
+    .modal-card,
+    .custom-alert-box,
+    [id^="modal"] > div {
+        max-width: 95vw !important;
+        width: 100% !important;
+        max-height: 88vh !important;
+        overflow-y: auto !important;
+        padding: 16px 12px !important;
+        border-radius: 16px !important;
+    }
+
+    .modal-footer,
+    .modal-actions,
+    .custom-alert-actions {
+        flex-direction: column-reverse !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .modal-footer button,
+    .modal-actions button,
+    .custom-alert-btn {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    td div[style*="display: flex"] {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 6px 10px !important;
+    }
+
+    #paginationControls,
+    div[id$="PaginationContainer"] {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 10px !important;
+        text-align: center !important;
+    }
+
+    .chart-container {
+        height: 230px !important;
     }
 }
 
