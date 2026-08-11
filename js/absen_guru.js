@@ -207,9 +207,10 @@ function renderWidgetGuruTidakHadirHariIni() {
 
     localPengajuanIzin.forEach(item => {
         if (item.status === 'Disetujui' && item.tanggal === todayStr) {
-            absentMap.set(item.username || item.nama, {
+            const keyName = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(item.nama) : String(item.nama || item.username || '').toLowerCase();
+            absentMap.set(keyName, {
                 nama: item.nama,
-                status: item.kategori || 'IZIN',
+                status: item.kategori ? item.kategori.toUpperCase() : 'IZIN',
                 keterangan: item.keterangan || '-'
             });
         }
@@ -226,7 +227,8 @@ function renderWidgetGuruTidakHadirHariIni() {
                 if (isDuty) {
                     displayStatus = item.keterangan.match(/\[([^\]]+)\]/)?.[1] || 'TUGAS DINAS';
                 }
-                absentMap.set(item.username || item.nama, {
+                const keyName = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(item.nama) : String(item.nama || item.username || '').toLowerCase();
+                absentMap.set(keyName, {
                     nama: item.nama,
                     status: displayStatus,
                     keterangan: item.keterangan || '-'
@@ -506,13 +508,15 @@ async function approveIzinKepsek(id, btnEl) {
 
     const rawKat = String(item.kategori || '').trim().toLowerCase();
     const isDutyHadir = rawKat.includes('tugas') || rawKat.includes('dinas');
+    const statusGuru = isDutyHadir ? 'HADIR' : (rawKat ? rawKat.toUpperCase() : 'IZIN');
+
     localLogAbsenGuru.unshift({
         id: 'AG-APP-' + Date.now(),
         waktu: new Date().toLocaleString('id-ID'),
         tanggal: item.tanggal,
-        username: item.username,
+        username: item.username || '',
         nama: item.nama,
-        status: isDutyHadir ? 'HADIR' : 'TIDAK HADIR',
+        status: statusGuru,
         keterangan: `[${item.kategori}] ${cleanKeterangan(item.keterangan)}`,
         inputBy: approverName
     });
@@ -523,6 +527,10 @@ async function approveIzinKepsek(id, btnEl) {
     renderApprovalKepsekPanel();
     renderIzinGuruPanel();
     renderAbsenGuruAdminPanel();
+    renderWidgetGuruTidakHadirHariIni();
+    if (typeof renderOverviewDashboard === 'function') {
+        renderOverviewDashboard();
+    }
 
     showToast(`Pengajuan izin ${item.nama} berhasil disetujui!`, 'success');
 
@@ -817,14 +825,29 @@ function renderAbsenGuruBatchTable() {
     let hiddenCount = 0;
 
     staffList.forEach(staff => {
-        const uname = staff.username || '';
-        const name = staff.namaLengkap || staff.nama || uname;
+        const uname = String(staff.username || '').trim().toLowerCase();
+        const name = String(staff.namaLengkap || staff.nama || uname).trim();
+        const nameClean = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(name) : name.toLowerCase();
 
-        // Cek pengajuan izin disetujui untuk tanggal terpilih
-        const approvedLeave = localPengajuanIzin.find(p => p.status === 'Disetujui' && p.tanggal === selectedDate && (p.username === uname || p.nama === name));
+        // Cek pengajuan izin disetujui untuk tanggal terpilih (mengabaikan gelar akademis)
+        const approvedLeave = localPengajuanIzin.find(p => {
+            if (p.status !== 'Disetujui' || p.tanggal !== selectedDate) return false;
+            const pUname = String(p.username || '').trim().toLowerCase();
+            const pNamaClean = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(p.nama) : String(p.nama || '').trim().toLowerCase();
+            if (uname && pUname && uname === pUname) return true;
+            if (nameClean && pNamaClean && (nameClean === pNamaClean || nameClean.includes(pNamaClean) || pNamaClean.includes(nameClean))) return true;
+            return false;
+        });
         
         // Cek apakah guru sudah pernah presensi pada tanggal terpilih (Mesin Solution / Scan Wajah / Manual)
-        const existingLog = localLogAbsenGuru.find(l => l.tanggal === selectedDate && (l.username === uname || l.nama === name));
+        const existingLog = localLogAbsenGuru.find(l => {
+            if (l.tanggal !== selectedDate) return false;
+            const lUname = String(l.username || '').trim().toLowerCase();
+            const lNamaClean = typeof cleanNameTitleForBadge === 'function' ? cleanNameTitleForBadge(l.nama) : String(l.nama || '').trim().toLowerCase();
+            if (uname && lUname && uname === lUname) return true;
+            if (nameClean && lNamaClean && (nameClean === lNamaClean || nameClean.includes(lNamaClean) || lNamaClean.includes(nameClean))) return true;
+            return false;
+        });
 
         if (approvedLeave || existingLog) {
             hiddenCount++;
