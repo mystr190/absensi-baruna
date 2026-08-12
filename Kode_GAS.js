@@ -728,6 +728,53 @@ function getUsersFromCacheOrSheet(skipCache) {
   return users;
 }
 
+function getStudentsFromCacheOrSheet(skipCache) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'students_cache_all_v1';
+  if (!skipCache) {
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      try { return JSON.parse(cachedData); } catch (e) {}
+    }
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (!sheetSiswa || sheetSiswa.getLastRow() <= 1) return [];
+
+  const dataSiswa = sheetSiswa.getDataRange().getValues();
+  const students = [];
+  for (let j = 1; j < dataSiswa.length; j++) {
+    const nisn = String(dataSiswa[j][0] || '').trim();
+    const nis = String(dataSiswa[j][1] || '').trim();
+    if (!nis && !nisn) continue;
+
+    const nama = String(dataSiswa[j][2] || '').trim();
+    const kelas = String(dataSiswa[j][3] || '').trim();
+    const gender = String(dataSiswa[j][4] || '').trim();
+    const id_mesin = String(dataSiswa[j][5] || '').trim();
+    const id_telegram = String(dataSiswa[j][6] || '').trim();
+    const savedPass = String(dataSiswa[j][7] || '').trim();
+
+    students.push({
+      nisn: nisn,
+      nis: nis,
+      nama: nama,
+      kelas: kelas,
+      gender: gender,
+      id_mesin: id_mesin,
+      id_telegram: id_telegram,
+      password: savedPass
+    });
+  }
+
+  try {
+    cache.put(cacheKey, JSON.stringify(students), 1800);
+  } catch (cErr) {}
+
+  return students;
+}
+
 function handleLogin(username, password) {
   const u = String(username || '').trim();
   const p = String(password || '').trim();
@@ -741,7 +788,7 @@ function handleLogin(username, password) {
 
   // 1. Cek di Cache/Sheet Users (Admin, Guru, TU, Kepsek) - Ultra-Fast RAM Lookup
   const users = getUsersFromCacheOrSheet();
-  const foundUser = users.find(item => item.username.toLowerCase() === uLower && (item.password === p || item.password.toLowerCase() === pLower));
+  const foundUser = users.find(item => String(item.username || '').toLowerCase() === uLower && (item.password === p || String(item.password || '').toLowerCase() === pLower));
   if (foundUser) {
     return jsonResponse('success', 'Login berhasil!', {
       nis: foundUser.username,
@@ -755,49 +802,35 @@ function handleLogin(username, password) {
     });
   }
 
-  // 2. Jika tidak ada di Sheet Users, Cek di Sheet DataSiswa (Matching NIS / NISN)
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
-  if (sheetSiswa) {
-    const dataSiswa = sheetSiswa.getDataRange().getValues();
-    for (let j = 1; j < dataSiswa.length; j++) {
-      const nisn = String(dataSiswa[j][0] || '').trim();
-      const nis = String(dataSiswa[j][1] || '').trim();
-      if (!nis && !nisn) continue;
+  // 2. Jika tidak ada di Sheet Users, Cek di Cache/Sheet DataSiswa (Matching NIS / NISN) - Ultra-Fast RAM Lookup
+  const students = getStudentsFromCacheOrSheet();
+  const foundStudent = students.find(s => {
+    const nisLower = String(s.nis || '').toLowerCase();
+    const nisnLower = String(s.nisn || '').toLowerCase();
+    const savedPass = String(s.password || '').trim();
+    const validPass = savedPass !== '' ? savedPass : (s.nis || s.nisn);
+    const validPassLower = validPass.toLowerCase();
 
-      const nama = String(dataSiswa[j][2] || '').trim();
-      const kelas = String(dataSiswa[j][3] || '').trim();
-      const gender = String(dataSiswa[j][4] || '').trim();
-      const id_mesin = String(dataSiswa[j][5] || '').trim();
-      const id_telegram = String(dataSiswa[j][6] || '').trim();
-      const savedPass = String(dataSiswa[j][7] || '').trim();
+    const matchUser = (uLower === nisLower || uLower === nisnLower);
+    const matchPass = (p === validPass || pLower === validPassLower || (s.nis && pLower === nisLower) || (s.nisn && pLower === nisnLower));
 
-      const nisLower = nis.toLowerCase();
-      const nisnLower = nisn.toLowerCase();
+    return matchUser && matchPass;
+  });
 
-      // Password default adalah NIS atau NISN jika belum pernah diset custom
-      const validPass = savedPass !== '' ? savedPass : (nis || nisn);
-      const validPassLower = validPass.toLowerCase();
-
-      const matchUser = (uLower === nisLower || uLower === nisnLower);
-      const matchPass = (p === validPass || pLower === validPassLower || (nis && pLower === nisLower) || (nisn && pLower === nisnLower));
-
-      if (matchUser && matchPass) {
-        return jsonResponse('success', 'Berhasil login sebagai Siswa', {
-          username: nis || nisn,
-          role: 'Siswa',
-          nama: nama,
-          nis: nis,
-          nisn: nisn,
-          kelas: kelas,
-          gender: gender,
-          id_mesin: id_mesin,
-          id_telegram: id_telegram,
-          wali_kelas: '-',
-          tugas_piket: '-'
-        });
-      }
-    }
+  if (foundStudent) {
+    return jsonResponse('success', 'Berhasil login sebagai Siswa', {
+      username: foundStudent.nis || foundStudent.nisn,
+      role: 'Siswa',
+      nama: foundStudent.nama,
+      nis: foundStudent.nis,
+      nisn: foundStudent.nisn,
+      kelas: foundStudent.kelas,
+      gender: foundStudent.gender,
+      id_mesin: foundStudent.id_mesin || '',
+      id_telegram: foundStudent.id_telegram || '',
+      wali_kelas: '-',
+      tugas_piket: '-'
+    });
   }
 
   return jsonResponse('error', 'Username/NIS atau Password salah!');

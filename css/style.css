@@ -1906,3 +1906,77 @@ select option { background: var(--bg-color); color: var(--text-main); }
     background: #e2e8f0 !important;
     color: #0f172a !important;
 }
+
+/* ========================================================= */
+/* MOBILE RESPONSIVE REFINEMENTS: STUDENT DASHBOARD & FORMS  */
+/* ========================================================= */
+@media (max-width: 600px) {
+    /* 1. Kotak-kotak Grid Simpel untuk Overview Dashboard & Bimbel KPI Siswa */
+    .student-bimbel-kpi-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    /* Stat card ke-5 (Persentase) dibuat span 2 kolom agar seimbang */
+    .student-bimbel-kpi-grid > div:nth-child(5):last-child {
+        grid-column: span 2 !important;
+    }
+
+    .student-bimbel-kpi-grid > div {
+        padding: 12px 8px !important;
+        border-radius: 12px !important;
+        text-align: center !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 72px !important;
+        box-sizing: border-box !important;
+    }
+
+    .student-bimbel-kpi-grid strong {
+        font-size: 1.25rem !important;
+        line-height: 1.1 !important;
+        margin-top: 2px !important;
+    }
+
+    .student-bimbel-kpi-grid span {
+        font-size: 0.73rem !important;
+        white-space: nowrap !important;
+    }
+
+    /* 2. Form Izin KBM & Form Izin Tidak Hadir (Siswa) Tampilan Melebar & Fleksibel */
+    .student-izin-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 16px !important;
+    }
+
+    .student-izin-grid > div {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 18px 14px !important;
+    }
+
+    #formEduIzinKBM, #formPengajuanIzinSiswa {
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    #formEduIzinKBM input, #formEduIzinKBM select, #formEduIzinKBM textarea,
+    #formPengajuanIzinSiswa input, #formPengajuanIzinSiswa select, #formPengajuanIzinSiswa textarea {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        font-size: 0.88rem !important;
+        padding: 10px 12px !important;
+    }
+
+    /* Prevents horizontal overflow outside card borders */
+    .modern-table-container, .table-responsive-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        width: 100% !important;
+    }
+}

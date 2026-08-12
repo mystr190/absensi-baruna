@@ -310,9 +310,89 @@ if (formLogin) {
         const usernameInput = userInputElem ? userInputElem.value.trim() : '';
         const passwordInput = passInputElem ? passInputElem.value.trim() : '';
 
+        // 1. CEK INSTAN LOKAL CACHE FIRST (0ms LATENCY)!
+        try {
+            const uLower = usernameInput.toLowerCase();
+            const pLower = passwordInput.toLowerCase();
+
+            // Cek Master User Cache (Admin, Guru, TU, Kepsek)
+            let localUsers = [];
+            try { localUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]'); } catch(e) {}
+            const matchedUser = localUsers.find(item => String(item.username || '').toLowerCase() === uLower && (item.password === passwordInput || String(item.password || '').toLowerCase() === pLower));
+
+            if (matchedUser) {
+                const userData = {
+                    ...matchedUser,
+                    username: matchedUser.username || usernameInput,
+                    nama: matchedUser.nama || matchedUser.username || usernameInput,
+                    role: matchedUser.role || 'Guru',
+                    id_mesin: matchedUser.id_mesin || '',
+                    id_telegram: matchedUser.id_telegram || ''
+                };
+                localStorage.setItem('smart_absen_user', JSON.stringify(userData));
+                showToast("⚡ Login Berhasil! Selamat datang " + userData.nama, 'success');
+                formLogin.reset();
+                showApp(userData);
+                
+                if (btn) btn.disabled = false;
+                if (text) text.style.display = 'inline-block';
+                if (loader) loader.style.display = 'none';
+
+                // Background verify & sync
+                fetch(`${SCRIPT_URL}?action=login&username=${encodeURIComponent(usernameInput)}&password=${encodeURIComponent(passwordInput)}`).catch(()=>{});
+                return;
+            }
+
+            // Cek Master Siswa Cache
+            let localStudents = [];
+            try { localStudents = JSON.parse(localStorage.getItem('smart_absen_students_cache') || '[]'); } catch(e) {}
+            const matchedStudent = localStudents.find(s => {
+                const nisLower = String(s.nis || '').toLowerCase();
+                const nisnLower = String(s.nisn || '').toLowerCase();
+                const savedPass = String(s.password || '').trim();
+                const validPass = savedPass !== '' ? savedPass : (s.nis || s.nisn);
+                const validPassLower = validPass.toLowerCase();
+
+                const matchUser = (uLower === nisLower || uLower === nisnLower);
+                const matchPass = (passwordInput === validPass || pLower === validPassLower || (s.nis && pLower === nisLower) || (s.nisn && pLower === nisnLower));
+                return matchUser && matchPass;
+            });
+
+            if (matchedStudent) {
+                const userData = {
+                    username: matchedStudent.nis || matchedStudent.nisn || usernameInput,
+                    role: 'Siswa',
+                    nama: matchedStudent.nama,
+                    nis: matchedStudent.nis,
+                    nisn: matchedStudent.nisn,
+                    kelas: matchedStudent.kelas,
+                    gender: matchedStudent.gender,
+                    id_mesin: matchedStudent.id_mesin || '',
+                    id_telegram: matchedStudent.id_telegram || '',
+                    wali_kelas: '-',
+                    tugas_piket: '-'
+                };
+                localStorage.setItem('smart_absen_user', JSON.stringify(userData));
+                showToast("⚡ Login Berhasil! Selamat datang " + userData.nama, 'success');
+                formLogin.reset();
+                showApp(userData);
+
+                if (btn) btn.disabled = false;
+                if (text) text.style.display = 'inline-block';
+                if (loader) loader.style.display = 'none';
+
+                // Background verify & sync
+                fetch(`${SCRIPT_URL}?action=login&username=${encodeURIComponent(usernameInput)}&password=${encodeURIComponent(passwordInput)}`).catch(()=>{});
+                return;
+            }
+        } catch(e) {
+            console.warn("Local cache login check bypassed:", e);
+        }
+
+        // 2. FAST NETWORK LOGIN JIKA BELUM ADA DI LOCAL CACHE
         try {
             const loginUrl = `${SCRIPT_URL}?action=login&username=${encodeURIComponent(usernameInput)}&password=${encodeURIComponent(passwordInput)}`;
-            const result = await fetchWithRetry(loginUrl, { method: 'GET' }, 2, 500);
+            const result = await fetchWithRetry(loginUrl, { method: 'GET' }, 1, 300);
             
             if (result && result.status === 'success' && result.data) {
                 const userData = {
@@ -333,7 +413,7 @@ if (formLogin) {
             }
         } catch (error) {
             console.error("Login Error:", error);
-            showToast("❌ Gagal terhubung ke server (Timeout). Pastikan Anda telah melakukan Deploy Baru di Google Apps Script.", 'error');
+            showToast("❌ Gagal terhubung ke server. Periksa koneksi internet Anda.", 'error');
         } finally {
             if (btn) btn.disabled = false;
             if (text) text.style.display = 'inline-block';
