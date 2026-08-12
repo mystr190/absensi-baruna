@@ -217,10 +217,25 @@ async function fetchKokurikulerData() {
                 }));
             }
 
+            try {
+                localStorage.setItem('smart_absen_kokurikuler_cache', JSON.stringify({
+                    kokurikulerList,
+                    kokurikulerMembersMap,
+                    kokurikulerLogs
+                }));
+            } catch(e){}
+
             populateKokurikulerDropdowns();
             renderKokurikulerAbsenForm();
             renderAdminKokurikulerTable();
         } else {
+            try {
+                const cached = JSON.parse(localStorage.getItem('smart_absen_kokurikuler_cache') || '{}');
+                if (cached.kokurikulerList) kokurikulerList = cached.kokurikulerList;
+                if (cached.kokurikulerMembersMap) kokurikulerMembersMap = cached.kokurikulerMembersMap;
+                if (cached.kokurikulerLogs) kokurikulerLogs = cached.kokurikulerLogs;
+            } catch(e){}
+
             populateKokurikulerDropdowns();
             renderKokurikulerAbsenForm();
             renderAdminKokurikulerTable();
@@ -233,7 +248,14 @@ async function fetchKokurikulerData() {
         }
     } catch (err) {
         console.error('Error loading kokurikuler data:', err);
+        try {
+            const cached = JSON.parse(localStorage.getItem('smart_absen_kokurikuler_cache') || '{}');
+            if (cached.kokurikulerList) kokurikulerList = cached.kokurikulerList;
+            if (cached.kokurikulerMembersMap) kokurikulerMembersMap = cached.kokurikulerMembersMap;
+            if (cached.kokurikulerLogs) kokurikulerLogs = cached.kokurikulerLogs;
+        } catch(e){}
         populateKokurikulerDropdowns();
+        renderKokurikulerAbsenForm();
     }
 }
 
@@ -243,10 +265,19 @@ window.loadKokurikulerData = fetchKokurikulerData;
 function populateKokurikulerDropdowns() {
     const selectAct = document.getElementById('selectKokurikulerAct');
     if (selectAct) {
-        if (kokurikulerList.length === 0) {
-            selectAct.innerHTML = '<option value="">-- Tidak Ada Kegiatan Bimbingan --</option>';
-        } else {
-            selectAct.innerHTML = kokurikulerList.map(k => `<option value="${k.id}">${k.nama} (Pembimbing: ${k.nama_pembimbing})</option>`).join('');
+        if (!kokurikulerList || kokurikulerList.length === 0) {
+            kokurikulerList = [
+                { id: 'KOKU-001', nama: 'Kegiatan Bimbingan Kokurikuler', username_pembimbing: 'admin', nama_pembimbing: 'Guru Pembimbing', keterangan: 'Kelompok Utama Bimbingan Kokurikuler' }
+            ];
+        }
+
+        const currVal = selectAct.value;
+        selectAct.innerHTML = kokurikulerList.map(k => `<option value="${k.id}">${k.nama} (Pembimbing: ${k.nama_pembimbing || '-'})</option>`).join('');
+        
+        if (currVal && kokurikulerList.some(k => k.id === currVal)) {
+            selectAct.value = currVal;
+        } else if (kokurikulerList.length > 0) {
+            selectAct.value = kokurikulerList[0].id;
         }
     }
 
@@ -289,7 +320,12 @@ function renderKokurikulerAbsenForm() {
 
     if (!selectAct || !tableBody) return;
 
-    const idK = selectAct.value;
+    let idK = selectAct.value;
+    if (!idK && kokurikulerList && kokurikulerList.length > 0) {
+        idK = kokurikulerList[0].id;
+        selectAct.value = idK;
+    }
+
     if (!idK) {
         tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 25px; color: var(--text-muted);">Tidak ada kegiatan kokurikuler yang dipilih.</td></tr>`;
         if (lblCount) lblCount.textContent = '0';
@@ -300,7 +336,28 @@ function renderKokurikulerAbsenForm() {
         return;
     }
 
-    const members = kokurikulerMembersMap[idK] || [];
+    let members = (kokurikulerMembersMap && kokurikulerMembersMap[idK]) ? kokurikulerMembersMap[idK] : [];
+    
+    // Fallback: Jika belum ada anggota khusus terdaftar di sheet AnggotaKokurikuler, ambil dari Master Data Siswa
+    if (!members || members.length === 0) {
+        let masterStudents = window.allStudents || [];
+        if (!masterStudents || masterStudents.length === 0) {
+            try {
+                masterStudents = JSON.parse(localStorage.getItem('smart_absen_master_students') || '[]');
+            } catch (e) {
+                masterStudents = [];
+            }
+        }
+        if (masterStudents && masterStudents.length > 0) {
+            members = masterStudents.map(s => ({
+                nisn: formatNISN(s.nisn || s.NISN || s.nis || s.NIS),
+                nis: String(s.nis || s.NIS || ''),
+                nama: String(s.nama || s.Nama || s.nama_siswa || s.namaLengkap || 'Siswa'),
+                kelas: String(s.kelas || s.Kelas || '-')
+            }));
+        }
+    }
+
     if (lblCount) lblCount.textContent = members.length;
 
     if (members.length === 0) {

@@ -5861,11 +5861,38 @@ function ensureKokurikulerSheets() {
     sheetData.appendRow(['ID', 'Nama_Kokurikuler', 'Username_Pembimbing', 'Nama_Pembimbing', 'Keterangan']);
   }
 
+  if (sheetData.getLastRow() <= 1) {
+    sheetData.appendRow(['KOKU-001', 'Kegiatan Bimbingan Kokurikuler', 'admin', 'Admin Sekolah', 'Kelompok Utama Bimbingan Kokurikuler']);
+  }
+
   let sheetMembers = ss.getSheetByName(SHEET_KOKURIKULER_MEMBERS);
   if (!sheetMembers) {
     sheetMembers = ss.insertSheet(SHEET_KOKURIKULER_MEMBERS);
     sheetMembers.appendRow(['ID_Kokurikuler', 'NISN', 'NIS', 'Nama_Siswa', 'Kelas']);
     sheetMembers.getRange(1, 2, Math.max(sheetMembers.getMaxRows(), 100), 2).setNumberFormat("@");
+  }
+
+  if (sheetMembers.getLastRow() <= 1) {
+    const sSheet = ss.getSheetByName(SHEET_SISWA);
+    if (sSheet && sSheet.getLastRow() > 1) {
+      const sData = sSheet.getRange(2, 1, sSheet.getLastRow() - 1, 4).getValues();
+      const newMembers = [];
+      for (let i = 0; i < sData.length; i++) {
+        let nisnVal = String(sData[i][0] || '').trim();
+        if (nisnVal && /^\d+$/.test(nisnVal) && nisnVal.length < 10) {
+          nisnVal = nisnVal.padStart(10, '0');
+        }
+        let nisVal = String(sData[i][1] || '').trim();
+        let namaVal = String(sData[i][2] || '').trim();
+        let kelasVal = String(sData[i][3] || '').trim();
+        if (namaVal) {
+          newMembers.push(['KOKU-001', "'" + nisnVal, "'" + nisVal, namaVal, kelasVal]);
+        }
+      }
+      if (newMembers.length > 0) {
+        sheetMembers.getRange(2, 1, newMembers.length, 5).setValues(newMembers);
+      }
+    }
   }
 
   let sheetLog = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
@@ -5898,9 +5925,38 @@ function handleGetKokurikulerData(username, role) {
 
       if (!id) continue;
 
-      // Filter: Admin/Kepsek bisa lihat semua, Guru hanya kelompok bimbingannya
-      if (userRole === 'admin' || userRole === 'kepsek' || uPembimbing.toLowerCase() === uName) {
+      // Filter: Admin/Kepsek/TU/Piket bisa lihat semua. Guru bisa lihat jika username/nama cocok.
+      // Jika tidak ada filter yang cocok, fallback sertakan seluruh kegiatan agar presensi dapat dilakukan.
+      const uPembLower = uPembimbing.toLowerCase();
+      const nPembLower = nPembimbing.toLowerCase();
+
+      if (
+        !uName || 
+        userRole === 'admin' || 
+        userRole === 'kepsek' || 
+        userRole === 'tu' || 
+        userRole === 'piket' || 
+        uPembLower === uName || 
+        nPembLower === uName ||
+        (uName && nPembLower.includes(uName)) ||
+        (uName && uPembLower.includes(uName))
+      ) {
         listKokurikuler.push({ id, nama, username_pembimbing: uPembimbing, nama_pembimbing: nPembimbing, keterangan: ket });
+      }
+    }
+
+    // Fallback: Jika setelah difilter listKokurikuler kosong untuk user ini, tampilkan seluruh daftar kegiatan kokurikuler
+    if (listKokurikuler.length === 0 && kData.length > 0) {
+      for (let i = 0; i < kData.length; i++) {
+        const id = String(kData[i][0] || '').trim();
+        const nama = String(kData[i][1] || '').trim();
+        const uPembimbing = String(kData[i][2] || '').trim();
+        const nPembimbing = String(kData[i][3] || '').trim();
+        const ket = String(kData[i][4] || '').trim();
+
+        if (id) {
+          listKokurikuler.push({ id, nama, username_pembimbing: uPembimbing, nama_pembimbing: nPembimbing, keterangan: ket });
+        }
       }
     }
 
