@@ -94,6 +94,33 @@ function showLogin() {
     
     // Panggil verifikasi koneksi Google Sheets saat halaman login aktif
     checkDatabaseConnection();
+    // Silent background preload data master akun agar login instan (0ms)
+    preloadAuthDataCache();
+}
+
+let authPreloadPromise = null;
+function preloadAuthDataCache() {
+    if (authPreloadPromise) return authPreloadPromise;
+
+    authPreloadPromise = (async () => {
+        try {
+            const preloadUrl = `${SCRIPT_URL}?action=get_auth_master`;
+            const res = await fetch(preloadUrl);
+            const json = await res.json();
+            if (json && json.status === 'success' && json.data) {
+                if (json.data.users && Array.isArray(json.data.users)) {
+                    localStorage.setItem('smart_absen_users_cache', JSON.stringify(json.data.users));
+                }
+                if (json.data.students && Array.isArray(json.data.students)) {
+                    localStorage.setItem('smart_absen_students_cache', JSON.stringify(json.data.students));
+                }
+            }
+        } catch (err) {
+            console.warn("Silent auth preload error:", err);
+        }
+    })();
+
+    return authPreloadPromise;
 }
 
 // ----------------------------------------------------
@@ -310,8 +337,8 @@ if (formLogin) {
         const usernameInput = userInputElem ? userInputElem.value.trim() : '';
         const passwordInput = passInputElem ? passInputElem.value.trim() : '';
 
-        // 1. CEK INSTAN LOKAL CACHE FIRST (0ms LATENCY)!
-        try {
+        // Helper fungsi pencocokan credential lokal
+        const checkLocalCredential = () => {
             const uLower = usernameInput.toLowerCase();
             const pLower = passwordInput.toLowerCase();
 
@@ -321,7 +348,7 @@ if (formLogin) {
             const matchedUser = localUsers.find(item => String(item.username || '').toLowerCase() === uLower && (item.password === passwordInput || String(item.password || '').toLowerCase() === pLower));
 
             if (matchedUser) {
-                const userData = {
+                return {
                     ...matchedUser,
                     username: matchedUser.username || usernameInput,
                     nama: matchedUser.nama || matchedUser.username || usernameInput,
@@ -329,18 +356,6 @@ if (formLogin) {
                     id_mesin: matchedUser.id_mesin || '',
                     id_telegram: matchedUser.id_telegram || ''
                 };
-                localStorage.setItem('smart_absen_user', JSON.stringify(userData));
-                showToast("⚡ Login Berhasil! Selamat datang " + userData.nama, 'success');
-                formLogin.reset();
-                showApp(userData);
-                
-                if (btn) btn.disabled = false;
-                if (text) text.style.display = 'inline-block';
-                if (loader) loader.style.display = 'none';
-
-                // Background verify & sync
-                fetch(`${SCRIPT_URL}?action=login&username=${encodeURIComponent(usernameInput)}&password=${encodeURIComponent(passwordInput)}`).catch(()=>{});
-                return;
             }
 
             // Cek Master Siswa Cache
@@ -359,7 +374,7 @@ if (formLogin) {
             });
 
             if (matchedStudent) {
-                const userData = {
+                return {
                     username: matchedStudent.nis || matchedStudent.nisn || usernameInput,
                     role: 'Siswa',
                     nama: matchedStudent.nama,
@@ -372,11 +387,26 @@ if (formLogin) {
                     wali_kelas: '-',
                     tugas_piket: '-'
                 };
-                localStorage.setItem('smart_absen_user', JSON.stringify(userData));
-                showToast("⚡ Login Berhasil! Selamat datang " + userData.nama, 'success');
-                formLogin.reset();
-                showApp(userData);
+            }
+            return null;
+        };
 
+        // 1. CEK INSTAN LOKAL CACHE FIRST (0ms LATENCY)!
+        try {
+            let userMatch = checkLocalCredential();
+
+            // Jika cache belum ada, tunggu sebentar jika background preload sedang berjalan
+            if (!userMatch && authPreloadPromise) {
+                await Promise.race([authPreloadPromise, new Promise(r => setTimeout(r, 600))]);
+                userMatch = checkLocalCredential();
+            }
+
+            if (userMatch) {
+                localStorage.setItem('smart_absen_user', JSON.stringify(userMatch));
+                showToast("⚡ Login Berhasil! Selamat datang " + userMatch.nama, 'success');
+                formLogin.reset();
+                showApp(userMatch);
+                
                 if (btn) btn.disabled = false;
                 if (text) text.style.display = 'inline-block';
                 if (loader) loader.style.display = 'none';
