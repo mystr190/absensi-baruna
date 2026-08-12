@@ -106,6 +106,9 @@ async function checkDatabaseConnection() {
     // TAMPILKAN LANGSUNG INSTAN 0-MILLISECOND (Pengguna tidak perlu menunggu loading!)
     connectionStatus.className = 'connection-status connected';
     statusText.innerText = 'Terhubung: Google Sheets';
+
+    // Cegah ping berulang jika sudah terverifikasi dalam sesi ini
+    if (sessionStorage.getItem('gas_connected') === 'true') return;
     sessionStorage.setItem('gas_connected', 'true');
 
     // Verifikasi hening di background dengan AbortController timeout 2 detik (tidak memblokir UI)
@@ -123,7 +126,6 @@ async function checkDatabaseConnection() {
         }
     } catch (err) {
         clearTimeout(timeoutId);
-        // Hanya jika koneksi benar-benar mati/putus total, ubah ke status disconnected
         if (err.name === 'TypeError') {
             connectionStatus.className = 'connection-status disconnected';
             statusText.innerText = 'Koneksi Terputus';
@@ -275,15 +277,15 @@ function showApp(user) {
     // Immediately update Overview UI for current role
     if (typeof updateOverviewUI === 'function') updateOverviewUI(null);
 
-    // Panggil sync master data di latar belakang & auto load jika kelas sudah terisi
-    if (typeof syncMasterDataInBackground === 'function') syncMasterDataInBackground();
-    if (typeof renderOverviewDashboard === 'function') renderOverviewDashboard();
-    if (typeof autoLoadStudents === 'function') autoLoadStudents();
-    if (typeof loadUsers === 'function') loadUsers();
-    renderSelfProfilePanel();
-    if (typeof syncAbsenGuruDataFromServer === 'function') syncAbsenGuruDataFromServer();
-    if (typeof loadIzinSiswaData === 'function') loadIzinSiswaData();
-    if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge();
+    // Synchronize master data & load background modules with staggered delays to prevent server contention
+    setTimeout(() => { if (typeof syncMasterDataInBackground === 'function') syncMasterDataInBackground(); }, 50);
+    setTimeout(() => { if (typeof renderOverviewDashboard === 'function') renderOverviewDashboard(); }, 400);
+    setTimeout(() => { if (typeof autoLoadStudents === 'function') autoLoadStudents(); }, 800);
+    setTimeout(() => { if (typeof loadUsers === 'function') loadUsers(); }, 1200);
+    setTimeout(() => { renderSelfProfilePanel(); }, 1600);
+    setTimeout(() => { if (typeof syncAbsenGuruDataFromServer === 'function') syncAbsenGuruDataFromServer(); }, 2000);
+    setTimeout(() => { if (typeof loadIzinSiswaData === 'function') loadIzinSiswaData(); }, 2400);
+    setTimeout(() => { if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge(); }, 2800);
 }
 
 // Handle Form Login

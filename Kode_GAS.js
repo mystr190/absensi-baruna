@@ -600,8 +600,24 @@ function ensureDeviceUserIdColumns() {
   ensureDatabaseSetup();
 }
 
-// Helper Ambil Data Pengguna / User
-function getUsersFromCacheOrSheet() {
+function invalidateUsersCache() {
+  try {
+    const cache = CacheService.getScriptCache();
+    cache.remove('users_cache_all_v1');
+  } catch (e) {}
+}
+
+// Helper Ambil Data Pengguna / User (With RAM Caching for Ultra-Fast Login & API Response)
+function getUsersFromCacheOrSheet(skipCache) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'users_cache_all_v1';
+  if (!skipCache) {
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      try { return JSON.parse(cachedData); } catch (e) {}
+    }
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureDatabaseSetup();
   const sheet = ss.getSheetByName(SHEET_USERS);
@@ -689,6 +705,10 @@ function getUsersFromCacheOrSheet() {
     });
   }
 
+  try {
+    cache.put(cacheKey, JSON.stringify(users), 1800);
+  } catch (cErr) {}
+
   return users;
 }
 
@@ -700,38 +720,23 @@ function handleLogin(username, password) {
     return jsonResponse('error', 'Username/NIS dan Password wajib diisi.');
   }
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const uLower = u.toLowerCase();
   const pLower = p.toLowerCase();
 
-  // 1. Cek di Sheet Users (Admin, Guru, TU, Kepsek)
-  const sheetUsers = ss.getSheetByName(SHEET_USERS);
-  if (sheetUsers) {
-    const dataUsers = sheetUsers.getDataRange().getValues();
-    for (let i = 1; i < dataUsers.length; i++) {
-      const userU = String(dataUsers[i][1] || '').trim();
-      if (!userU) continue;
-      const userP = String(dataUsers[i][2] || '').trim();
-
-      if (userU.toLowerCase() === uLower && (userP === p || userP.toLowerCase() === pLower)) {
-        const role = String(dataUsers[i][3] || '').trim();
-        const namaGuru = String(dataUsers[i][4] || userU).trim();
-        const idMesin = String(dataUsers[i][5] || '').trim();
-        const idTg = String(dataUsers[i][6] || '').trim();
-        const tugasPiket = dataUsers[i].length >= 8 ? String(dataUsers[i][7] || '-').trim() : '-';
-
-        return jsonResponse('success', 'Login berhasil!', {
-          nis: userU,
-          username: userU,
-          role: role,
-          nama: namaGuru,
-          id_mesin: idMesin,
-          id_telegram: idTg,
-          wali_kelas: '-',
-          tugas_piket: tugasPiket
-        });
-      }
-    }
+  // 1. Cek di Cache/Sheet Users (Admin, Guru, TU, Kepsek) - Ultra-Fast RAM Lookup
+  const users = getUsersFromCacheOrSheet();
+  const foundUser = users.find(item => item.username.toLowerCase() === uLower && (item.password === p || item.password.toLowerCase() === pLower));
+  if (foundUser) {
+    return jsonResponse('success', 'Login berhasil!', {
+      nis: foundUser.username,
+      username: foundUser.username,
+      role: foundUser.role,
+      nama: foundUser.nama,
+      id_mesin: foundUser.id_mesin || '',
+      id_telegram: foundUser.id_telegram || '',
+      wali_kelas: foundUser.wali_kelas || '-',
+      tugas_piket: foundUser.tugas_piket || '-'
+    });
   }
 
   // 2. Jika tidak ada di Sheet Users, Cek di Sheet DataSiswa (Matching NIS / NISN)
@@ -908,7 +913,45 @@ function cascadeUpdateStudentData(ss, oldNis, oldNisn, oldNama, newNis, newNisn,
       }
     }
 
-    // 6. Sync Sheet User_Mesin
+    // 6. Update Sheet AnggotaKokurikuler (SHEET_KOKURIKULER_MEMBERS)
+    const sheetKokuMem = ss.getSheetByName(SHEET_KOKURIKULER_MEMBERS);
+    if (sheetKokuMem && sheetKokuMem.getLastRow() > 1) {
+      const kmData = sheetKokuMem.getRange(2, 1, sheetKokuMem.getLastRow() - 1, 5).getValues();
+      for (let i = 0; i < kmData.length; i++) {
+        const rNisn = String(kmData[i][1] || '').trim().replace(/^'/, '').toLowerCase();
+        const rNis = String(kmData[i][2] || '').trim().replace(/^'/, '').toLowerCase();
+        const rNama = String(kmData[i][3] || '').trim().toLowerCase();
+
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn) sheetKokuMem.getRange(rowIdx, 2).setValue("'" + cNisn);
+          if (cNis) sheetKokuMem.getRange(rowIdx, 3).setValue("'" + cNis);
+          if (cNama) sheetKokuMem.getRange(rowIdx, 4).setValue(cNama);
+          if (cKelas) sheetKokuMem.getRange(rowIdx, 5).setValue(cKelas);
+        }
+      }
+    }
+
+    // 7. Update Sheet LogAbsenKokurikuler (SHEET_LOG_KOKURIKULER)
+    const sheetKokuLogS = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
+    if (sheetKokuLogS && sheetKokuLogS.getLastRow() > 1) {
+      const klData = sheetKokuLogS.getRange(2, 1, sheetKokuLogS.getLastRow() - 1, 10).getValues();
+      for (let i = 0; i < klData.length; i++) {
+        const rNisn = String(klData[i][6] || '').trim().replace(/^'/, '').toLowerCase();
+        const rNis = String(klData[i][7] || '').trim().replace(/^'/, '').toLowerCase();
+        const rNama = String(klData[i][8] || '').trim().toLowerCase();
+
+        if ((oNisn && rNisn === oNisn) || (oNis && rNis === oNis) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cNisn) sheetKokuLogS.getRange(rowIdx, 7).setValue("'" + cNisn);
+          if (cNis) sheetKokuLogS.getRange(rowIdx, 8).setValue("'" + cNis);
+          if (cNama) sheetKokuLogS.getRange(rowIdx, 9).setValue(cNama);
+          if (cKelas) sheetKokuLogS.getRange(rowIdx, 10).setValue(cKelas);
+        }
+      }
+    }
+
+    // 8. Sync Sheet User_Mesin
     try { handleSyncDeviceUsers(); } catch(e) {}
 
   } catch (err) {
@@ -1047,7 +1090,35 @@ function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama
       }
     }
 
-    // 8. Update Sheet User_Mesin
+    // 8. Update Sheet DataKokurikuler (SHEET_KOKURIKULER)
+    const sheetKokuData = ss.getSheetByName(SHEET_KOKURIKULER);
+    if (sheetKokuData && sheetKokuData.getLastRow() > 1) {
+      const kdData = sheetKokuData.getRange(2, 1, sheetKokuData.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < kdData.length; i++) {
+        const rU = String(kdData[i][2] || '').trim().toLowerCase();
+        const rNama = String(kdData[i][3] || '').trim().toLowerCase();
+
+        if ((oU && rU === oU) || (oNama && rNama === oNama)) {
+          const rowIdx = i + 2;
+          if (cU) sheetKokuData.getRange(rowIdx, 3).setValue(cU);
+          if (cNama) sheetKokuData.getRange(rowIdx, 4).setValue(cNama);
+        }
+      }
+    }
+
+    // 9. Update Sheet LogAbsenKokurikuler (SHEET_LOG_KOKURIKULER)
+    const sheetKokuLogT = ss.getSheetByName(SHEET_LOG_KOKURIKULER);
+    if (sheetKokuLogT && sheetKokuLogT.getLastRow() > 1) {
+      const klData = sheetKokuLogT.getRange(2, 1, sheetKokuLogT.getLastRow() - 1, 6).getValues();
+      for (let i = 0; i < klData.length; i++) {
+        const rU = String(klData[i][5] || '').trim().toLowerCase();
+        if (oU && rU === oU) {
+          sheetKokuLogT.getRange(i + 2, 6).setValue(cU);
+        }
+      }
+    }
+
+    // 10. Update Sheet User_Mesin
     const sheetUM = ss.getSheetByName(SHEET_USER_MESIN);
     if (sheetUM && sheetUM.getLastRow() > 1) {
       const umData = sheetUM.getRange(2, 1, sheetUM.getLastRow() - 1, 6).getValues();
@@ -1066,8 +1137,9 @@ function cascadeUpdateTeacherData(ss, oldUsername, oldNama, newUsername, newNama
       }
     }
 
-    // 9. Sync Sheet User_Mesin
+    // 11. Sync Sheet User_Mesin & Invalidate RAM cache
     try { handleSyncDeviceUsers(); } catch(e) {}
+    try { invalidateUsersCache(); } catch(e) {}
 
   } catch (err) {
     Logger.log("Err cascadeUpdateTeacherData: " + err.toString());
@@ -1181,6 +1253,7 @@ function handleAddUser(username, password, role, nama, id_mesin, id_telegram, tu
     updateClassWaliAssignment(ss, nama.trim(), wali_kelas);
   }
 
+  invalidateUsersCache();
   return jsonResponse('success', `Pengguna "${nama}" berhasil ditambahkan.`);
 }
 
@@ -1220,6 +1293,7 @@ function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin,
         // Cascade Update related teacher data across all sheets
         cascadeUpdateTeacherData(ss, oldUsername, oldNama, username.trim(), nama.trim(), role || 'Guru', String(id_mesin || '').trim(), String(id_telegram || '').trim(), wali_kelas, String(tugas_piket || '-').trim(), oldIdMesin);
 
+        invalidateUsersCache();
         return jsonResponse('success', `Data "${nama}" berhasil diperbarui.`);
       }
     }
@@ -1247,6 +1321,7 @@ function handleUpdateUser(oldUsername, username, password, role, nama, id_mesin,
 
         cascadeUpdateStudentData(ss, sNis, sNisn, sNama, sNis, sNisn, sNama, sKelas, sIdMesin, String(id_telegram || '').trim(), sIdMesin);
 
+        invalidateUsersCache();
         return jsonResponse('success', `Profil Siswa "${nama}" berhasil diperbarui.`);
       }
     }
@@ -1269,6 +1344,7 @@ function handleDeleteUser(username) {
     const currentUsername = String(data[i][1] || '').trim().toLowerCase();
     if (currentUsername === targetUser) {
       sheet.deleteRow(i + 1);
+      invalidateUsersCache();
       return jsonResponse('success', `Pengguna "${username}" berhasil dihapus.`);
     }
   }
