@@ -1806,3 +1806,103 @@ select option { background: var(--bg-color); color: var(--text-main); }
     background: #ffffff;
     color: #0f172a;
 }
+
+/* ========================================================= */
+/* GENERIC INLINE ALERTS & NOTICES (GLASSMORPHIC & LIGHT/DARK ADAPTIVE) */
+/* ========================================================= */
+.alert {
+    padding: 14px 18px;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid transparent;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+}
+
+.alert-info {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #6ee7b7;
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #fde68a;
+}
+
+.alert-danger, .alert-error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+/* Light Mode Overrides for Generic Inline Alerts */
+[data-theme="light"] .alert-info {
+    background: #eff6ff !important;
+    border-color: #bfdbfe !important;
+    color: #1d4ed8 !important;
+}
+
+[data-theme="light"] .alert-success {
+    background: #f0fdf4 !important;
+    border-color: #bbf7d0 !important;
+    color: #15803d !important;
+}
+
+[data-theme="light"] .alert-warning {
+    background: #fffbeb !important;
+    border-color: #fde68a !important;
+    color: #b45309 !important;
+}
+
+[data-theme="light"] .alert-danger,
+[data-theme="light"] .alert-error {
+    background: #fef2f2 !important;
+    border-color: #fecaca !important;
+    color: #b91c1c !important;
+}
+
+/* Light Mode Overrides for Custom Modal Alerts & Confirm Dialogs */
+[data-theme="light"] .custom-alert-overlay {
+    background: rgba(15, 23, 42, 0.4);
+}
+
+[data-theme="light"] .custom-alert-box {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .custom-alert-title {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .custom-alert-message {
+    color: #475569 !important;
+}
+
+[data-theme="light"] .custom-alert-btn-cancel {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme="light"] .custom-alert-btn-cancel:hover {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+}

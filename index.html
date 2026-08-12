@@ -154,11 +154,16 @@
                 <button class="nav-item" data-target="panel-scan">
                     <span class="nav-icon"><i class="fa-solid fa-clipboard-user"></i></span> <span class="nav-label">Absen Per Kelas</span>
                 </button>
-                <button class="nav-item" data-target="panel-dashboard">
-                    <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span> <span class="nav-label">Rekap Absensi</span>
+                <!-- Menu Kokurikuler -->
+                <button class="nav-item" data-target="panel-kokurikuler" id="nav-kokurikuler" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-shapes"></i></span> <span class="nav-label">Absen Kokurikuler</span>
                 </button>
-                <button class="nav-item" data-target="panel-matrix-rekap">
-                    <span class="nav-icon"><i class="fa-solid fa-table-list"></i></span> <span class="nav-label">Rekap Kehadiran Siswa</span>
+                <button class="nav-item" data-target="panel-kelola-kokurikuler" id="nav-kelola-kokurikuler" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-layer-group"></i></span> <span class="nav-label">Kelola Kokurikuler</span>
+                </button>
+                <!-- Menu Bimbingan TKA / UTBK -->
+                <button class="nav-item" data-target="panel-bimbel-utbk" id="nav-bimbel-utbk" style="display:none;">
+                    <span class="nav-icon"><i class="fa-solid fa-graduation-cap"></i></span> <span class="nav-label">Bimbingan TKA / UTBK</span>
                 </button>
                 <button class="nav-item" data-target="panel-pelanggaran">
                     <span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> <span class="nav-label">Catatan Pelanggaran</span>
@@ -174,6 +179,12 @@
                 <!-- Menu Pengajuan Izin (Guru, Staff, TU, Kepsek, Admin) -->
                 <button class="nav-item" data-target="panel-izin-guru" id="nav-izin-guru">
                     <span class="nav-icon"><i class="fa-solid fa-envelope-open-text"></i></span> <span class="nav-label">Pengajuan Izin Guru & Staf</span>
+                </button>
+                <button class="nav-item" data-target="panel-dashboard">
+                    <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span> <span class="nav-label">Rekap Absensi</span>
+                </button>
+                <button class="nav-item" data-target="panel-matrix-rekap">
+                    <span class="nav-icon"><i class="fa-solid fa-table-list"></i></span> <span class="nav-label">Rekap Kehadiran Siswa</span>
                 </button>
                 <!-- Menu Kepsek / Admin Only -->
                 <button class="nav-item" data-target="panel-approval-kepsek" id="nav-approval-kepsek" style="display:none;">
@@ -194,13 +205,6 @@
                 </button>
                 <button class="nav-item" data-target="panel-user-mesin" id="nav-user-mesin" style="display:none;">
                     <span class="nav-icon"><i class="fa-solid fa-fingerprint"></i></span> <span class="nav-label">Data User Mesin</span>
-                </button>
-                <!-- Menu Kokurikuler -->
-                <button class="nav-item" data-target="panel-kokurikuler" id="nav-kokurikuler" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-shapes"></i></span> <span class="nav-label">Absen Kokurikuler</span>
-                </button>
-                <button class="nav-item" data-target="panel-kelola-kokurikuler" id="nav-kelola-kokurikuler" style="display:none;">
-                    <span class="nav-icon"><i class="fa-solid fa-layer-group"></i></span> <span class="nav-label">Kelola Kokurikuler</span>
                 </button>
                 <button class="nav-item" data-target="panel-profile" id="nav-profile">
                     <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> <span class="nav-label">Profil & Pengaturan Akun</span>
@@ -400,6 +404,49 @@
                         </div>
                         <div style="position: relative; height: 320px; width: 100%;">
                             <canvas id="chartStudentPersonalTimeline"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart Card Presensi Bimbingan TKA/UTBK (Khusus Siswa Kelas XII) -->
+                    <div id="siswaBimbelOverviewCard" class="glass-card" style="padding: 22px; margin-top: 20px; border-left: 4px solid #38bdf8; display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-graduation-cap" style="color: #38bdf8;"></i> Kehadiran Bimbingan TKA / UTBK Saya (Awal s/d Sekarang)
+                                </h3>
+                                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">Grafik tren & statistik presensi bimbingan belajar TKA/UTBK khusus kelas XII</p>
+                            </div>
+                            <span id="studentBimbelDateRangeBadge" class="badge" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); padding: 6px 14px; font-size: 0.82rem; border-radius: 20px;">
+                                Periode Bimbingan: - s/d -
+                            </span>
+                        </div>
+
+                        <!-- Metric KPI Cards Bimbel -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 18px;">
+                            <div style="padding: 12px; border-radius: 10px; background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.25); text-align: center;">
+                                <span style="font-size: 0.75rem; color: #4ade80; font-weight: 600; display: block;">Bimbel Hadir</span>
+                                <strong id="studentBimbelHadir" style="font-size: 1.4rem; color: #f8fafc;">0</strong>
+                            </div>
+                            <div style="padding: 12px; border-radius: 10px; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.25); text-align: center;">
+                                <span style="font-size: 0.75rem; color: #fbbf24; font-weight: 600; display: block;">Bimbel Sakit</span>
+                                <strong id="studentBimbelSakit" style="font-size: 1.4rem; color: #f8fafc;">0</strong>
+                            </div>
+                            <div style="padding: 12px; border-radius: 10px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); text-align: center;">
+                                <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 600; display: block;">Bimbel Izin</span>
+                                <strong id="studentBimbelIzin" style="font-size: 1.4rem; color: #f8fafc;">0</strong>
+                            </div>
+                            <div style="padding: 12px; border-radius: 10px; background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.25); text-align: center;">
+                                <span style="font-size: 0.75rem; color: #f87171; font-weight: 600; display: block;">Bimbel Alpa</span>
+                                <strong id="studentBimbelAlpa" style="font-size: 1.4rem; color: #f8fafc;">0</strong>
+                            </div>
+                            <div style="padding: 12px; border-radius: 10px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.25); text-align: center;">
+                                <span style="font-size: 0.75rem; color: #c084fc; font-weight: 600; display: block;">Persentase</span>
+                                <strong id="studentBimbelPercentage" style="font-size: 1.4rem; color: #f8fafc;">0%</strong>
+                            </div>
+                        </div>
+
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="chartStudentBimbelTimeline"></canvas>
                         </div>
                     </div>
                 </div>
@@ -929,6 +976,7 @@
                                 <th style="text-align: center;">ID Mesin</th>
                                 <th style="text-align: center;">ID Telegram</th>
                                 <th style="text-align: center;">Role</th>
+                                <th style="text-align: center;">Mata Pelajaran</th>
                                 <th style="text-align: center;">Wali Kelas</th>
                                 <th style="text-align: center;">Tugas Piket</th>
                                 <th style="text-align: center; width: 140px;">Aksi</th>
@@ -936,7 +984,7 @@
                         </thead>
                         <tbody id="tableBodyUsers">
                             <tr>
-                                <td colspan="9" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td>
+                                <td colspan="10" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat daftar pengguna...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -2160,7 +2208,7 @@
 
                         <!-- FORM TAMBAH / EDIT MAPEL -->
                         <form id="formMapel" style="background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); padding: 18px; border-radius: 12px; margin-bottom: 20px;">
-                            <div style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 14px; align-items: end;">
+                            <div style="display: grid; grid-template-columns: 1.5fr 2.5fr 1fr auto; gap: 14px; align-items: end;">
                                 <div>
                                     <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Nama Mata Pelajaran:</label>
                                     <input type="text" id="inputNamaMapel" required placeholder="Contoh: Informatika, Biologi..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;">
@@ -2192,6 +2240,13 @@
                                     </div>
                                     <input type="hidden" id="inputTargetKelasMapel">
                                 </div>
+                                <div>
+                                    <label style="font-size: 0.83rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Bimbingan (BK):</label>
+                                    <select id="selectBimbinganMapel" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.88rem; cursor: pointer;">
+                                        <option value="Tidak" style="background: #0f172a; color: white;">Tidak</option>
+                                        <option value="Ya" style="background: #0f172a; color: #34d399; font-weight: bold;">Ya</option>
+                                    </select>
+                                </div>
                                 <div style="display: flex; gap: 8px;">
                                     <button type="button" id="btnCancelEditMapel" class="btn-secondary" style="display: none; padding: 9px 14px; font-size: 0.88rem;">Batal</button>
                                     <button type="submit" id="btnSubmitMapel" class="btn-primary" style="padding: 9px 18px; font-size: 0.88rem; background: #059669; border-color: #10b981;">
@@ -2205,7 +2260,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                             <div style="position: relative; min-width: 260px;">
                                 <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-                                <input type="text" id="inputSearchMapel" placeholder="Cari nama mapel atau target kelas..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 7px 12px 7px 34px; border-radius: 8px; font-size: 0.83rem;">
+                                <input type="text" id="inputSearchMapel" placeholder="Cari nama mapel, target kelas, atau bimbingan..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 7px 12px 7px 34px; border-radius: 8px; font-size: 0.83rem;">
                             </div>
                         </div>
 
@@ -2214,14 +2269,15 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 50px; text-align: center;">No</th>
-                                        <th style="width: 240px;">Nama Mata Pelajaran</th>
+                                        <th style="width: 220px;">Nama Mata Pelajaran</th>
                                         <th>Target Kelas</th>
+                                        <th style="text-align: center; width: 110px;">Bimbingan</th>
                                         <th style="text-align: center; width: 120px;">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tableBodyMapel">
                                     <tr>
-                                        <td colspan="4" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat data Mata Pelajaran...</td>
+                                        <td colspan="5" style="text-align:center; padding: 25px;"><span class="loader" style="display:inline-block; border-color:var(--primary); border-bottom-color:transparent; margin-right:8px;"></span>Memuat data Mata Pelajaran...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -2357,6 +2413,12 @@
                                 <option value="Tata Usaha">Tata Usaha</option>
                                 <option value="Kepala Sekolah">Kepala Sekolah</option>
                                 <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 15px;">
+                            <label style="font-size: 0.85rem; color: #a7f3d0; display: block; margin-bottom: 5px;"><i class="fa-solid fa-book-open"></i> Mata Pelajaran yang Diampu:</label>
+                            <select id="modalMapel" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 10px 14px; border-radius: 8px;">
+                                <option value="-">Bukan Guru Mapel / -</option>
                             </select>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px;">
@@ -2914,6 +2976,246 @@
                 </div>
             </section>
 
+            <!-- PANEL: ABSENSI BIMBINGAN TKA / UTBK -->
+            <section id="panel-bimbel-utbk" class="panel" style="display: none;">
+                <div class="panel-header flex-between" style="flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h2><i class="fa-solid fa-graduation-cap" style="color: #38bdf8;"></i> Presensi Bimbingan TKA / UTBK</h2>
+                        <p>Kelola Kehadiran & Jurnal Guru serta Presensi Kehadiran Siswa Bimbingan TKA/UTBK Kelas XII</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" id="btnRefreshBimbel" class="btn-secondary" style="padding: 9px 16px; font-size: 0.85rem; border-radius: 10px;">
+                            <i class="fa-solid fa-rotate"></i> Refresh Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUB TAB NAVIGATION (Guru, Siswa, Rekap) -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; flex-wrap: wrap;">
+                    <button type="button" class="btn-tab-bimbel active" data-tab="tab-bimbel-guru" style="padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                        <i class="fa-solid fa-chalkboard-user"></i> 1. Absen Guru (Jurnal Bimbel)
+                    </button>
+                    <button type="button" class="btn-tab-bimbel" data-tab="tab-bimbel-siswa" style="padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text-muted);">
+                        <i class="fa-solid fa-user-pen"></i> 2. Absen Siswa
+                    </button>
+                    <button type="button" class="btn-tab-bimbel" data-tab="tab-bimbel-rekap" style="padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text-muted);">
+                        <i class="fa-solid fa-chart-column"></i> 3. Rekap Bulanan
+                    </button>
+                </div>
+
+                <!-- TAB 1: ABSEN GURU (Jurnal Mengajar Bimbel) -->
+                <div id="tab-bimbel-guru" class="tab-bimbel-content">
+                    <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px;">
+                            <i class="fa-solid fa-pen-to-square" style="color: #38bdf8;"></i> Form Presensi & Jurnal Guru Bimbel
+                        </h3>
+                        <form id="formAbsenGuruBimbel" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Tanggal Bimbingan</label>
+                                <input type="date" id="bimbelGuruTanggal" class="form-input" style="width: 100%; margin-top: 4px;" required>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Nama Guru</label>
+                                <input type="text" id="bimbelGuruNama" class="form-input" style="width: 100%; margin-top: 4px; background: rgba(15, 23, 42, 0.5);" readonly>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Mata Pelajaran Bimbingan</label>
+                                <select id="bimbelGuruMapel" class="form-input" style="width: 100%; margin-top: 4px;" required></select>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Sesi Mengajar</label>
+                                <select id="bimbelGuruSesi" class="form-input" style="width: 100%; margin-top: 4px;" required>
+                                    <option value="Sesi 1">Sesi 1</option>
+                                    <option value="Sesi 2">Sesi 2</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Kelas XII yang Diajar</label>
+                                <select id="bimbelGuruKelas" class="form-input" style="width: 100%; margin-top: 4px;" required></select>
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Materi Ajar / Pokok Bahasan</label>
+                                <textarea id="bimbelGuruMateri" class="form-input" rows="3" placeholder="Tuliskan ringkasan materi atau soal TKA/UTBK yang dibahas..." style="width: 100%; margin-top: 4px;" required></textarea>
+                            </div>
+                            <div style="grid-column: 1 / -1; text-align: right; margin-top: 8px;">
+                                <button type="submit" id="btnSimpanBimbelGuru" class="btn-primary" style="padding: 10px 24px; font-weight: 700; border-radius: 10px;">
+                                    <i class="fa-solid fa-floppy-disk"></i> Simpan Presensi & Jurnal Guru
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- RIWAYAT JURNAL GURU BIMBEL -->
+                    <div class="glass-card" style="padding: 20px;">
+                        <h4 style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin-bottom: 14px;">
+                            <i class="fa-solid fa-list-check" style="color: #818cf8;"></i> Riwayat Jurnal & Absensi Guru Bimbingan
+                        </h4>
+                        <div class="table-responsive">
+                            <table class="data-table" style="width: 100%; font-size: 0.85rem;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px; text-align: center;">No</th>
+                                        <th>Tanggal</th>
+                                        <th>Sesi</th>
+                                        <th>Guru Mengajar</th>
+                                        <th>Mata Pelajaran</th>
+                                        <th style="text-align: center;">Kelas</th>
+                                        <th>Materi Ajar</th>
+                                        <th style="text-align: center;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyLogBimbelGuru">
+                                    <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">Belum ada data riwayat jurnal bimbingan.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: ABSEN SISWA -->
+                <div id="tab-bimbel-siswa" class="tab-bimbel-content" style="display: none;">
+                    <div class="glass-card" style="padding: 20px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: end;">
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Tanggal Bimbingan</label>
+                                <input type="date" id="bimbelSiswaTanggal" class="form-input" style="width: 100%; margin-top: 4px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Sesi Bimbingan</label>
+                                <input type="text" id="bimbelSiswaSesi" class="form-input" style="width: 100%; margin-top: 4px; background: rgba(255,255,255,0.05); color: #38bdf8; font-weight: 600;" readonly placeholder="Otomatis dari Jurnal Guru">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Kelas & Sesi (Jurnal Guru)</label>
+                                <select id="bimbelSiswaKelas" class="form-input" style="width: 100%; margin-top: 4px;">
+                                    <option value="">-- Pilih Tanggal Dulu --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- INFO ALERT REQUIREMENT GURU -->
+                        <div id="alertBimbelGuruRequired" style="margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 0.84rem; display: none;">
+                            <i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i>
+                            <strong>Perhatian:</strong> Belum ada Guru yang mengabsen pada Tanggal & Sesi ini. Guru harus mengabsen terlebih dahulu agar kelas muncul di pilihan menu ini.
+                        </div>
+                    </div>
+
+                    <!-- TABLE PRESENSI SISWA -->
+                    <div id="wrapperAbsenSiswaBimbel" class="glass-card" style="padding: 20px; display: none;">
+                        <!-- BANNER LOCKED ABSENSI -->
+                        <div id="bannerBimbelSiswaLocked" style="margin-bottom: 14px; padding: 10px 16px; border-radius: 10px; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); color: #4ade80; font-size: 0.84rem; display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <i class="fa-solid fa-lock" style="margin-right: 6px; color: #22c55e;"></i>
+                                <span id="txtBimbelSiswaLocked">Presensi siswa untuk kelas ini sudah tersimpan dan dikunci.</span>
+                            </div>
+                            <button type="button" id="btnToggleEditBimbelSiswa" class="btn-secondary" style="padding: 5px 12px; font-size: 0.78rem; background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-pen-to-square"></i> Edit Data Presensi
+                            </button>
+                        </div>
+
+                        <div class="flex-between" style="margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h4 style="font-size: 1rem; font-weight: 700; color: #f8fafc;" id="titleAbsenSiswaBimbel">Daftar Presensi Siswa Kelas XII</h4>
+                                <span style="font-size: 0.8rem; color: #38bdf8;" id="subtitleAbsenSiswaBimbel">Pelajaran: - | Guru: -</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" id="btnSetAllBimbelHadir" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; border-radius: 8px;">
+                                    <i class="fa-solid fa-check-double"></i> Set Semua HADIR
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table" style="width: 100%; font-size: 0.85rem;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 35px; text-align: center;">No</th>
+                                        <th style="width: 110px;">NISN</th>
+                                        <th style="width: 90px;">NIS</th>
+                                        <th>Nama Siswa</th>
+                                        <th style="width: 80px; text-align: center;">L/P</th>
+                                        <th style="width: 300px; text-align: center;">Status Kehadiran</th>
+                                        <th>Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyAbsenSiswaBimbel">
+                                    <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Pilih kelas untuk menampilkan daftar siswa.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap;">
+                            <button type="button" id="btnCetakAbsenSiswaBimbelPdf" class="btn-secondary" style="padding: 12px 24px; font-size: 0.92rem; font-weight: 700; border-radius: 10px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">
+                                <i class="fa-solid fa-file-pdf"></i> Cetak Presensi Harian PDF
+                            </button>
+                            <button type="button" id="btnSimpanAbsenSiswaBimbel" class="btn-primary" style="padding: 12px 28px; font-size: 0.92rem; font-weight: 700; border-radius: 10px;">
+                                <i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Siswa Bimbingan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: REKAP BULANAN -->
+                <div id="tab-bimbel-rekap" class="tab-bimbel-content" style="display: none;">
+                    <div class="glass-card" style="padding: 20px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end;">
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Bulan Rekapitulasi</label>
+                                <input type="month" id="rekapBimbelBulan" class="form-input" style="width: 100%; margin-top: 4px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.82rem; font-weight: 600; color: #94a3b8;">Filter Kelas XII</label>
+                                <select id="rekapBimbelKelas" class="form-input" style="width: 100%; margin-top: 4px;">
+                                    <option value="">Semua Kelas XII</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button type="button" id="btnProsesRekapBimbel" class="btn-primary" style="width: 100%; padding: 10px; font-weight: 600; border-radius: 10px;">
+                                    <i class="fa-solid fa-chart-line"></i> Generate Rekap
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" id="btnExportRekapBimbelCsv" class="btn-secondary" style="width: 100%; padding: 10px; font-weight: 600; border-radius: 10px;">
+                                    <i class="fa-solid fa-file-csv"></i> Export CSV
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" id="btnCetakRekapBimbelPdf" class="btn-secondary" style="width: 100%; padding: 10px; font-weight: 600; border-radius: 10px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">
+                                    <i class="fa-solid fa-file-pdf"></i> Cetak Rekap PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REKAP TABLE -->
+                    <div class="glass-card" style="padding: 20px;">
+                        <h4 style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin-bottom: 14px;" id="titleRekapBimbel">
+                            Rekapitulasi Kehadiran Siswa Bimbingan TKA/UTBK
+                        </h4>
+                        <div class="table-responsive">
+                            <table class="data-table" style="width: 100%; font-size: 0.85rem;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 35px; text-align: center;">No</th>
+                                        <th>NISN</th>
+                                        <th>Nama Siswa</th>
+                                        <th style="text-align: center;">Kelas</th>
+                                        <th style="text-align: center; color: #4ade80;">Hadir</th>
+                                        <th style="text-align: center; color: #fbbf24;">Sakit</th>
+                                        <th style="text-align: center; color: #38bdf8;">Izin</th>
+                                        <th style="text-align: center; color: #f87171;">Alpa</th>
+                                        <th style="text-align: center;">Total Pertemuan</th>
+                                        <th style="text-align: center;">% Kehadiran</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyRekapBimbel">
+                                    <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Klik 'Generate Rekap' untuk memuat laporan.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -2985,6 +3287,7 @@
     <script src="js/izin_siswa.js?v=7.0"></script>
     <script src="js/izin_kbm.js?v=10.0"></script>
     <script src="js/absen_kokurikuler.js?v=1.0"></script>
+    <script src="js/absen_bimbel.js?v=1.0"></script>
 </body>
 
 </html>

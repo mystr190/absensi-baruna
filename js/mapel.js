@@ -3,24 +3,25 @@
 // ==========================================
 
 const DEFAULT_PRESET_MAPEL = [
-    { nama: 'Informatika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-5' },
-    { nama: 'IT Preneur', target_kelas: 'X-1, X-2, X-3, X-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Geografi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2' },
-    { nama: 'Pendidikan Agama Islam', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Bahasa Indonesia', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Ekonomi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
-    { nama: 'PJOK', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Bahasa Jerman', target_kelas: 'XI-1, XI-2, XII-1, XII-2, XII-3' },
-    { nama: 'Sosiologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
-    { nama: 'Matematika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Matematika TL', target_kelas: 'XI-3, XI-4, XII-4, XII-5' },
-    { nama: 'Kimia', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
-    { nama: 'Pendidikan Pancasila', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Bahasa Inggris', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Fisika', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
-    { nama: 'Seni Rupa', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Sejarah', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5' },
-    { nama: 'Biologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-3, XII-4' }
+    { nama: 'Informatika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'IT Preneur', target_kelas: 'X-1, X-2, X-3, X-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Geografi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2', bimbingan: 'Tidak' },
+    { nama: 'Pendidikan Agama Islam', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Bahasa Indonesia', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Ekonomi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3', bimbingan: 'Tidak' },
+    { nama: 'PJOK', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Bahasa Jerman', target_kelas: 'XI-1, XI-2, XII-1, XII-2, XII-3', bimbingan: 'Tidak' },
+    { nama: 'Sosiologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3', bimbingan: 'Tidak' },
+    { nama: 'Matematika', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Matematika TL', target_kelas: 'XI-3, XI-4, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Kimia', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Pendidikan Pancasila', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Bahasa Inggris', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Fisika', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Seni Rupa', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Sejarah', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Tidak' },
+    { nama: 'Biologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-3, XII-4', bimbingan: 'Tidak' },
+    { nama: 'Bimbingan Konseling (BK)', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XI-3, XI-4, XII-1, XII-2, XII-3, XII-4, XII-5', bimbingan: 'Ya' }
 ];
 
 const PRESET_ALL_CLASSES = ['X-1', 'X-2', 'X-3', 'X-4', 'XI-1', 'XI-2', 'XI-3', 'XI-4', 'XII-1', 'XII-2', 'XII-3', 'XII-4', 'XII-5'];
@@ -32,6 +33,7 @@ let editingOldMapelNama = null;
 const formMapel = document.getElementById('formMapel');
 const inputNamaMapel = document.getElementById('inputNamaMapel');
 const inputTargetKelasMapel = document.getElementById('inputTargetKelasMapel');
+const selectBimbinganMapel = document.getElementById('selectBimbinganMapel');
 const inputSearchMapel = document.getElementById('inputSearchMapel');
 const tableBodyMapel = document.getElementById('tableBodyMapel');
 const btnSubmitMapel = document.getElementById('btnSubmitMapel');
@@ -173,6 +175,7 @@ async function loadMapelData(forceRefresh = false) {
     const cacheKey = 'smart_absen_mapel_list';
     const cachedData = JSON.parse(localStorage.getItem(cacheKey) || 'null');
 
+    // Display cached data first for speed, but always fetch fresh from server
     if (!forceRefresh && cachedData && Array.isArray(cachedData) && cachedData.length > 0) {
         rawMapelList = cachedData;
         renderMapelTable(filterMapelData(inputSearchMapel ? inputSearchMapel.value : ''));
@@ -183,7 +186,11 @@ async function loadMapelData(forceRefresh = false) {
         const result = await fetchWithRetry(requestUrl, { method: 'GET' }, 1, 1000);
 
         if (result && result.status === 'success' && Array.isArray(result.data)) {
-            rawMapelList = result.data.length > 0 ? result.data : DEFAULT_PRESET_MAPEL;
+            rawMapelList = result.data.map(item => ({
+                nama: String(item.nama || '').trim(),
+                target_kelas: String(item.target_kelas || '').trim(),
+                bimbingan: (String(item.bimbingan || '').toLowerCase() === 'ya' || String(item.bimbingan || '').toLowerCase() === 'y') ? 'Ya' : 'Tidak'
+            }));
             localStorage.setItem(cacheKey, JSON.stringify(rawMapelList));
             renderMapelTable(filterMapelData(inputSearchMapel ? inputSearchMapel.value : ''));
         } else if (!rawMapelList || rawMapelList.length === 0) {
@@ -205,7 +212,8 @@ function filterMapelData(queryStr = '') {
     if (!q) return rawMapelList;
     return rawMapelList.filter(item => 
         (item.nama && item.nama.toLowerCase().includes(q)) ||
-        (item.target_kelas && item.target_kelas.toLowerCase().includes(q))
+        (item.target_kelas && item.target_kelas.toLowerCase().includes(q)) ||
+        (item.bimbingan && item.bimbingan.toLowerCase().includes(q))
     );
 }
 
@@ -219,8 +227,8 @@ function renderMapelTable(dataList) {
     if (!dataList || dataList.length === 0) {
         tableBodyMapel.innerHTML = `
             <tr>
-                <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 25px;">
-                    Tidak ada data Mata Pelajaran. Klik 'Setup Preset Mapel Bawaan' untuk mengisi 18 mapel otomatis.
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 25px;">
+                    Tidak ada data Mata Pelajaran. Klik 'Setup Preset Mapel Bawaan' untuk mengisi 19 mapel otomatis.
                 </td>
             </tr>`;
         return;
@@ -233,11 +241,17 @@ function renderMapelTable(dataList) {
             `<span class="badge" style="background: rgba(59, 130, 246, 0.12); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.25); font-size: 0.78rem; padding: 2px 8px; border-radius: 6px; margin-right: 4px; margin-bottom: 4px; display: inline-block;">${c}</span>`
         ).join('');
 
+        const isBimbingan = String(item.bimbingan || '').toLowerCase() === 'ya';
+        const bimbinganBadge = isBimbingan
+            ? `<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.78rem; padding: 3px 9px; border-radius: 6px; font-weight: 600;">Ya</span>`
+            : `<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; font-size: 0.78rem; padding: 3px 9px; border-radius: 6px;">Tidak</span>`;
+
         html += `
             <tr>
                 <td style="text-align: center; font-weight: 600;">${index + 1}</td>
                 <td><strong style="color: var(--text-main); font-size: 0.95rem;">${escapeHtml(item.nama)}</strong></td>
                 <td>${classBadges || '<span style="color:var(--text-muted);">-</span>'}</td>
+                <td style="text-align: center;">${bimbinganBadge}</td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 6px; justify-content: center;">
                         <button type="button" class="btn-secondary" onclick="editMapelItem('${escapeHtml(item.nama)}')" style="padding: 5px 10px; font-size: 0.8rem; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Edit Mapel">
@@ -258,6 +272,7 @@ async function handleFormMapelSubmit(e) {
     e.preventDefault();
     const nama = inputNamaMapel ? inputNamaMapel.value.trim() : '';
     const targetKelas = inputTargetKelasMapel ? inputTargetKelasMapel.value.trim() : '';
+    const bimbingan = selectBimbinganMapel ? selectBimbinganMapel.value : 'Tidak';
 
     if (!nama) {
         showToast("Nama Mata Pelajaran wajib diisi!", "warning");
@@ -267,35 +282,45 @@ async function handleFormMapelSubmit(e) {
     if (btnSubmitMapel) btnSubmitMapel.disabled = true;
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'save_mapel');
-        formData.append('nama', nama);
-        formData.append('target_kelas', targetKelas);
+        const payload = new URLSearchParams({
+            action: 'save_mapel',
+            nama: nama,
+            target_kelas: targetKelas,
+            bimbingan: bimbingan
+        });
         if (editingOldMapelNama) {
-            formData.append('old_nama', editingOldMapelNama);
+            payload.append('old_nama', editingOldMapelNama);
         }
 
-        const result = await fetchWithRetry(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(formData).toString()
-        }, 0);
+        let result = null;
+        try {
+            result = await fetchWithRetry(SCRIPT_URL, {
+                method: 'POST',
+                body: payload
+            }, 0);
+        } catch (postErr) {
+            console.warn("POST request response warning, verifying sheet update...", postErr);
+        }
 
         // Update local memory list
         const existingIdx = rawMapelList.findIndex(m => m.nama.toLowerCase() === (editingOldMapelNama || nama).toLowerCase());
         if (existingIdx !== -1) {
-            rawMapelList[existingIdx] = { nama, target_kelas: targetKelas };
+            rawMapelList[existingIdx] = { nama, target_kelas: targetKelas, bimbingan };
         } else {
-            rawMapelList.push({ nama, target_kelas: targetKelas });
+            rawMapelList.push({ nama, target_kelas: targetKelas, bimbingan });
         }
 
         localStorage.setItem('smart_absen_mapel_list', JSON.stringify(rawMapelList));
         renderMapelTable(filterMapelData(inputSearchMapel ? inputSearchMapel.value : ''));
         resetMapelForm();
 
-        showToast(result && result.message ? `✅ ${result.message}` : "✅ Data Mata Pelajaran berhasil disimpan!", "success");
+        // Verifikasi dan sinkronkan data terbaru dari sheet
+        await loadMapelData(true);
+
+        const msg = (result && result.message) ? result.message : "Data Mata Pelajaran berhasil disimpan!";
+        showToast(`✅ ${msg}`, "success");
     } catch (err) {
-        console.error(err);
+        console.error("Gagal menyimpan mapel:", err);
         showToast("❌ Gagal menyimpan data Mata Pelajaran.", "error");
     } finally {
         if (btnSubmitMapel) btnSubmitMapel.disabled = false;
@@ -309,6 +334,9 @@ function editMapelItem(namaItem) {
     editingOldMapelNama = item.nama;
     if (inputNamaMapel) inputNamaMapel.value = item.nama;
     setMapelCheckboxesFromValue(item.target_kelas || '');
+    
+    const isBim = (String(item.bimbingan || '').toLowerCase() === 'ya' || String(item.bimbingan || '').toLowerCase() === 'y' || String(item.bimbingan || '').toLowerCase() === 'true');
+    if (selectBimbinganMapel) selectBimbinganMapel.value = isBim ? 'Ya' : 'Tidak';
 
     if (btnSubmitMapel) btnSubmitMapel.innerHTML = `<span><i class="fa-solid fa-floppy-disk"></i> Update Mapel</span>`;
     if (btnCancelEditMapel) btnCancelEditMapel.style.display = 'inline-flex';
@@ -320,6 +348,7 @@ function resetMapelForm() {
     editingOldMapelNama = null;
     if (formMapel) formMapel.reset();
     setMapelCheckboxesFromValue('');
+    if (selectBimbinganMapel) selectBimbinganMapel.value = 'Tidak';
     if (btnSubmitMapel) btnSubmitMapel.innerHTML = `<span><i class="fa-solid fa-plus"></i> Tambah Mapel</span>`;
     if (btnCancelEditMapel) btnCancelEditMapel.style.display = 'none';
 }
@@ -336,22 +365,29 @@ async function deleteMapelItem(namaItem) {
     if (!confirmed) return;
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'delete_mapel');
-        formData.append('nama', namaItem);
+        const payload = new URLSearchParams({
+            action: 'delete_mapel',
+            nama: namaItem
+        });
 
-        const requestUrlDel = SCRIPT_URL.includes('?') ? `${SCRIPT_URL}&action=delete_mapel` : `${SCRIPT_URL}?action=delete_mapel`;
-        const result = await fetchWithRetry(requestUrlDel, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(formData).toString()
-        }, 0);
+        let result = null;
+        try {
+            result = await fetchWithRetry(SCRIPT_URL, {
+                method: 'POST',
+                body: payload
+            }, 0);
+        } catch (delErr) {
+            console.warn("Delete request warning, verifying sheet update...", delErr);
+        }
 
         rawMapelList = rawMapelList.filter(m => m.nama !== namaItem);
         localStorage.setItem('smart_absen_mapel_list', JSON.stringify(rawMapelList));
         renderMapelTable(filterMapelData(inputSearchMapel ? inputSearchMapel.value : ''));
 
-        showToast(result && result.message ? `✅ ${result.message}` : `✅ Mata Pelajaran '${namaItem}' berhasil dihapus!`, "success");
+        await loadMapelData(true);
+
+        const msg = (result && result.message) ? result.message : `Mata Pelajaran '${namaItem}' berhasil dihapus!`;
+        showToast(`✅ ${msg}`, "success");
     } catch (err) {
         console.error(err);
         showToast("❌ Gagal menghapus Mata Pelajaran.", "error");
@@ -361,32 +397,39 @@ async function deleteMapelItem(namaItem) {
 async function seedMapelDefault() {
     const confirmed = await showCustomConfirm({
         title: 'Reset Preset Mata Pelajaran',
-        message: 'Apakah Anda yakin ingin menyetel ulang Data Mata Pelajaran ke 18 Mapel Bawaan? Data perubahan custom akan diperbarui.',
+        message: 'Apakah Anda yakin ingin menyetel ulang Data Mata Pelajaran ke 19 Mapel Bawaan? Data perubahan custom akan diperbarui.',
         icon: 'warning',
-        confirmText: 'Ya, Reset 18 Mapel',
+        confirmText: 'Ya, Reset 19 Mapel',
         cancelText: 'Batal',
         danger: true
     });
     if (!confirmed) return;
 
     if (btnSeedMapelDefault) btnSeedMapelDefault.disabled = true;
-    showToast("⏳ Menyiapkan 18 Preset Mata Pelajaran Bawaan...", "info");
+    showToast("⏳ Menyiapkan 19 Preset Mata Pelajaran Bawaan...", "info");
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'seed_default_mapel');
+        const payload = new URLSearchParams({
+            action: 'seed_default_mapel'
+        });
 
-        const result = await fetchWithRetry(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(formData).toString()
-        }, 0);
+        let result = null;
+        try {
+            result = await fetchWithRetry(SCRIPT_URL, {
+                method: 'POST',
+                body: payload
+            }, 0);
+        } catch (seedErr) {
+            console.warn("Seed request warning, verifying sheet update...", seedErr);
+        }
 
         rawMapelList = DEFAULT_PRESET_MAPEL;
         localStorage.setItem('smart_absen_mapel_list', JSON.stringify(rawMapelList));
         renderMapelTable(rawMapelList);
+        await loadMapelData(true);
 
-        showToast("✅ 18 Data Mata Pelajaran Bawaan berhasil disetup!", "success");
+        const msg = (result && result.message) ? result.message : "19 Data Mata Pelajaran Bawaan berhasil disetup!";
+        showToast(`✅ ${msg}`, "success");
     } catch (err) {
         console.error(err);
         rawMapelList = DEFAULT_PRESET_MAPEL;

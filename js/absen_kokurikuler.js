@@ -860,7 +860,15 @@ function resetKokurikulerGroupForm() {
 }
 
 async function deleteKokurikulerGroup(id) {
-    if (!confirm('Apakah Anda yakin ingin menghapus kegiatan kokurikuler ini? Seluruh data anggota dan log presensi terkait akan ikut terhapus.')) return;
+    const confirmed = await showCustomConfirm({
+        title: 'Hapus Kegiatan Kokurikuler',
+        message: 'Apakah Anda yakin ingin menghapus kegiatan kokurikuler ini? Seluruh data anggota dan log presensi terkait akan ikut terhapus.',
+        icon: 'danger',
+        confirmText: 'Ya, Hapus',
+        cancelText: 'Batal',
+        danger: true
+    });
+    if (!confirmed) return;
 
     try {
         const res = await fetchWithRetry(SCRIPT_URL, {

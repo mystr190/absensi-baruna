@@ -21,6 +21,7 @@ const modalIdTelegram = document.getElementById('modalIdTelegram');
 const modalPassword = document.getElementById('modalPassword');
 const modalNama = document.getElementById('modalNama');
 const modalRole = document.getElementById('modalRole');
+const modalMapel = document.getElementById('modalMapel');
 const modalWaliKelas = document.getElementById('modalWaliKelas');
 const modalTugasPiket = document.getElementById('modalTugasPiket');
 
@@ -70,11 +71,54 @@ function populateWaliKelasOptions(selectedClass = '-') {
     modalWaliKelas.value = selectedClass || '-';
 }
 
+function populateMapelOptions(selectedMapel = '-') {
+    if (!modalMapel) return;
+
+    let mapelList = window.rawMapelList || [];
+    if (!mapelList || mapelList.length === 0) {
+        try {
+            mapelList = JSON.parse(localStorage.getItem('smart_absen_mapel_cache') || '[]');
+        } catch (e) {
+            mapelList = [];
+        }
+    }
+
+    let mapelNames = mapelList.map(m => typeof m === 'string' ? m : (m.nama || m.nama_mapel)).filter(Boolean);
+
+    if (mapelNames.length === 0) {
+        mapelNames = [
+            'Informatika', 'IT Preneur', 'Geografi', 'Pendidikan Agama Islam', 
+            'Bahasa Indonesia', 'Ekonomi', 'PJOK', 'Bahasa Jerman', 'Sosiologi', 
+            'Matematika', 'Matematika TL', 'Kimia', 'Pendidikan Pancasila', 
+            'Bahasa Inggris', 'Fisika', 'Seni Rupa', 'Sejarah', 'Biologi', 
+            'Bimbingan Konseling (BK)'
+        ];
+    }
+
+    mapelNames = [...new Set(mapelNames)].sort();
+
+    if (selectedMapel && selectedMapel !== '-' && !mapelNames.some(m => m.toLowerCase() === selectedMapel.toLowerCase())) {
+        mapelNames.push(selectedMapel);
+        mapelNames.sort();
+    }
+
+    let html = `<option value="-">Bukan Guru Mapel / -</option>`;
+    mapelNames.forEach(m => {
+        const isSel = String(selectedMapel).trim().toLowerCase() === m.toLowerCase() ? 'selected' : '';
+        html += `<option value="${m}" ${isSel}>${m}</option>`;
+    });
+
+    modalMapel.innerHTML = html;
+    modalMapel.value = selectedMapel || '-';
+}
+
 function openUserModal(user = null) {
     if (!modalUser) return;
     
     const targetWali = user ? (user.wali_kelas || '-') : '-';
+    const targetMapel = user ? (user.mapel || '-') : '-';
     populateWaliKelasOptions(targetWali);
+    populateMapelOptions(targetMapel);
 
     if (user) {
         if (modalUserTitle) modalUserTitle.innerText = "Edit Data Pengguna / Guru";
@@ -145,6 +189,7 @@ function filterAndRenderUsers() {
         const username = String(u.username || '').toLowerCase();
         const nama = String(u.nama || '').toLowerCase();
         const role = String(u.role || '').toLowerCase();
+        const mapel = String(u.mapel || '').toLowerCase();
         const wali = String(u.wali_kelas || '').toLowerCase();
         const piket = String(u.tugas_piket || '').toLowerCase();
         const idMesin = String(u.id_mesin || '').toLowerCase();
@@ -153,6 +198,7 @@ function filterAndRenderUsers() {
         return username.includes(query) ||
                nama.includes(query) ||
                role.includes(query) ||
+               mapel.includes(query) ||
                wali.includes(query) ||
                piket.includes(query) ||
                idMesin.includes(query) ||
@@ -171,7 +217,7 @@ function renderUserTable(users) {
         const emptyText = query 
             ? `Tidak ada pengguna yang cocok dengan pencarian "<strong>${escapeHtml(query)}</strong>".`
             : 'Belum ada data pengguna.';
-        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 25px; color: var(--text-muted);"><i class="fa-solid fa-user-slash" style="font-size: 1.5rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>${emptyText}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 25px; color: var(--text-muted);"><i class="fa-solid fa-user-slash" style="font-size: 1.5rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>${emptyText}</td></tr>`;
         return;
     }
 
@@ -184,6 +230,10 @@ function renderUserTable(users) {
             : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
         const idTelegramDisplay = u.id_telegram 
             ? `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-family: monospace; font-size: 0.85rem;"><i class="fa-brands fa-telegram"></i> ${u.id_telegram}</span>`
+            : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
+
+        const mapelDisplay = (u.mapel && u.mapel !== '-') 
+            ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.82rem;"><i class="fa-solid fa-book-open"></i> ${u.mapel}</span>`
             : `<span style="color: var(--text-muted); font-size: 0.82rem;">-</span>`;
         
         const waliKelasDisplay = (u.wali_kelas && u.wali_kelas !== '-') 
@@ -202,6 +252,7 @@ function renderUserTable(users) {
                 <td style="text-align:center;">${idMesinDisplay}</td>
                 <td style="text-align:center;">${idTelegramDisplay}</td>
                 <td style="text-align:center;"><span class="badge" style="${roleBadge}">${u.role}</span></td>
+                <td style="text-align:center;">${mapelDisplay}</td>
                 <td style="text-align:center;">${waliKelasDisplay}</td>
                 <td style="text-align:center;">${piketDisplay}</td>
                 <td style="text-align:center;">
@@ -268,6 +319,7 @@ if (formUserModal) {
         const password = modalPassword ? modalPassword.value.trim() : '';
         const nama = modalNama ? modalNama.value.trim() : '';
         const role = modalRole ? modalRole.value : 'Guru';
+        const mapel = modalMapel ? modalMapel.value : '-';
         const tugas_piket = modalTugasPiket ? modalTugasPiket.value : '-';
 
         if (!username || !nama) {
@@ -305,6 +357,7 @@ if (formUserModal) {
             if (password) formData.append('password', password);
             formData.append('nama', nama);
             formData.append('role', role);
+            formData.append('mapel', mapel);
             formData.append('wali_kelas', modalWaliKelas ? modalWaliKelas.value : '-');
             formData.append('tugas_piket', tugas_piket);
 

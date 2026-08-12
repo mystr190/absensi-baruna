@@ -308,6 +308,225 @@ function renderStudentPersonalDashboard(serverLogs, loggedUser) {
     }
 
     renderChartStudentPersonalTimeline(myLogs);
+
+    // Determine student class & check if in Grade XII
+    let studentKelas = String(loggedUser ? (loggedUser.kelas || loggedUser.rombel || loggedUser.Kelas || '') : '').trim();
+    if (!studentKelas) {
+        try {
+            const rawMaster = localStorage.getItem('smart_absen_master_siswa');
+            if (rawMaster) {
+                const masterList = JSON.parse(rawMaster);
+                const matched = masterList.find(s => {
+                    const nisn = String(s.nisn || '').trim().toLowerCase();
+                    const nis = String(s.nis || '').trim().toLowerCase();
+                    const nama = String(s.nama || '').trim().toLowerCase();
+                    if (uNisn && (nisn === uNisn || nis === uNisn)) return true;
+                    if (uNis && (nisn === uNis || nis === uNis)) return true;
+                    if (uName && (nisn === uName || nis === uName)) return true;
+                    if (uNama && nama && (nama === uNama || nama.includes(uNama))) return true;
+                    return false;
+                });
+                if (matched) {
+                    studentKelas = String(matched.kelas || matched.rombel || matched.Kelas || '').trim();
+                }
+            }
+        } catch(e){}
+    }
+
+    const isGradeXII = /XII|12/i.test(studentKelas);
+    const bimbelCard = document.getElementById('siswaBimbelOverviewCard');
+
+    if (isGradeXII) {
+        if (bimbelCard) bimbelCard.style.display = 'block';
+        renderStudentBimbelDashboard(loggedUser);
+    } else {
+        if (bimbelCard) bimbelCard.style.display = 'none';
+    }
+}
+
+let chartStudentBimbelTimeline = null;
+
+function renderStudentBimbelDashboard(loggedUser) {
+    let bimbelSiswaLogsList = [];
+    try {
+        const cachedBimbel = localStorage.getItem('smart_absen_bimbel_cache');
+        if (cachedBimbel) {
+            const parsed = JSON.parse(cachedBimbel);
+            if (parsed && Array.isArray(parsed.siswaLogs)) {
+                bimbelSiswaLogsList = parsed.siswaLogs;
+            }
+        }
+    } catch(e){}
+
+    if (bimbelSiswaLogsList.length === 0 && typeof bimbelSiswaLogs !== 'undefined' && Array.isArray(bimbelSiswaLogs)) {
+        bimbelSiswaLogsList = bimbelSiswaLogs;
+    }
+
+    const uName = String(loggedUser ? loggedUser.username || '' : '').trim().toLowerCase();
+    const uNisn = String(loggedUser ? loggedUser.nisn || '' : '').trim().toLowerCase();
+    const uNis = String(loggedUser ? loggedUser.nis || '' : '').trim().toLowerCase();
+    const uNama = String(loggedUser ? loggedUser.nama || '' : '').trim().toLowerCase();
+
+    const myBimbelLogs = bimbelSiswaLogsList.filter(l => {
+        const nisn = String(l.nisn || '').trim().toLowerCase();
+        const nis = String(l.nis || '').trim().toLowerCase();
+        const nama = String(l.nama || '').trim().toLowerCase();
+
+        if (uNisn && (nisn === uNisn || nis === uNisn)) return true;
+        if (uNis && (nisn === uNis || nis === uNis)) return true;
+        if (uName && (nisn === uName || nis === uName)) return true;
+        if (uNama && nama && (nama === uNama || nama.includes(uNama) || uNama.includes(nama))) return true;
+        return false;
+    });
+
+    // Urutkan kronologis dari awal bimbingan s/d tanggal login saat ini
+    myBimbelLogs.sort((a, b) => new Date(a.tanggal || 0) - new Date(b.tanggal || 0));
+
+    let bHadir = 0, bSakit = 0, bIzin = 0, bAlpa = 0;
+    myBimbelLogs.forEach(l => {
+        const st = String(l.status || '').trim().toUpperCase();
+        if (st === 'HADIR' || st === 'H') bHadir++;
+        else if (st === 'SAKIT' || st === 'S') bSakit++;
+        else if (st === 'IZIN' || st === 'I') bIzin++;
+        else if (st === 'ALPA' || st === 'A') bAlpa++;
+        else bHadir++;
+    });
+
+    const totalBimbel = myBimbelLogs.length;
+    const bPerc = totalBimbel > 0 ? Math.round((bHadir / totalBimbel) * 100) : 0;
+
+    const elBHadir = document.getElementById('studentBimbelHadir');
+    const elBSakit = document.getElementById('studentBimbelSakit');
+    const elBIzin = document.getElementById('studentBimbelIzin');
+    const elBAlpa = document.getElementById('studentBimbelAlpa');
+    const elBPerc = document.getElementById('studentBimbelPercentage');
+    const elBBadgeRange = document.getElementById('studentBimbelDateRangeBadge');
+
+    if (elBHadir) elBHadir.innerText = bHadir;
+    if (elBSakit) elBSakit.innerText = bSakit;
+    if (elBIzin) elBIzin.innerText = bIzin;
+    if (elBAlpa) elBAlpa.innerText = bAlpa;
+    if (elBPerc) elBPerc.innerText = bPerc + '%';
+
+    if (elBBadgeRange) {
+        if (myBimbelLogs.length > 0) {
+            const startDate = myBimbelLogs[0].tanggal || '-';
+            const endDate = myBimbelLogs[myBimbelLogs.length - 1].tanggal || '-';
+            elBBadgeRange.innerText = `Periode Bimbingan: ${startDate} s/d ${endDate}`;
+        } else {
+            elBBadgeRange.innerText = `Periode Bimbingan: Belum Ada Presensi`;
+        }
+    }
+
+    renderChartStudentBimbelTimeline(myBimbelLogs);
+}
+
+function renderChartStudentBimbelTimeline(myBimbelLogs) {
+    const ctx = document.getElementById('chartStudentBimbelTimeline');
+    if (!ctx) return;
+
+    if (chartStudentBimbelTimeline) chartStudentBimbelTimeline.destroy();
+
+    const labels = [];
+    const dataValues = [];
+    const pointColors = [];
+    const mapelList = [];
+
+    if (!myBimbelLogs || myBimbelLogs.length === 0) {
+        labels.push('Belum Ada Presensi');
+        dataValues.push(0);
+        pointColors.push('#94a3b8');
+        mapelList.push('');
+    } else {
+        myBimbelLogs.forEach(l => {
+            const tglShort = l.tanggal ? l.tanggal : 'Tgl';
+            const sesiLbl = l.sesi ? `(${l.sesi})` : '';
+            labels.push(`${tglShort} ${sesiLbl}`);
+            mapelList.push(l.mapel ? `${l.mapel} (${l.guru || ''})` : 'Bimbingan TKA/UTBK');
+
+            const st = String(l.status || '').trim().toUpperCase();
+            if (st === 'HADIR' || st === 'H') {
+                dataValues.push(100);
+                pointColors.push('#38bdf8');
+            } else if (st === 'SAKIT' || st === 'S') {
+                dataValues.push(66);
+                pointColors.push('#fbbf24');
+            } else if (st === 'IZIN' || st === 'I') {
+                dataValues.push(33);
+                pointColors.push('#60a5fa');
+            } else if (st === 'ALPA' || st === 'A') {
+                dataValues.push(0);
+                pointColors.push('#f87171');
+            } else {
+                dataValues.push(100);
+                pointColors.push('#38bdf8');
+            }
+        });
+    }
+
+    chartStudentBimbelTimeline = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Kehadiran Bimbingan TKA/UTBK',
+                data: dataValues,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                pointBackgroundColor: pointColors,
+                pointBorderColor: pointColors,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                fill: true,
+                tension: 0.35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            const idx = context[0].dataIndex;
+                            return labels[idx] + ' - ' + (mapelList[idx] || '');
+                        },
+                        label: function(context) {
+                            const val = context.raw;
+                            if (val === 100) return ' Status Bimbel: HADIR';
+                            if (val === 66) return ' Status Bimbel: SAKIT';
+                            if (val === 33) return ' Status Bimbel: IZIN';
+                            if (val === 0) return ' Status Bimbel: ALPA';
+                            return ' Status: Belum Ada Data';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: getChartSubTextColor() },
+                    grid: { color: getChartGridColor() }
+                },
+                y: {
+                    min: 0,
+                    max: 110,
+                    ticks: {
+                        color: getChartSubTextColor(),
+                        stepSize: 33,
+                        callback: function(value) {
+                            if (value === 100) return 'Hadir (100%)';
+                            if (value === 66) return 'Sakit (66%)';
+                            if (value === 33) return 'Izin (33%)';
+                            if (value === 0) return 'Alpa (0%)';
+                            return '';
+                        }
+                    },
+                    grid: { color: getChartGridColor() }
+                }
+            }
+        }
+    });
 }
 
 function renderChartStudentPersonalTimeline(myLogs) {

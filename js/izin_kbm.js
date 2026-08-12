@@ -209,14 +209,12 @@ async function handleFormEduIzinSubmit(e) {
         return;
     }
 
-    const confirmed = typeof showCustomConfirm === 'function' 
-        ? await showCustomConfirm({
-            title: 'Konfirmasi Permohonan Izin',
-            message: 'Apakah Anda yakin ingin mengirim permohonan izin KBM ini?',
-            icon: 'info',
-            confirmText: 'Ya, Kirim'
-        })
-        : confirm('Apakah Anda yakin ingin mengirim permohonan izin ini?');
+    const confirmed = await showCustomConfirm({
+        title: 'Konfirmasi Permohonan Izin',
+        message: 'Apakah Anda yakin ingin mengirim permohonan izin KBM ini?',
+        icon: 'info',
+        confirmText: 'Ya, Kirim'
+    });
 
     if (!confirmed) return;
 
@@ -572,15 +570,13 @@ async function approveBulkEduIzin(tipe, btnEl) {
     const confirmTitle = tipe === 'guru' ? 'Konfirmasi Persetujuan Massal' : 'Konfirmasi Cetak PDF Massal';
     const confirmMsg = `Apakah Anda yakin ingin menyetujui ${ids.length} permohonan izin KBM sekaligus?`;
 
-    const confirmed = typeof showCustomConfirm === 'function'
-        ? await showCustomConfirm({
-            title: confirmTitle,
-            message: confirmMsg,
-            icon: 'question',
-            confirmText: 'Ya, Setujui Semua',
-            cancelText: 'Batal'
-        })
-        : confirm(confirmMsg);
+    const confirmed = await showCustomConfirm({
+        title: confirmTitle,
+        message: confirmMsg,
+        icon: 'question',
+        confirmText: 'Ya, Setujui Semua',
+        cancelText: 'Batal'
+    });
 
     if (!confirmed) return;
 
@@ -706,15 +702,13 @@ async function approveEduIzin(id, tipe, btnEl) {
         ? "Apakah Anda yakin ingin menyetujui permohonan izin siswa ini?" 
         : "Apakah Anda yakin ingin menyetujui izin ini dan memproses penerbitan Surat Izin PDF resmi?";
     
-    const confirmed = typeof showCustomConfirm === 'function'
-        ? await showCustomConfirm({
-            title: confirmTitle,
-            message: confirmMsg,
-            icon: 'question',
-            confirmText: tipe === 'guru' ? 'Ya, Setujui Izin' : 'Ya, Setujui & Cetak PDF',
-            cancelText: 'Batal'
-        })
-        : confirm(confirmMsg);
+    const confirmed = await showCustomConfirm({
+        title: confirmTitle,
+        message: confirmMsg,
+        icon: 'question',
+        confirmText: tipe === 'guru' ? 'Ya, Setujui Izin' : 'Ya, Setujui & Cetak PDF',
+        cancelText: 'Batal'
+    });
 
     if (!confirmed) return;
 

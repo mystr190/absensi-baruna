@@ -192,6 +192,7 @@ function showApp(user) {
     const navApprovalIzinSiswa = document.getElementById('nav-approval-izin-siswa');
     const navKokurikuler = document.getElementById('nav-kokurikuler');
     const navKelolaKokurikuler = document.getElementById('nav-kelola-kokurikuler');
+    const navBimbelUtbk = document.getElementById('nav-bimbel-utbk');
 
     const navScan = document.querySelector('.sidebar-nav .nav-item[data-target="panel-scan"]');
     const navRekap = document.querySelector('.sidebar-nav .nav-item[data-target="panel-dashboard"]');
@@ -212,6 +213,7 @@ function showApp(user) {
     if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex'; // Default for Guru
     if (navKokurikuler) navKokurikuler.style.display = 'flex'; // Visible for Guru & Admin
     if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'none';
+    if (navBimbelUtbk) navBimbelUtbk.style.display = 'flex'; // Visible for Guru, Kepsek, Admin
 
     if (navScan) navScan.style.display = 'flex';
     if (navRekap) navRekap.style.display = 'flex';
@@ -253,6 +255,7 @@ function showApp(user) {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'none';
         if (navKokurikuler) navKokurikuler.style.display = 'none';
         if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'none';
+        if (navBimbelUtbk) navBimbelUtbk.style.display = 'none';
         if (navIzinSiswa) navIzinSiswa.style.display = 'flex';
         if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'none';
 
@@ -414,6 +417,8 @@ navItems.forEach(nav => {
         } else if (nav.dataset.target === 'panel-kokurikuler' || nav.dataset.target === 'panel-kelola-kokurikuler') {
             if(typeof fetchKokurikulerData === 'function') fetchKokurikulerData();
             else if(typeof loadKokurikulerData === 'function') loadKokurikulerData();
+        } else if (nav.dataset.target === 'panel-bimbel-utbk') {
+            if(typeof loadBimbelData === 'function') loadBimbelData();
         } else if (nav.dataset.target === 'panel-profile') {
             renderSelfProfilePanel();
         }

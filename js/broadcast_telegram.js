@@ -194,7 +194,7 @@ async function initBroadcastTelegramModule() {
                     const opt = document.createElement('option');
                     opt.value = s.nis || s.nisn;
                     const hasTg = Boolean(s.id_telegram && String(s.id_telegram).trim());
-                    opt.textContent = `${s.nama} (${s.kelas || '-'}) ${hasTg ? '✅ [Telegram]' : '❌ [Belum Ada ID]'}`;
+                    opt.textContent = `${s.nama} (${s.kelas || '-'}) ${hasTg ? '[Telegram OK]' : '[Belum Ada Telegram]'}`;
                     targetValueSelect.appendChild(opt);
                 });
             }
@@ -215,7 +215,7 @@ async function initBroadcastTelegramModule() {
                     opt.value = u.username || u.id;
                     const name = u.nama || u.namaLengkap || u.username;
                     const hasTg = Boolean(u.id_telegram && String(u.id_telegram).trim());
-                    opt.textContent = `${name} [${u.role || 'User'}] ${hasTg ? '✅ [Telegram]' : '❌ [Belum Ada ID]'}`;
+                    opt.textContent = `${name} [${u.role || 'User'}] ${hasTg ? '[Telegram OK]' : '[Belum Ada Telegram]'}`;
                     targetValueSelect.appendChild(opt);
                 });
             }
@@ -262,10 +262,10 @@ async function initBroadcastTelegramModule() {
         if (badgeReachCounter) {
             if (telegramCount > 0) {
                 badgeReachCounter.style.background = 'linear-gradient(135deg, #0284c7, #2563eb)';
-                badgeReachCounter.textContent = `⚡ ${telegramCount} Terjangkau Telegram (dari ${totalTarget} Total Target)`;
+                badgeReachCounter.innerHTML = `<i class="fa-solid fa-bolt" style="margin-right: 6px;"></i> ${telegramCount} Terjangkau Telegram (dari ${totalTarget} Total Target)`;
             } else {
                 badgeReachCounter.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-                badgeReachCounter.textContent = `⚠️ 0 Penerima Ber-ID Telegram (dari ${totalTarget} Total Target)`;
+                badgeReachCounter.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i> 0 Penerima Ber-ID Telegram (dari ${totalTarget} Total Target)`;
             }
         }
     }

@@ -2,7 +2,21 @@
 // MODUL ABSEN GURU MANUAL, PENGAJUAN IZIN & APPROVAL KEPALA SEKOLAH
 // ==========================================
 
-let localLogAbsenGuru = JSON.parse(localStorage.getItem('smart_absen_log_guru') || '[]');
+function sanitizeLogGuruStatus(list) {
+    if (!Array.isArray(list)) return [];
+    const roles = ['guru', 'tata usaha', 'kepala sekolah', 'admin', 'siswa'];
+    list.forEach(item => {
+        if (item && item.status) {
+            const st = String(item.status).trim().toLowerCase();
+            if (roles.includes(st)) {
+                item.status = 'HADIR';
+            }
+        }
+    });
+    return list;
+}
+
+let localLogAbsenGuru = sanitizeLogGuruStatus(JSON.parse(localStorage.getItem('smart_absen_log_guru') || '[]'));
 let localPengajuanIzin = JSON.parse(localStorage.getItem('smart_absen_pengajuan_izin') || '[]');
 let isEditAbsenGuruBatchMode = false;
 
@@ -476,15 +490,13 @@ async function approveIzinKepsek(id, btnEl) {
     const item = localPengajuanIzin[itemIndex];
     const targetNama = item.nama || 'Guru';
 
-    const confirmed = typeof showCustomConfirm === 'function'
-        ? await showCustomConfirm({
-            title: 'Konfirmasi Persetujuan Kepala Sekolah',
-            message: `Apakah Anda yakin ingin MENYETUJUI pengajuan izin dari "${targetNama}"?`,
-            icon: 'question',
-            confirmText: 'Ya, Setujui',
-            cancelText: 'Batal'
-        })
-        : confirm(`Apakah Anda yakin ingin MENYETUJUI pengajuan izin dari "${targetNama}"?`);
+    const confirmed = await showCustomConfirm({
+        title: 'Konfirmasi Persetujuan Kepala Sekolah',
+        message: `Apakah Anda yakin ingin MENYETUJUI pengajuan izin dari "${targetNama}"?`,
+        icon: 'question',
+        confirmText: 'Ya, Setujui',
+        cancelText: 'Batal'
+    });
 
     if (!confirmed) return;
 
@@ -541,16 +553,14 @@ async function rejectIzinKepsek(id, btnEl) {
 
     const targetNama = localPengajuanIzin[itemIndex].nama || 'Guru';
 
-    const confirmed = typeof showCustomConfirm === 'function'
-        ? await showCustomConfirm({
-            title: 'Konfirmasi Penolakan Kepala Sekolah',
-            message: `Apakah Anda yakin ingin MENOLAK pengajuan izin dari "${targetNama}"?`,
-            icon: 'danger',
-            confirmText: 'Ya, Tolak',
-            cancelText: 'Batal',
-            danger: true
-        })
-        : confirm(`Apakah Anda yakin ingin MENOLAK pengajuan izin dari "${targetNama}"?`);
+    const confirmed = await showCustomConfirm({
+        title: 'Konfirmasi Penolakan Kepala Sekolah',
+        message: `Apakah Anda yakin ingin MENOLAK pengajuan izin dari "${targetNama}"?`,
+        icon: 'danger',
+        confirmText: 'Ya, Tolak',
+        cancelText: 'Batal',
+        danger: true
+    });
 
     if (!confirmed) return;
 
@@ -1132,7 +1142,7 @@ async function syncAbsenGuruDataFromServer(clickedBtn) {
         ]);
 
         if (resGuru && resGuru.status === 'success' && Array.isArray(resGuru.data)) {
-            localLogAbsenGuru = resGuru.data;
+            localLogAbsenGuru = sanitizeLogGuruStatus(resGuru.data);
             localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
         }
 
@@ -1169,7 +1179,7 @@ async function syncAbsenGuruDataFromServer(clickedBtn) {
 // Expose fungsi ke Window agar bisa dipanggil dari main.js / auth.js
 window.updateAbsenGuruMasterData = function(absenGuruData, pengajuanIzinData) {
     if (Array.isArray(absenGuruData) && absenGuruData.length > 0) {
-        localLogAbsenGuru = absenGuruData;
+        localLogAbsenGuru = sanitizeLogGuruStatus(absenGuruData);
         localStorage.setItem('smart_absen_log_guru', JSON.stringify(localLogAbsenGuru));
     }
     if (Array.isArray(pengajuanIzinData) && pengajuanIzinData.length > 0) {
