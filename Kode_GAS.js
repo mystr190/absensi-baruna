@@ -5018,12 +5018,23 @@ function getWaliKelasForClass(ss, namaKelas) {
 
 function handleGetIzinSiswa() {
   try {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'izin_siswa_cache_v2';
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      try { return jsonResponse('success', 'Berhasil mengambil log izin siswa', JSON.parse(cached)); } catch(e) {}
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = getOrCreateIzinSiswaSheet(ss);
     const data = [];
     
     if (sheet.getLastRow() > 1) {
-      const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+      const lastRow = sheet.getLastRow();
+      const startRow = Math.max(2, lastRow - 300);
+      const numRows = lastRow - startRow + 1;
+      const rows = sheet.getRange(startRow, 1, numRows, 14).getValues();
+
       for (let i = rows.length - 1; i >= 0; i--) { // Reverse for newest first
         const r = rows[i];
         if (!r[0]) continue;
@@ -5046,10 +5057,18 @@ function handleGetIzinSiswa() {
       }
     }
     
+    try { cache.put(cacheKey, JSON.stringify(data), 1800); } catch(e) {}
     return jsonResponse('success', 'Berhasil mengambil log izin siswa', data);
   } catch (err) {
     return jsonResponse('error', 'Gagal mengambil log izin siswa: ' + err.toString());
   }
+}
+
+function invalidateIzinSiswaCache() {
+  try {
+    const cache = CacheService.getScriptCache();
+    cache.remove('izin_siswa_cache_v2');
+  } catch (e) {}
 }
 
 function handleAddPengajuanIzinSiswa(dataObj) {
@@ -5160,6 +5179,7 @@ function handleAddPengajuanIzinSiswa(dataObj) {
       sendTelegramNotification(walasTgId, msgWalas);
     }
 
+    invalidateIzinSiswaCache();
     return jsonResponse('success', 'Pengajuan izin siswa berhasil disimpan & notifikasi dikirim', {
       id: id,
       waliKelas: waliKelas,
@@ -5320,6 +5340,7 @@ function handleApproveIzinSiswa(id, approverName, approverRole) {
       sendTelegramNotification(walasTgId, msgWalas);
     }
 
+    invalidateIzinSiswaCache();
     return jsonResponse('success', `Berhasil menyetujui izin ${nama} & presensi terisi otomatis`, {
       id: id,
       status: 'Disetujui',
@@ -5420,6 +5441,7 @@ function handleRejectIzinSiswa(id, approverName, approverRole) {
       sendTelegramNotification(walasTgId, msgWalas);
     }
 
+    invalidateIzinSiswaCache();
     return jsonResponse('success', `Pengajuan izin ${nama} ditolak`, {
       id: id,
       status: 'Ditolak',
