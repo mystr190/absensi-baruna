@@ -47,11 +47,8 @@ function doGet(e) {
     else if (action === 'login') {
       return handleLogin(e.parameter.username, e.parameter.password);
     }
-    else if (action === 'get_students') {
-      return handleGetStudents(e.parameter.kelas, e.parameter.tanggal);
-    }
-    else if (action === 'get_all_master_data') {
-      return handleGetAllMasterData();
+    else if (action === 'get_auth_master' || action === 'get_all_master_data') {
+      return handleGetAuthMaster();
     }
     else if (action === 'absen_bulk') {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal);
@@ -132,7 +129,7 @@ function doGet(e) {
       return handleSeedDefaultKelas();
     }
     else if (action === 'get_students') {
-      return handleGetStudents();
+      return handleGetStudents(e.parameter ? e.parameter.kelas : null, e.parameter ? e.parameter.tanggal : null);
     }
     else if (action === 'add_student') {
       return handleAddStudent(e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender, e.parameter.id_mesin);
@@ -432,7 +429,7 @@ function doPost(e) {
       return handleSyncDeviceUsers();
     }
     else if (action === 'get_students') {
-      return handleGetStudents();
+      return handleGetStudents(e.parameter ? e.parameter.kelas : null, e.parameter ? e.parameter.tanggal : null);
     }
     else if (action === 'add_student') {
       return handleAddStudent(e.parameter.nisn, e.parameter.nis, e.parameter.nama, e.parameter.kelas, e.parameter.gender, e.parameter.id_mesin, e.parameter.id_telegram);
@@ -637,8 +634,11 @@ function getUsersFromCacheOrSheet(skipCache) {
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ensureDatabaseSetup();
-  const sheet = ss.getSheetByName(SHEET_USERS);
+  let sheet = ss.getSheetByName(SHEET_USERS);
+  if (!sheet) {
+    ensureDatabaseSetup();
+    sheet = ss.getSheetByName(SHEET_USERS);
+  }
   if (!sheet) return [];
 
   // Build Wali Kelas lookup dynamically from DataKelas (Single Source of Truth)
@@ -722,7 +722,7 @@ function getUsersFromCacheOrSheet(skipCache) {
   }
 
   try {
-    cache.put(cacheKey, JSON.stringify(users), 1800);
+    cache.put(cacheKey, JSON.stringify(users), 21600);
   } catch (cErr) {}
 
   return users;
@@ -769,10 +769,19 @@ function getStudentsFromCacheOrSheet(skipCache) {
   }
 
   try {
-    cache.put(cacheKey, JSON.stringify(students), 1800);
+    cache.put(cacheKey, JSON.stringify(students), 21600);
   } catch (cErr) {}
 
   return students;
+}
+
+function handleGetAuthMaster() {
+  const users = getUsersFromCacheOrSheet();
+  const students = getStudentsFromCacheOrSheet();
+  return jsonResponse('success', 'Auth master data', {
+    users: users,
+    students: students
+  });
 }
 
 function handleLogin(username, password) {
@@ -1410,8 +1419,9 @@ function handleDeleteUser(username) {
 
 // Helper Ambil Data Siswa Per-Kelas (RAM Cache per Kelas ~1-2KB, Ultra Fast & Safe)
 function getStudentsForClass(ss, normTargetKelas, rawTargetKelas) {
+  const isAll = !normTargetKelas || normTargetKelas === 'semua' || normTargetKelas === 'all';
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'students_cls_' + normTargetKelas;
+  const cacheKey = 'students_cls_' + (isAll ? 'all' : normTargetKelas);
   const cachedData = cache.get(cacheKey);
 
   if (cachedData) {
@@ -1434,7 +1444,7 @@ function getStudentsForClass(ss, normTargetKelas, rawTargetKelas) {
     if (!nama) continue;
 
     const k = String(dataSiswa[i][3] || '').trim().toLowerCase();
-    if (k === rawTargetKelas || k.replace(/[\s\-]/g, '') === normTargetKelas) {
+    if (isAll || k === rawTargetKelas || k.replace(/[\s\-]/g, '') === normTargetKelas) {
       const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
       const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
       let rawNisn = String(dataSiswa[i][0] || '').trim();
@@ -1446,7 +1456,9 @@ function getStudentsForClass(ss, normTargetKelas, rawTargetKelas) {
         nis: String(dataSiswa[i][1] || '').trim(),
         nama: nama,
         kelas: String(dataSiswa[i][3] || ''),
-        gender: gender
+        gender: gender,
+        id_mesin: String(dataSiswa[i][5] || '').trim(),
+        id_telegram: String(dataSiswa[i][6] || '').trim()
       });
     }
   }
@@ -2046,6 +2058,24 @@ function handleDeleteAttendanceByDateAndClass(tanggal, targetKelas) {
 
 // === ACCURATE & FULL GET REPORT (Fast Date Formatting) ===
 function handleGetReport(bulanFilter, kelasFilter, tanggalFilter) {
+  const targetBulan = String(bulanFilter || 'Semua').trim();
+  const rawKelas = String(kelasFilter || 'Semua').trim().toLowerCase();
+  let targetTanggal = String(tanggalFilter || '').trim();
+
+  if (targetTanggal === 'today' || targetTanggal === 'Hari Ini') {
+    targetTanggal = getFormattedDate(new Date());
+  }
+
+  // Check CacheService for fast response (< 30ms)
+  const cacheKey = `rpt_${targetBulan}_${rawKelas}_${targetTanggal}`.replace(/[\s\-\/\:\,]/g, '_').substring(0, 50);
+  const cache = CacheService.getScriptCache();
+  try {
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return jsonResponse('success', 'Data ditarik (Cache)', JSON.parse(cachedData));
+    }
+  } catch (cErr) {}
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   if (!sheetLog) return jsonResponse('error', 'Sheet LogAbsen tidak ditemukan.');
@@ -2053,14 +2083,6 @@ function handleGetReport(bulanFilter, kelasFilter, tanggalFilter) {
   const lastRow = sheetLog.getLastRow();
   if (lastRow <= 1) {
     return jsonResponse('success', 'Data ditarik', []);
-  }
-
-  const targetBulan = String(bulanFilter || 'Semua').trim();
-  const rawKelas = String(kelasFilter || 'Semua').trim().toLowerCase();
-  let targetTanggal = String(tanggalFilter || '').trim();
-
-  if (targetTanggal === 'today' || targetTanggal === 'Hari Ini') {
-    targetTanggal = getFormattedDate(new Date());
   }
 
   const startRow = 2;
@@ -2108,6 +2130,15 @@ function handleGetReport(bulanFilter, kelasFilter, tanggalFilter) {
       }
     }
   }
+
+  // Cache response if payload is small enough (< 90KB)
+  try {
+    const jsonStr = JSON.stringify(result);
+    if (jsonStr.length < 90000) {
+      cache.put(cacheKey, jsonStr, 900); // 15 menit
+    }
+  } catch (putErr) {}
+
   return jsonResponse('success', 'Data ditarik', result);
 }
 
@@ -3204,7 +3235,7 @@ function ensureStudentGenderColumn(sheetSiswa) {
   }
 }
 
-function handleGetStudents() {
+function handleGetMasterStudents() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
   let students = [];

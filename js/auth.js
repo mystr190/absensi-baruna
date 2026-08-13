@@ -395,9 +395,9 @@ if (formLogin) {
         try {
             let userMatch = checkLocalCredential();
 
-            // Jika cache belum ada, tunggu sebentar jika background preload sedang berjalan
+            // Jika cache belum ada, tunggu hingga background preload selesai (max 3.5 detik)
             if (!userMatch && authPreloadPromise) {
-                await Promise.race([authPreloadPromise, new Promise(r => setTimeout(r, 600))]);
+                await Promise.race([authPreloadPromise, new Promise(r => setTimeout(r, 3500))]);
                 userMatch = checkLocalCredential();
             }
 
@@ -410,9 +410,6 @@ if (formLogin) {
                 if (btn) btn.disabled = false;
                 if (text) text.style.display = 'inline-block';
                 if (loader) loader.style.display = 'none';
-
-                // Background verify & sync
-                fetch(`${SCRIPT_URL}?action=login&username=${encodeURIComponent(usernameInput)}&password=${encodeURIComponent(passwordInput)}`).catch(()=>{});
                 return;
             }
         } catch(e) {
