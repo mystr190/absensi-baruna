@@ -295,7 +295,7 @@ async function autoLoadStudents() {
         }
     });
 
-    if (nonAutoLogsCount > 0 || (filteredStudents.length > 0 && totalLogsCount >= filteredStudents.length)) {
+    if (nonAutoLogsCount > 0 || totalLogsCount > 0 || Object.keys(todayStatusMap).length > 0) {
         alreadySubmitted = true;
     }
 
