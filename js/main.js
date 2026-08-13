@@ -326,91 +326,107 @@ async function autoLoadStudents() {
         }
         showToast(`Tidak ada data siswa ditemukan untuk kelas ${kelas}.`, 'warning');
     } else {
-        const lockInputs = isFutureDate || (currentAlreadySubmitted && !isEditAttendanceMode);
-        renderStudentList(currentStudents, lockInputs, currentTodayStatus, window.currentAutoIzinMap);
+        updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, submittedBy, submittedTime);
 
         // Tarik data tanggal & kelas ini dari Google Sheets secara background
         if (window.SCRIPT_URL) {
             fetchWithRetry(`${SCRIPT_URL}?action=get_students&kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`, { method: 'GET' }, 1, 500)
             .then(res => {
                 if (res && res.status === 'success' && res.data) {
+                    let stateChanged = false;
                     if (res.data.todayStatus && Object.keys(res.data.todayStatus).length > 0) {
                         Object.assign(currentTodayStatus, res.data.todayStatus);
-                        if (res.data.alreadySubmitted) {
-                            currentAlreadySubmitted = true;
-                        }
-                        const updatedLockInputs = isFutureDate || (currentAlreadySubmitted && !isEditAttendanceMode);
-                        renderStudentList(currentStudents, updatedLockInputs, currentTodayStatus, window.currentAutoIzinMap);
+                        stateChanged = true;
+                    }
+                    if (res.data.alreadySubmitted) {
+                        currentAlreadySubmitted = true;
+                        stateChanged = true;
+                    }
+                    const freshSubmittedBy = res.data.submittedBy || submittedBy;
+                    const freshSubmittedTime = res.data.submittedTime || submittedTime;
+
+                    if (stateChanged || res.data.alreadySubmitted) {
+                        updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, freshSubmittedBy, freshSubmittedTime);
                     }
                 }
             }).catch(e => console.log('Date sync info:', e));
         }
+    }
 
-        const btnTextElem = btnSimpanAbsenKelas ? btnSimpanAbsenKelas.querySelector('.btn-text') : null;
+    if (studentListContainer) studentListContainer.style.display = 'block';
+}
 
-        if (isFutureDate) {
-            alreadySubmittedBanner.style.display = 'flex';
-            alreadySubmittedBanner.style.background = 'rgba(239, 68, 68, 0.15)';
-            alreadySubmittedBanner.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+function updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, submittedBy = '', submittedTime = '') {
+    const lockInputs = isFutureDate || (currentAlreadySubmitted && !isEditAttendanceMode);
+    renderStudentList(currentStudents, lockInputs, currentTodayStatus, window.currentAutoIzinMap);
+
+    const btnTextElem = btnSimpanAbsenKelas ? btnSimpanAbsenKelas.querySelector('.btn-text') : null;
+
+    if (isFutureDate) {
+        alreadySubmittedBanner.style.display = 'flex';
+        alreadySubmittedBanner.style.background = 'rgba(239, 68, 68, 0.15)';
+        alreadySubmittedBanner.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        submittedBannerText.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;">
+                <span style="color: #fca5a5;"><i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; font-size: 1.1rem; margin-right: 6px;"></i> <strong>Tanggal Masa Depan:</strong> Tidak dapat menginput/menyimpan absensi untuk tanggal yang belum terjadi (${tanggal}).</span>
+                ${currentAlreadySubmitted ? `
+                <button type="button" onclick="confirmDeleteAttendanceClass('${escapeHtml(tanggal)}', '${escapeHtml(kelas)}')" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(239, 68, 68, 0.3); color: #ffffff; border: 1px solid #ef4444; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
+                    <i class="fa-solid fa-trash-can"></i> Hapus Data Absensi Masa Depan Ini
+                </button>` : ''}
+            </div>
+        `;
+
+        btnSimpanAbsenKelas.disabled = true;
+        btnSimpanAbsenKelas.style.opacity = '0.6';
+        btnSimpanAbsenKelas.style.cursor = 'not-allowed';
+        if (btnTextElem) btnTextElem.innerText = 'Input Absen Ditolak (Tanggal Masa Depan)';
+        showToast("⚠️ Tanggal yang dipilih berada di masa depan. Input absensi dikunci.", "warning");
+    } else if (currentAlreadySubmitted && !isEditAttendanceMode) {
+        alreadySubmittedBanner.style.display = 'flex';
+        alreadySubmittedBanner.style.background = 'rgba(34, 197, 94, 0.1)';
+        alreadySubmittedBanner.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+        const displayBy = submittedBy || 'Petugas';
+        const displayTime = submittedTime ? ` (Pukul ${submittedTime})` : '';
+        submittedBannerText.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;">
+                <span>Absensi kelas <strong>${kelas}</strong> pada tanggal <strong>${tanggal}</strong> sudah diinput oleh <strong>${displayBy}</strong>${displayTime}.</span>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" onclick="enableEditAttendanceMode()" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit Data Absensi
+                    </button>
+                    <button type="button" onclick="confirmDeleteAttendanceClass('${escapeHtml(tanggal)}', '${escapeHtml(kelas)}')" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(239, 68, 68, 0.25); color: #fca5a5; border: 1px solid #ef4444; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
+                        <i class="fa-solid fa-trash-can"></i> Hapus Absensi
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        btnSimpanAbsenKelas.disabled = true;
+        btnSimpanAbsenKelas.style.opacity = '0.6';
+        btnSimpanAbsenKelas.style.cursor = 'not-allowed';
+        if (btnTextElem) btnTextElem.innerText = 'Absensi Tanggal Ini Sudah Tersimpan di Sheet';
+    } else {
+        alreadySubmittedBanner.style.display = isEditAttendanceMode ? 'flex' : 'none';
+        if (isEditAttendanceMode) {
+            alreadySubmittedBanner.style.background = 'rgba(234, 179, 8, 0.15)';
+            alreadySubmittedBanner.style.borderColor = 'rgba(234, 179, 8, 0.4)';
             submittedBannerText.innerHTML = `
                 <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;">
-                    <span style="color: #fca5a5;"><i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; font-size: 1.1rem; margin-right: 6px;"></i> <strong>Tanggal Masa Depan:</strong> Tidak dapat menginput/menyimpan absensi untuk tanggal yang belum terjadi (${tanggal}).</span>
-                    ${currentAlreadySubmitted ? `
-                    <button type="button" onclick="confirmDeleteAttendanceClass('${escapeHtml(tanggal)}', '${escapeHtml(kelas)}')" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(239, 68, 68, 0.3); color: #ffffff; border: 1px solid #ef4444; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
-                        <i class="fa-solid fa-trash-can"></i> Hapus Data Absensi Masa Depan Ini
-                    </button>` : ''}
+                    <span><strong><i class="fa-solid fa-pen"></i> Mode Edit Absensi Aktif:</strong> Silakan sesuaikan status siswa lalu klik tombol simpan di bawah.</span>
+                    <button type="button" onclick="cancelEditAttendanceMode()" class="btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                        Batal Edit
+                    </button>
                 </div>
             `;
-
-            btnSimpanAbsenKelas.disabled = true;
-            btnSimpanAbsenKelas.style.opacity = '0.6';
-            btnSimpanAbsenKelas.style.cursor = 'not-allowed';
-            if (btnTextElem) btnTextElem.innerText = 'Input Absen Ditolak (Tanggal Masa Depan)';
-            showToast("⚠️ Tanggal yang dipilih berada di masa depan. Input absensi dikunci.", "warning");
-        } else if (currentAlreadySubmitted && !isEditAttendanceMode) {
-            alreadySubmittedBanner.style.display = 'flex';
-            alreadySubmittedBanner.style.background = 'rgba(34, 197, 94, 0.1)';
-            alreadySubmittedBanner.style.borderColor = 'rgba(34, 197, 94, 0.3)';
-            submittedBannerText.innerHTML = `
-                <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;">
-                    <span>Absensi kelas <strong>${kelas}</strong> pada tanggal <strong>${tanggal}</strong> sudah diinput oleh <strong>${submittedBy}</strong> (Pukul ${submittedTime}).</span>
-                    <div style="display: flex; gap: 8px;">
-                        <button type="button" onclick="enableEditAttendanceMode()" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
-                            <i class="fa-solid fa-pen-to-square"></i> Edit Data Absensi
-                        </button>
-                        <button type="button" onclick="confirmDeleteAttendanceClass('${escapeHtml(tanggal)}', '${escapeHtml(kelas)}')" class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; background: rgba(239, 68, 68, 0.25); color: #fca5a5; border: 1px solid #ef4444; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap;">
-                            <i class="fa-solid fa-trash-can"></i> Hapus Absensi
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            btnSimpanAbsenKelas.disabled = true;
-            btnSimpanAbsenKelas.style.opacity = '0.6';
-            btnSimpanAbsenKelas.style.cursor = 'not-allowed';
-            if (btnTextElem) btnTextElem.innerText = 'Absensi Tanggal Ini Sudah Tersimpan di Sheet';
-        } else {
-            alreadySubmittedBanner.style.display = isEditAttendanceMode ? 'flex' : 'none';
-            if (isEditAttendanceMode) {
-                alreadySubmittedBanner.style.background = 'rgba(234, 179, 8, 0.15)';
-                alreadySubmittedBanner.style.borderColor = 'rgba(234, 179, 8, 0.4)';
-                submittedBannerText.innerHTML = `
-                    <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;">
-                        <span><strong><i class="fa-solid fa-pen"></i> Mode Edit Absensi Aktif:</strong> Silakan sesuaikan status siswa lalu klik tombol simpan di bawah.</span>
-                        <button type="button" onclick="cancelEditAttendanceMode()" class="btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
-                            Batal Edit
-                        </button>
-                    </div>
-                `;
-            }
-            btnSimpanAbsenKelas.disabled = false;
-            btnSimpanAbsenKelas.style.opacity = '1';
-            btnSimpanAbsenKelas.style.cursor = 'pointer';
-            if (btnTextElem) {
-                btnTextElem.innerText = isEditAttendanceMode ? `Update / Simpan Perubahan Absensi (${tanggal})` : `Simpan Absensi Kelas (${tanggal})`;
-            }
+        }
+        btnSimpanAbsenKelas.disabled = false;
+        btnSimpanAbsenKelas.style.opacity = '1';
+        btnSimpanAbsenKelas.style.cursor = 'pointer';
+        if (btnTextElem) {
+            btnTextElem.innerText = isEditAttendanceMode ? `Update / Simpan Perubahan Absensi (${tanggal})` : `Simpan Absensi Kelas (${tanggal})`;
         }
     }
+}
 
     if (studentListContainer) studentListContainer.style.display = 'block';
 }
@@ -666,7 +682,8 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
 
             if (typeof invalidateReportCache === 'function') invalidateReportCache();
 
-            // Refresh tampilan lokal
+            // Refresh & Kunci tampilan lokal kembali setelah berhasil menyimpan
+            isEditAttendanceMode = false;
             autoLoadStudents();
 
         } else {

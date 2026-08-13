@@ -93,24 +93,30 @@ async function loadDashboardData(forceRefresh = false) {
 
     // 0ms Response: Tampilkan data dari localStorage secara instan lebih dulu!
     const localRecentLogs = JSON.parse(localStorage.getItem('smart_absen_recent_logs') || '[]');
+    let hasLocalData = false;
     if (localRecentLogs.length > 0 && (!rawReportData || rawReportData.length === 0)) {
         rawReportData = localRecentLogs;
         renderMatrixTable(rawReportData);
         updateStatsAndChart(rawReportData);
         currentPage = 1;
         applySearchAndPaginate();
+        hasLocalData = true;
+    } else if (rawReportData && rawReportData.length > 0) {
+        hasLocalData = true;
     }
 
-    const btnOldHtml = btnRefreshData.innerHTML;
-    btnRefreshData.innerHTML = '<i class="fa-solid fa-rotate-right fa-spin"></i> Memuat...';
-    btnRefreshData.disabled = true;
+    const btnOldHtml = btnRefreshData ? btnRefreshData.innerHTML : '';
+    if (btnRefreshData) {
+        btnRefreshData.innerHTML = '<i class="fa-solid fa-rotate-right fa-spin"></i> Memuat...';
+        btnRefreshData.disabled = true;
+    }
 
     try {
         const requestUrl = `${SCRIPT_URL}?action=get_report&tanggal=${encodeURIComponent(tanggal)}&bulan=${encodeURIComponent(bulan)}&kelas=${encodeURIComponent(kelas)}`;
         
         let result;
         if (typeof fetchWithRetry === 'function') {
-            result = await fetchWithRetry(requestUrl, { method: 'GET' });
+            result = await fetchWithRetry(requestUrl, { method: 'GET' }, 2, 800);
         } else {
             const response = await fetch(requestUrl);
             result = await response.json();
@@ -126,16 +132,23 @@ async function loadDashboardData(forceRefresh = false) {
             currentPage = 1;
             applySearchAndPaginate();
         } else {
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat data: ${result ? result.message : 'Error'}</td></tr>`;
+            if (!hasLocalData && (!rawReportData || rawReportData.length === 0)) {
+                if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Gagal memuat data: ${result ? result.message : 'Error'}</td></tr>`;
+            }
         }
 
     } catch (error) {
-        console.error(error);
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Koneksi error. Silakan coba lagi.</td></tr>`;
-        if (typeof showToast === 'function') showToast("Gagal menarik laporan data.", "error");
+        console.warn("Koneksi laporan server tersendat:", error);
+        // Jika data lokal sudah ada di layar, jangan rusak tampilan tabel dengan teks error
+        if (!hasLocalData && (!rawReportData || rawReportData.length === 0)) {
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding: 20px;">Koneksi tersendat. Silakan coba klik Refresh Data.</td></tr>`;
+            if (typeof showToast === 'function' && forceRefresh) showToast("Koneksi tersendat, silakan coba lagi.", "warning");
+        }
     } finally {
-        btnRefreshData.innerHTML = btnOldHtml;
-        btnRefreshData.disabled = false;
+        if (btnRefreshData) {
+            btnRefreshData.innerHTML = btnOldHtml;
+            btnRefreshData.disabled = false;
+        }
     }
 }
 
