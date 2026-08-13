@@ -255,6 +255,20 @@ async function loadIzinSiswaData() {
     if (isLoadingIzinSiswa) return;
     isLoadingIzinSiswa = true;
 
+    // Load INSTANTLY from local storage cache first! (0ms delay)
+    try {
+        const cached = localStorage.getItem('smart_absen_izin_siswa_cache');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                globalIzinSiswaLogs = parsed;
+                renderStudentIzinMyTable();
+                renderWalasIzinApprovalTable();
+                if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge();
+            }
+        }
+    } catch(e) {}
+
     const btns = [
         document.getElementById('btnRefreshIzinSiswa'),
         document.getElementById('btnRefreshApprovalIzinSiswa')
@@ -294,7 +308,7 @@ async function loadIzinSiswaData() {
         console.error("Error loading izin siswa data:", err);
     } finally {
         const elapsedTime = Date.now() - startTime;
-        const remainingDelay = Math.max(0, 500 - elapsedTime);
+        const remainingDelay = Math.max(0, 300 - elapsedTime);
 
         setTimeout(() => {
             btns.forEach(b => {
