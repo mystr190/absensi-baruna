@@ -171,6 +171,43 @@ function getTodayYYYYMMDD() {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+function normalizeDateStringToYYYYMMDD(dateStr) {
+    if (!dateStr) return '';
+    let str = String(dateStr).trim();
+    if (str.includes('T')) str = str.split('T')[0];
+    else if (str.includes(' ')) str = str.split(' ')[0];
+
+    if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) {
+            if (parts[2].length === 4) {
+                const yyyy = parts[2];
+                const p1 = parseInt(parts[0], 10);
+                const p2 = parseInt(parts[1], 10);
+                if (p1 > 12) {
+                    return `${yyyy}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
+                } else if (p2 > 12) {
+                    return `${yyyy}-${String(p1).padStart(2, '0')}-${String(p2).padStart(2, '0')}`;
+                } else {
+                    return `${yyyy}-${String(p1).padStart(2, '0')}-${String(p2).padStart(2, '0')}`;
+                }
+            } else if (parts[0].length === 4) {
+                return `${parts[0]}-${String(parseInt(parts[1], 10)).padStart(2, '0')}-${String(parseInt(parts[2], 10)).padStart(2, '0')}`;
+            }
+        }
+    } else if (str.includes('-')) {
+        const parts = str.split('-');
+        if (parts.length === 3) {
+            if (parts[0].length === 4) {
+                return `${parts[0]}-${String(parseInt(parts[1], 10)).padStart(2, '0')}-${String(parseInt(parts[2], 10)).padStart(2, '0')}`;
+            } else if (parts[2].length === 4) {
+                return `${parts[2]}-${String(parseInt(parts[1], 10)).padStart(2, '0')}-${String(parseInt(parts[0], 10)).padStart(2, '0')}`;
+            }
+        }
+    }
+    return str;
+}
+
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -273,10 +310,12 @@ async function autoLoadStudents() {
     let nonAutoLogsCount = 0;
     let totalLogsCount = 0;
 
+    const targetDateNorm = normalizeDateStringToYYYYMMDD(tanggal);
+
     localRecentLogs.forEach(log => {
         const logKelas = String(log.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
-        const logDateNorm = String(log.tanggal || '').trim();
-        if (logKelas === normSelectedKelas && (logDateNorm === tanggal || logDateNorm.includes(tanggal))) {
+        const logDateNorm = normalizeDateStringToYYYYMMDD(log.tanggal);
+        if (logKelas === normSelectedKelas && (logDateNorm === targetDateNorm || logDateNorm === tanggal || String(log.tanggal || '').includes(tanggal))) {
             totalLogsCount++;
             const pStr = String(log.petugas || '');
             const status = log.status || 'HADIR';
@@ -433,7 +472,7 @@ window.cancelEditAttendanceMode = function() {
 
 window.enableEditAttendanceMode = function() {
     isEditAttendanceMode = true;
-    renderStudentList(currentStudents, false, currentTodayStatus);
+    renderStudentList(currentStudents, false, currentTodayStatus, window.currentAutoIzinMap);
     
     if (btnSimpanAbsenKelas) {
         btnSimpanAbsenKelas.disabled = false;
@@ -652,9 +691,11 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
             
             // Hapus log lama kelas ini pada tanggal ini dari localRecentLogs (agar tidak ada duplikat di lokal)
             const sampleK = String(currentStudents[0]?.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+            const normTargetTgl = normalizeDateStringToYYYYMMDD(tanggalAbsen);
             localRecentLogs = localRecentLogs.filter(log => {
                 const logK = String(log.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
-                return !(logK === sampleK && log.tanggal === tanggalAbsen);
+                const logTglNorm = normalizeDateStringToYYYYMMDD(log.tanggal);
+                return !(logK === sampleK && logTglNorm === normTargetTgl);
             });
 
             // Push log absensi terbaru hasil update
