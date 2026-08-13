@@ -333,21 +333,16 @@ async function autoLoadStudents() {
             fetchWithRetry(`${SCRIPT_URL}?action=get_students&kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`, { method: 'GET' }, 1, 500)
             .then(res => {
                 if (res && res.status === 'success' && res.data) {
-                    let stateChanged = false;
                     if (res.data.todayStatus && Object.keys(res.data.todayStatus).length > 0) {
                         Object.assign(currentTodayStatus, res.data.todayStatus);
-                        stateChanged = true;
                     }
-                    if (res.data.alreadySubmitted) {
-                        currentAlreadySubmitted = true;
-                        stateChanged = true;
+                    if (typeof res.data.alreadySubmitted !== 'undefined') {
+                        currentAlreadySubmitted = !!res.data.alreadySubmitted;
                     }
                     const freshSubmittedBy = res.data.submittedBy || submittedBy;
                     const freshSubmittedTime = res.data.submittedTime || submittedTime;
 
-                    if (stateChanged || res.data.alreadySubmitted) {
-                        updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, freshSubmittedBy, freshSubmittedTime);
-                    }
+                    updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, freshSubmittedBy, freshSubmittedTime);
                 }
             }).catch(e => console.log('Date sync info:', e));
         }
@@ -426,9 +421,6 @@ function updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, submittedBy =
             btnTextElem.innerText = isEditAttendanceMode ? `Update / Simpan Perubahan Absensi (${tanggal})` : `Simpan Absensi Kelas (${tanggal})`;
         }
     }
-}
-
-    if (studentListContainer) studentListContainer.style.display = 'block';
 }
 
 let isEditAttendanceMode = false;

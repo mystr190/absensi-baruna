@@ -395,12 +395,6 @@ if (formLogin) {
         try {
             let userMatch = checkLocalCredential();
 
-            // Jika cache belum ada, tunggu hingga background preload selesai (max 3.5 detik)
-            if (!userMatch && authPreloadPromise) {
-                await Promise.race([authPreloadPromise, new Promise(r => setTimeout(r, 3500))]);
-                userMatch = checkLocalCredential();
-            }
-
             if (userMatch) {
                 localStorage.setItem('smart_absen_user', JSON.stringify(userMatch));
                 showToast("⚡ Login Berhasil! Selamat datang " + userMatch.nama, 'success');
@@ -416,10 +410,10 @@ if (formLogin) {
             console.warn("Local cache login check bypassed:", e);
         }
 
-        // 2. FAST NETWORK LOGIN JIKA BELUM ADA DI LOCAL CACHE
+        // 2. LANGSUNG FETCH LOGIN KE SERVER TANPA MEMBLOKIR / MENUNGGU PRELOAD
         try {
             const loginUrl = `${SCRIPT_URL}?action=login&username=${encodeURIComponent(usernameInput)}&password=${encodeURIComponent(passwordInput)}`;
-            const result = await fetchWithRetry(loginUrl, { method: 'GET' }, 1, 300);
+            const result = await fetchWithRetry(loginUrl, { method: 'GET' }, 2, 400);
             
             if (result && result.status === 'success' && result.data) {
                 const userData = {
@@ -432,6 +426,14 @@ if (formLogin) {
                 };
                 localStorage.setItem('smart_absen_user', JSON.stringify(userData));
                 
+                // Simpan ke local users cache agar login berikutnya 0ms instan!
+                let localUsers = [];
+                try { localUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]'); } catch(e){}
+                if (!localUsers.some(u => String(u.username || '').toLowerCase() === String(userData.username || '').toLowerCase())) {
+                    localUsers.push(userData);
+                    localStorage.setItem('smart_absen_users_cache', JSON.stringify(localUsers));
+                }
+
                 showToast("✅ Login Berhasil! Selamat datang " + userData.nama, 'success');
                 formLogin.reset();
                 showApp(userData);

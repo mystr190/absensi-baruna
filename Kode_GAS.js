@@ -777,7 +777,20 @@ function getStudentsFromCacheOrSheet(skipCache) {
 
 function handleGetAuthMaster() {
   const users = getUsersFromCacheOrSheet();
-  const students = getStudentsFromCacheOrSheet();
+  const rawStudents = getStudentsFromCacheOrSheet();
+  
+  // Kirim hanya field esensial untuk memangkas ukuran payload hingga 80% (super cepat)
+  const students = rawStudents.map(function(s) {
+    return {
+      nisn: s.nisn,
+      nis: s.nis,
+      nama: s.nama,
+      kelas: s.kelas,
+      gender: s.gender,
+      password: s.password
+    };
+  });
+
   return jsonResponse('success', 'Auth master data', {
     users: users,
     students: students
@@ -1491,7 +1504,13 @@ function handleGetStudents(kelas, tanggal) {
   let submittedBy = '';
   let submittedTime = '';
 
-  const targetTanggalStr = String(tanggal || '').trim() || getFormattedDate(new Date());
+  let rawDateParam = String(tanggal || '').trim();
+  let targetTanggalStr = '';
+  if (!rawDateParam || rawDateParam.toLowerCase() === 'today' || rawDateParam === 'Hari Ini') {
+    targetTanggalStr = getFormattedDate(new Date());
+  } else {
+    targetTanggalStr = getFormattedDate(rawDateParam);
+  }
 
   // 1. Tarik status permohonan izin siswa yang sudah DISETUJU pada tanggal tersebut
   const sheetIzinSiswa = ss.getSheetByName(SHEET_IZIN_SISWA);
@@ -1938,7 +1957,7 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
   let waktuStr = Utilities.formatDate(now, TIMEZONE, "yyyy-MM-dd HH:mm:ss");
 
   if (customTanggal && customTanggal.trim() !== '') {
-    targetTanggalStr = customTanggal.trim();
+    targetTanggalStr = getFormattedDate(customTanggal.trim());
     waktuStr = targetTanggalStr + " " + timeFormatted;
   }
 
