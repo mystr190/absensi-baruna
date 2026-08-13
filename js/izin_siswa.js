@@ -375,8 +375,9 @@ function renderStudentIzinMyTable() {
     pageData.forEach((item, index) => {
         const no = startIndex + index + 1;
         const statusBadge = getIzinStatusBadgeHtml(item.status);
-        const fotoBtn = item.fotoUrl 
-            ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl)}', 'Bukti Foto: ${item.nama} (${item.tanggal})')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
+        const hasFoto = item.fotoUrl || item.hasFoto;
+        const fotoBtn = hasFoto 
+            ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl || '')}', 'Bukti Foto: ${item.nama} (${item.tanggal})', '${item.id}')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
             : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
 
         html += `
@@ -464,8 +465,9 @@ function renderWalasIzinApprovalTable() {
     } else {
         let htmlPending = '';
         pendingList.forEach((item, index) => {
-            const fotoBtn = item.fotoUrl 
-                ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl)}', 'Bukti Foto: ${item.nama} (${item.kelas})')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
+            const hasFoto = item.fotoUrl || item.hasFoto;
+            const fotoBtn = hasFoto 
+                ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl || '')}', 'Bukti Foto: ${item.nama} (${item.kelas})', '${item.id}')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
                 : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
 
             htmlPending += `
@@ -523,8 +525,9 @@ function renderWalasIzinApprovalTable() {
     pageData.forEach((item, index) => {
         const no = startIndex + index + 1;
         const statusBadge = getIzinStatusBadgeHtml(item.status);
-        const fotoBtn = item.fotoUrl 
-            ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl)}', 'Bukti Foto: ${item.nama} (${item.kelas})')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
+        const hasFoto = item.fotoUrl || item.hasFoto;
+        const fotoBtn = hasFoto 
+            ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl || '')}', 'Bukti Foto: ${item.nama} (${item.kelas})', '${item.id}')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
             : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
 
         htmlHistory += `
@@ -685,18 +688,43 @@ async function handleRejectIzinSiswaAction(id, rawNama, btnEl) {
 }
 
 /**
- * Helper to show Modal Photo Preview
+ * Helper to show Modal Photo Preview (With On-Demand Fast Loading)
  */
-function openFotoPreviewModal(rawUrl, caption) {
-    const photoUrl = decodeURIComponent(rawUrl);
+async function openFotoPreviewModal(rawUrl, caption, id) {
+    const photoUrl = rawUrl ? decodeURIComponent(rawUrl) : '';
     const modal = document.getElementById('modalPreviewFotoIzin');
     const img = document.getElementById('modalFotoImage');
     const cap = document.getElementById('modalFotoCaption');
 
-    if (modal && img) {
+    if (!modal || !img) return;
+
+    if (cap) cap.textContent = caption || '';
+    modal.style.display = 'flex';
+
+    if (photoUrl && photoUrl.length > 10) {
         img.src = photoUrl;
-        if (cap) cap.textContent = caption || '';
-        modal.style.display = 'flex';
+        return;
+    }
+
+    img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2338bdf8" font-size="13">Memuat foto...</text></svg>';
+
+    if (!id) {
+        if (cap) cap.textContent = 'Foto tidak tersedia';
+        return;
+    }
+
+    try {
+        const targetUrl = typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL ? SCRIPT_URL : localStorage.getItem('absen_script_url');
+        const response = await fetch(`${targetUrl}?action=get_foto_izin_siswa&id=${encodeURIComponent(id)}`);
+        const res = await response.json();
+        if (res && res.status === 'success' && res.data && res.data.fotoUrl) {
+            img.src = res.data.fotoUrl;
+        } else {
+            if (cap) cap.textContent = 'Foto tidak ditemukan atau gagal dimuat.';
+        }
+    } catch(e) {
+        console.error("Error loading foto izin:", e);
+        if (cap) cap.textContent = 'Gagal memuat foto dari server.';
     }
 }
 
