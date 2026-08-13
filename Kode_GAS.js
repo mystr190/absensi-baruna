@@ -47,8 +47,11 @@ function doGet(e) {
     else if (action === 'login') {
       return handleLogin(e.parameter.username, e.parameter.password);
     }
-    else if (action === 'get_auth_master' || action === 'get_all_master_data') {
+    else if (action === 'get_auth_master') {
       return handleGetAuthMaster();
+    }
+    else if (action === 'get_all_master_data') {
+      return handleGetAllMasterData();
     }
     else if (action === 'absen_bulk') {
       return handleAbsenBulk(e.parameter.data, e.parameter.tanggal);
@@ -619,6 +622,9 @@ function invalidateUsersCache() {
   try {
     const cache = CacheService.getScriptCache();
     cache.remove('users_cache_all_v1');
+    cache.remove('students_cache_part1');
+    cache.remove('students_cache_part2');
+    cache.remove('students_cache_all_v1');
   } catch (e) {}
 }
 
@@ -730,11 +736,15 @@ function getUsersFromCacheOrSheet(skipCache) {
 
 function getStudentsFromCacheOrSheet(skipCache) {
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'students_cache_all_v1';
+  const cacheKey1 = 'students_cache_part1';
+  const cacheKey2 = 'students_cache_part2';
   if (!skipCache) {
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) {
-      try { return JSON.parse(cachedData); } catch (e) {}
+    const c1 = cache.get(cacheKey1);
+    const c2 = cache.get(cacheKey2);
+    if (c1 && c2) {
+      try { return JSON.parse(c1).concat(JSON.parse(c2)); } catch (e) {}
+    } else if (c1) {
+      try { return JSON.parse(c1); } catch (e) {}
     }
   }
 
@@ -769,7 +779,13 @@ function getStudentsFromCacheOrSheet(skipCache) {
   }
 
   try {
-    cache.put(cacheKey, JSON.stringify(students), 21600);
+    const half = Math.ceil(students.length / 2);
+    const p1 = students.slice(0, half);
+    const p2 = students.slice(half);
+    const mapToPut = {};
+    mapToPut[cacheKey1] = JSON.stringify(p1);
+    mapToPut[cacheKey2] = JSON.stringify(p2);
+    cache.putAll(mapToPut, 21600);
   } catch (cErr) {}
 
   return students;
@@ -807,10 +823,17 @@ function handleLogin(username, password) {
 
   const uLower = u.toLowerCase();
   const pLower = p.toLowerCase();
+  const uClean = uLower.replace(/^0+/, '');
 
   // 1. Cek di Cache/Sheet Users (Admin, Guru, TU, Kepsek) - Ultra-Fast RAM Lookup
   const users = getUsersFromCacheOrSheet();
-  const foundUser = users.find(item => String(item.username || '').toLowerCase() === uLower && (item.password === p || String(item.password || '').toLowerCase() === pLower));
+  const foundUser = users.find(item => {
+    const itemU = String(item.username || '').trim().toLowerCase();
+    const itemP = String(item.password || '').trim();
+    const itemPLower = itemP.toLowerCase();
+    return (itemU === uLower || (uClean && itemU.replace(/^0+/, '') === uClean)) && (itemP === p || itemPLower === pLower);
+  });
+
   if (foundUser) {
     return jsonResponse('success', 'Login berhasil!', {
       nis: foundUser.username,
@@ -827,14 +850,17 @@ function handleLogin(username, password) {
   // 2. Jika tidak ada di Sheet Users, Cek di Cache/Sheet DataSiswa (Matching NIS / NISN) - Ultra-Fast RAM Lookup
   const students = getStudentsFromCacheOrSheet();
   const foundStudent = students.find(s => {
-    const nisLower = String(s.nis || '').toLowerCase();
-    const nisnLower = String(s.nisn || '').toLowerCase();
+    const nisLower = String(s.nis || '').trim().toLowerCase();
+    const nisnLower = String(s.nisn || '').trim().toLowerCase();
+    const nisClean = nisLower.replace(/^0+/, '');
+    const nisnClean = nisnLower.replace(/^0+/, '');
+
     const savedPass = String(s.password || '').trim();
-    const validPass = savedPass !== '' ? savedPass : (s.nis || s.nisn);
+    const validPass = savedPass !== '' ? savedPass : (s.nis || s.nisn || '');
     const validPassLower = validPass.toLowerCase();
 
-    const matchUser = (uLower === nisLower || uLower === nisnLower);
-    const matchPass = (p === validPass || pLower === validPassLower || (s.nis && pLower === nisLower) || (s.nisn && pLower === nisnLower));
+    const matchUser = (uLower === nisLower || uLower === nisnLower || (uClean && (uClean === nisClean || uClean === nisnClean)));
+    const matchPass = (p === validPass || pLower === validPassLower || (s.nis && (pLower === nisLower || (uClean && pLower.replace(/^0+/, '') === nisClean))) || (s.nisn && (pLower === nisnLower || (uClean && pLower.replace(/^0+/, '') === nisnClean))));
 
     return matchUser && matchPass;
   });
@@ -1515,7 +1541,10 @@ function handleGetStudents(kelas, tanggal) {
   // 1. Tarik status permohonan izin siswa yang sudah DISETUJU pada tanggal tersebut
   const sheetIzinSiswa = ss.getSheetByName(SHEET_IZIN_SISWA);
   if (sheetIzinSiswa && sheetIzinSiswa.getLastRow() > 1) {
-    const izinData = sheetIzinSiswa.getRange(2, 1, sheetIzinSiswa.getLastRow() - 1, 14).getValues();
+    const lastRowIz = sheetIzinSiswa.getLastRow();
+    const startRowIz = Math.max(2, lastRowIz - 800);
+    const numRowsIz = lastRowIz - startRowIz + 1;
+    const izinData = sheetIzinSiswa.getRange(startRowIz, 1, numRowsIz, 14).getValues();
     for (let i = 0; i < izinData.length; i++) {
       const izTgl = getFormattedDate(izinData[i][2]);
       const izStatus = String(izinData[i][11] || '').trim().toLowerCase();
@@ -1535,14 +1564,14 @@ function handleGetStudents(kelas, tanggal) {
     }
   }
 
-  // 2. Scan LogAbsen harian
+  // 2. Scan LogAbsen harian (Bounded fast scan pada 2500 baris terbaru)
   let totalLogCountForClass = 0;
   let nonAutoLogCount = 0;
 
   if (sheetLog) {
     const lastRow = sheetLog.getLastRow();
     if (lastRow > 1) {
-      const startRow = 2;
+      const startRow = Math.max(2, lastRow - 2500);
       const numRows = lastRow - startRow + 1;
       const maxCols = Math.min(7, sheetLog.getLastColumn() || 7);
       const logData = sheetLog.getRange(startRow, 1, numRows, maxCols).getValues();
@@ -1579,8 +1608,8 @@ function handleGetStudents(kelas, tanggal) {
     }
   }
 
-  // Dikunci (alreadySubmitted = true) hanya jika ada absensi massal manual dari guru/petugas atau jumlah log >= jumlah siswa
-  if (nonAutoLogCount > 0 || (students.length > 0 && totalLogCountForClass >= students.length)) {
+  // Dikunci (alreadySubmitted = true) jika ada log absensi / status untuk kelas ini pada tanggal tersebut
+  if (nonAutoLogCount > 0 || totalLogCountForClass > 0 || Object.keys(todayStatus).length > 0) {
     alreadySubmitted = true;
   }
 
@@ -1625,13 +1654,13 @@ function handleGetAllMasterData() {
     }
   }
 
-  // 2. Ambil Log Absen Terbaru (Semua baris log untuk rekap 100% lengkap)
+  // 2. Ambil Log Absen Terbaru (Scan 3000 baris terbaru agar loading super cepat < 1 detik)
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   let recentLogs = [];
   if (sheetLog) {
     const lastRow = sheetLog.getLastRow();
     if (lastRow > 1) {
-      const startRow = 2; // Tarik seluruh log absensi agar rekap bulanan & semester terhitung sempurna
+      const startRow = Math.max(2, lastRow - 3000);
       const numRows = lastRow - startRow + 1;
       const maxCols = Math.min(7, sheetLog.getLastColumn() || 7);
       const logData = sheetLog.getRange(startRow, 1, numRows, maxCols).getValues();
@@ -1657,10 +1686,13 @@ function handleGetAllMasterData() {
     }
   }
 
-  // 2b. Ambil Permohonan Izin Siswa yang Disetujui
+  // 2b. Ambil Permohonan Izin Siswa yang Disetujui (Scan 1000 izin terbaru)
   const sheetIzinSiswa = ss.getSheetByName(SHEET_IZIN_SISWA);
   if (sheetIzinSiswa && sheetIzinSiswa.getLastRow() > 1) {
-    const izData = sheetIzinSiswa.getRange(2, 1, sheetIzinSiswa.getLastRow() - 1, 14).getValues();
+    const lastRowIz = sheetIzinSiswa.getLastRow();
+    const startRowIz = Math.max(2, lastRowIz - 1000);
+    const numRowsIz = lastRowIz - startRowIz + 1;
+    const izData = sheetIzinSiswa.getRange(startRowIz, 1, numRowsIz, 14).getValues();
     for (let i = izData.length - 1; i >= 0; i--) {
       const statusIz = String(izData[i][11] || '').trim().toLowerCase();
       if (statusIz === 'disetujui') {

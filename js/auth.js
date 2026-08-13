@@ -337,15 +337,21 @@ if (formLogin) {
         const usernameInput = userInputElem ? userInputElem.value.trim() : '';
         const passwordInput = passInputElem ? passInputElem.value.trim() : '';
 
-        // Helper fungsi pencocokan credential lokal
+        // Helper fungsi pencocokan credential lokal (Instant 0ms)
         const checkLocalCredential = () => {
             const uLower = usernameInput.toLowerCase();
             const pLower = passwordInput.toLowerCase();
+            const uClean = uLower.replace(/^0+/, '');
 
             // Cek Master User Cache (Admin, Guru, TU, Kepsek)
             let localUsers = [];
             try { localUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]'); } catch(e) {}
-            const matchedUser = localUsers.find(item => String(item.username || '').toLowerCase() === uLower && (item.password === passwordInput || String(item.password || '').toLowerCase() === pLower));
+            const matchedUser = localUsers.find(item => {
+                const itemU = String(item.username || '').trim().toLowerCase();
+                const itemP = String(item.password || '').trim();
+                const itemPLower = itemP.toLowerCase();
+                return (itemU === uLower || (uClean && itemU.replace(/^0+/, '') === uClean)) && (itemP === passwordInput || itemPLower === pLower);
+            });
 
             if (matchedUser) {
                 return {
@@ -360,16 +366,25 @@ if (formLogin) {
 
             // Cek Master Siswa Cache
             let localStudents = [];
-            try { localStudents = JSON.parse(localStorage.getItem('smart_absen_students_cache') || '[]'); } catch(e) {}
+            try { 
+                localStudents = JSON.parse(localStorage.getItem('smart_absen_students_cache') || '[]');
+                if (localStudents.length === 0) {
+                    localStudents = JSON.parse(localStorage.getItem('smart_absen_master_students') || '[]');
+                }
+            } catch(e) {}
+
             const matchedStudent = localStudents.find(s => {
-                const nisLower = String(s.nis || '').toLowerCase();
-                const nisnLower = String(s.nisn || '').toLowerCase();
+                const nisLower = String(s.nis || '').trim().toLowerCase();
+                const nisnLower = String(s.nisn || '').trim().toLowerCase();
+                const nisClean = nisLower.replace(/^0+/, '');
+                const nisnClean = nisnLower.replace(/^0+/, '');
+
                 const savedPass = String(s.password || '').trim();
-                const validPass = savedPass !== '' ? savedPass : (s.nis || s.nisn);
+                const validPass = savedPass !== '' ? savedPass : (s.nis || s.nisn || '');
                 const validPassLower = validPass.toLowerCase();
 
-                const matchUser = (uLower === nisLower || uLower === nisnLower);
-                const matchPass = (passwordInput === validPass || pLower === validPassLower || (s.nis && pLower === nisLower) || (s.nisn && pLower === nisnLower));
+                const matchUser = (uLower === nisLower || uLower === nisnLower || (uClean && (uClean === nisClean || uClean === nisnClean)));
+                const matchPass = (passwordInput === validPass || pLower === validPassLower || (s.nis && (pLower === nisLower || (uClean && pLower.replace(/^0+/, '') === nisClean))) || (s.nisn && (pLower === nisnLower || (uClean && pLower.replace(/^0+/, '') === nisnClean))));
                 return matchUser && matchPass;
             });
 
