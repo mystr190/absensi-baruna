@@ -335,9 +335,10 @@ async function autoLoadStudents() {
                 if (res && res.status === 'success' && res.data) {
                     if (res.data.todayStatus && Object.keys(res.data.todayStatus).length > 0) {
                         Object.assign(currentTodayStatus, res.data.todayStatus);
+                        currentAlreadySubmitted = true;
                     }
-                    if (typeof res.data.alreadySubmitted !== 'undefined') {
-                        currentAlreadySubmitted = !!res.data.alreadySubmitted;
+                    if (res.data.alreadySubmitted) {
+                        currentAlreadySubmitted = true;
                     }
                     const freshSubmittedBy = res.data.submittedBy || submittedBy;
                     const freshSubmittedTime = res.data.submittedTime || submittedTime;
