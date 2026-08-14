@@ -916,22 +916,58 @@ async function openManageMembersModal(idKokurikuler) {
 
 async function fetchMasterStudentsForKokurikuler() {
     const tableBody = document.getElementById('tableBodyModalKokurikulerMembers');
-    tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px;"><span class="loader" style="display:inline-block; margin-right:8px;"></span>Memuat data siswa sekolah...</td></tr>`;
+    if (tableBody) {
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px;"><span class="loader" style="display:inline-block; margin-right:8px;"></span>Memuat data siswa sekolah...</td></tr>`;
+    }
+
+    // 1. Coba gunakan window.allStudents atau LocalStorage terlebih dahulu agar pemuatan 0ms instan!
+    let rawList = window.allStudents || [];
+    if (!rawList || rawList.length === 0) {
+        try {
+            rawList = JSON.parse(localStorage.getItem('smart_absen_students_cache') || localStorage.getItem('smart_absen_master_siswa') || '[]');
+        } catch (e) {
+            rawList = [];
+        }
+    }
+
+    if (Array.isArray(rawList) && rawList.length > 0) {
+        masterStudentsCacheForKokurikuler = rawList.map(s => ({
+            ...s,
+            nisn: formatNISN(s.nisn || s.NISN || s.nis || s.NIS),
+            nis: String(s.nis || s.NIS || ''),
+            nama: String(s.nama || s.Nama || s.nama_siswa || s.namaLengkap || 'Siswa'),
+            kelas: String(s.kelas || s.Kelas || '-')
+        }));
+        populateModalClassDropdown();
+        renderModalStudentList();
+        return;
+    }
 
     try {
         const res = await fetchWithRetry(`${SCRIPT_URL}?action=get_students&_cb=${Date.now()}`);
+        let fetchedList = [];
         if (res && res.status === 'success') {
-            masterStudentsCacheForKokurikuler = (res.data || []).map(s => ({
+            if (Array.isArray(res.data)) {
+                fetchedList = res.data;
+            } else if (res.data && Array.isArray(res.data.students)) {
+                fetchedList = res.data.students;
+            }
+        }
+        if (fetchedList.length > 0) {
+            masterStudentsCacheForKokurikuler = fetchedList.map(s => ({
                 ...s,
-                nisn: formatNISN(s.nisn)
+                nisn: formatNISN(s.nisn || s.NISN || s.nis || s.NIS),
+                nis: String(s.nis || s.NIS || ''),
+                nama: String(s.nama || s.Nama || s.nama_siswa || s.namaLengkap || 'Siswa'),
+                kelas: String(s.kelas || s.Kelas || '-')
             }));
             populateModalClassDropdown();
             renderModalStudentList();
         } else {
-            tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa.</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa. Data kosong.</td></tr>`;
         }
     } catch (err) {
-        tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa: ${err.message || 'Error koneksi server.'}</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa: ${err.message || 'Error koneksi server.'}</td></tr>`;
     }
 }
 
@@ -967,7 +1003,7 @@ function renderModalStudentList() {
 
     const filtered = masterStudentsCacheForKokurikuler.filter(s => {
         const nisnFormatted = formatNISN(s.nisn);
-        const key = nisnFormatted || formatNISN(s.nis);
+        const key = nisnFormatted || formatNISN(s.nis) || String(s.nama).toLowerCase();
         const isChecked = selectedMemberNISNs.has(key);
 
         if (filterClass === 'TERPILIH' && !isChecked) return false;
@@ -986,7 +1022,7 @@ function renderModalStudentList() {
     let html = '';
     filtered.forEach(s => {
         const nisnFormatted = formatNISN(s.nisn);
-        const key = nisnFormatted || formatNISN(s.nis);
+        const key = nisnFormatted || formatNISN(s.nis) || String(s.nama).toLowerCase();
         const isChecked = selectedMemberNISNs.has(key);
         const rowBg = isChecked ? 'rgba(16, 185, 129, 0.08)' : 'transparent';
         const badgeStatus = isChecked ? 
@@ -996,7 +1032,7 @@ function renderModalStudentList() {
         html += `
             <tr style="border-bottom: 1px solid var(--card-border, #1e293b); background-color: ${rowBg}; transition: background 0.2s;">
                 <td style="padding: 10px; text-align: center;">
-                    <input type="checkbox" class="check-member-item" data-nisn="${nisnFormatted}" data-nis="${s.nis}" data-nama="${s.nama}" data-kelas="${s.kelas}" ${isChecked ? 'checked' : ''} onchange="toggleMemberSelection(this)" style="width: 17px; height: 17px; cursor: pointer;">
+                    <input type="checkbox" class="check-member-item" data-key="${key}" data-nisn="${nisnFormatted}" data-nis="${s.nis}" data-nama="${s.nama}" data-kelas="${s.kelas}" ${isChecked ? 'checked' : ''} onchange="toggleMemberSelection(this)" style="width: 17px; height: 17px; cursor: pointer;">
                 </td>
                 <td style="padding: 10px; font-weight: 600; font-family: monospace;">${nisnFormatted || s.nis || '-'}</td>
                 <td style="padding: 10px; color: #f8fafc; font-weight: 600;">${s.nama}</td>
@@ -1010,11 +1046,11 @@ function renderModalStudentList() {
 }
 
 function toggleMemberSelection(checkbox) {
-    const nisn = checkbox.getAttribute('data-nisn');
+    const key = checkbox.getAttribute('data-key') || checkbox.getAttribute('data-nisn') || checkbox.getAttribute('data-nis');
     if (checkbox.checked) {
-        selectedMemberNISNs.add(nisn);
+        selectedMemberNISNs.add(key);
     } else {
-        selectedMemberNISNs.delete(nisn);
+        selectedMemberNISNs.delete(key);
     }
     updateSelectedCountLabel();
     renderModalStudentList();
@@ -1043,7 +1079,7 @@ async function saveKokurikulerMembers() {
     const membersList = [];
     masterStudentsCacheForKokurikuler.forEach(s => {
         const nisnFormatted = formatNISN(s.nisn);
-        const key = nisnFormatted || formatNISN(s.nis);
+        const key = nisnFormatted || formatNISN(s.nis) || String(s.nama).toLowerCase();
         if (selectedMemberNISNs.has(key)) {
             membersList.push({
                 nisn: nisnFormatted,
@@ -1073,7 +1109,13 @@ async function saveKokurikulerMembers() {
         if (res && res.status === 'success') {
             showToast(res.message, 'success');
             modal.style.display = 'none';
-            fetchKokurikulerData(true);
+
+            // Perbarui data anggota lokal secara instan (0ms render)
+            kokurikulerMembersMap[activeKokurikulerIdForModal] = membersList;
+            renderKokurikulerAbsenForm();
+            renderAdminKokurikulerTable();
+
+            fetchKokurikulerData();
         } else {
             showToast(res ? res.message : 'Gagal memperbarui anggota.', 'error');
         }
