@@ -921,10 +921,20 @@ async function fetchMasterStudentsForKokurikuler() {
     }
 
     // 1. Coba gunakan window.allStudents atau LocalStorage terlebih dahulu agar pemuatan 0ms instan!
-    let rawList = window.allStudents || [];
+    let rawList = (window.allStudents && window.allStudents.length > 0) ? window.allStudents : null;
     if (!rawList || rawList.length === 0) {
         try {
-            rawList = JSON.parse(localStorage.getItem('smart_absen_students_cache') || localStorage.getItem('smart_absen_master_siswa') || '[]');
+            const keys = ['smart_absen_master_students', 'smart_absen_students_cache', 'smart_absen_students', 'smart_absen_master_siswa'];
+            for (const key of keys) {
+                const item = localStorage.getItem(key);
+                if (item) {
+                    const parsed = JSON.parse(item);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        rawList = parsed;
+                        break;
+                    }
+                }
+            }
         } catch (e) {
             rawList = [];
         }
@@ -944,13 +954,15 @@ async function fetchMasterStudentsForKokurikuler() {
     }
 
     try {
-        const res = await fetchWithRetry(`${SCRIPT_URL}?action=get_students&_cb=${Date.now()}`);
+        const res = await fetchWithRetry(`${SCRIPT_URL}?action=get_students&kelas=semua&_cb=${Date.now()}`);
         let fetchedList = [];
         if (res && res.status === 'success') {
             if (Array.isArray(res.data)) {
                 fetchedList = res.data;
             } else if (res.data && Array.isArray(res.data.students)) {
                 fetchedList = res.data.students;
+            } else if (Array.isArray(res.students)) {
+                fetchedList = res.students;
             }
         }
         if (fetchedList.length > 0) {
@@ -961,10 +973,15 @@ async function fetchMasterStudentsForKokurikuler() {
                 nama: String(s.nama || s.Nama || s.nama_siswa || s.namaLengkap || 'Siswa'),
                 kelas: String(s.kelas || s.Kelas || '-')
             }));
+            window.allStudents = masterStudentsCacheForKokurikuler;
+            try {
+                localStorage.setItem('smart_absen_master_students', JSON.stringify(masterStudentsCacheForKokurikuler));
+            } catch(e){}
+
             populateModalClassDropdown();
             renderModalStudentList();
         } else {
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa. Data kosong.</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa. Data siswa belum tersedia di Google Sheets.</td></tr>`;
         }
     } catch (err) {
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #ef4444;">Gagal memuat master siswa: ${err.message || 'Error koneksi server.'}</td></tr>`;
