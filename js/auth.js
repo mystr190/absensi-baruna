@@ -220,6 +220,8 @@ function showApp(user) {
     const navKokurikuler = document.getElementById('nav-kokurikuler');
     const navKelolaKokurikuler = document.getElementById('nav-kelola-kokurikuler');
     const navBimbelUtbk = document.getElementById('nav-bimbel-utbk');
+    const navRaporTengahSemester = document.getElementById('navRaporTengahSemester');
+    const navPerangkatPembelajaran = document.getElementById('navPerangkatPembelajaran');
 
     const navScan = document.querySelector('.sidebar-nav .nav-item[data-target="panel-scan"]');
     const navRekap = document.querySelector('.sidebar-nav .nav-item[data-target="panel-dashboard"]');
@@ -227,6 +229,9 @@ function showApp(user) {
     const navPelanggaran = document.querySelector('.sidebar-nav .nav-item[data-target="panel-pelanggaran"]');
 
     const btnManageJenis = document.getElementById('btnManageJenisPelanggaran');
+
+    const uRole = String(user.role || '').trim().toLowerCase();
+    const isTeacherAdminKepsek = uRole.includes('guru') || uRole.includes('walas') || uRole === 'admin' || uRole.includes('kepala sekolah') || uRole.includes('kepsek');
 
     // Reset visibilitas default
     if (navAdmin) navAdmin.style.display = 'none';
@@ -241,6 +246,8 @@ function showApp(user) {
     if (navKokurikuler) navKokurikuler.style.display = 'flex'; // Visible for Guru & Admin
     if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'none';
     if (navBimbelUtbk) navBimbelUtbk.style.display = 'flex'; // Visible for Guru, Kepsek, Admin
+    if (navRaporTengahSemester) navRaporTengahSemester.style.display = isTeacherAdminKepsek ? 'flex' : 'none';
+    if (navPerangkatPembelajaran) navPerangkatPembelajaran.style.display = isTeacherAdminKepsek ? 'flex' : 'none';
 
     if (navScan) navScan.style.display = 'flex';
     if (navRekap) navRekap.style.display = 'flex';
@@ -248,7 +255,6 @@ function showApp(user) {
     if (navPelanggaran) navPelanggaran.style.display = 'flex';
     if (btnManageJenis) btnManageJenis.style.display = 'none';
 
-    const uRole = String(user.role || '').trim().toLowerCase();
     if (uRole === 'admin') {
         if (navAdmin) navAdmin.style.display = 'flex';
         if (navKelolaSiswa) navKelolaSiswa.style.display = 'flex';
@@ -261,6 +267,7 @@ function showApp(user) {
         if (navIzinGuru) navIzinGuru.style.display = 'none';
         if (navIzinSiswa) navIzinSiswa.style.display = 'none';
         if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex';
+        if (navRaporTengahSemester) navRaporTengahSemester.style.display = 'flex';
     } else if (uRole.includes('kepala sekolah') || uRole.includes('kepsek')) {
         if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
@@ -268,6 +275,7 @@ function showApp(user) {
         if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'flex';
         if (navIzinSiswa) navIzinSiswa.style.display = 'none';
         if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex';
+        if (navRaporTengahSemester) navRaporTengahSemester.style.display = 'flex';
     } else if (uRole === 'siswa') {
         if (navScan) navScan.style.display = 'none';
         if (navRekap) navRekap.style.display = 'none';
@@ -285,6 +293,7 @@ function showApp(user) {
         if (navBimbelUtbk) navBimbelUtbk.style.display = 'none';
         if (navIzinSiswa) navIzinSiswa.style.display = 'flex';
         if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'none';
+        if (navRaporTengahSemester) navRaporTengahSemester.style.display = 'none';
 
         setTimeout(() => {
             const navOverview = document.getElementById('nav-overview') || document.querySelector('.sidebar-nav .nav-item[data-target="panel-overview"]');
@@ -298,6 +307,7 @@ function showApp(user) {
         if (navRekap) navRekap.style.display = 'none';
         if (navMatrix) navMatrix.style.display = 'none';
         if (navPelanggaran) navPelanggaran.style.display = 'none';
+        if (navRaporTengahSemester) navRaporTengahSemester.style.display = 'none';
 
         setTimeout(() => {
             if (navIzinGuru) navIzinGuru.click();
@@ -485,7 +495,7 @@ if (btnMobileLogout) {
 // FUNGSI NAVIGASI SIDEBAR (SPA ROUTING)
 // ==========================================
 const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
-const panels = document.querySelectorAll('.main-content .panel');
+const panels = document.querySelectorAll('.main-content .panel, .main-content .panel-section');
 
 navItems.forEach(nav => {
     nav.addEventListener('click', (e) => {
@@ -543,6 +553,11 @@ navItems.forEach(nav => {
             else if(typeof loadKokurikulerData === 'function') loadKokurikulerData();
         } else if (nav.dataset.target === 'panel-bimbel-utbk') {
             if(typeof loadBimbelData === 'function') loadBimbelData();
+        } else if (nav.dataset.target === 'panelRaporTengahSemester') {
+            if(typeof setupRaporFilterOptions === 'function') setupRaporFilterOptions();
+            if(typeof renderBatchRaporPrintPreview === 'function') renderBatchRaporPrintPreview();
+        } else if (nav.dataset.target === 'panelPerangkatPembelajaran') {
+            if(typeof loadDefaultTeacherData === 'function') loadDefaultTeacherData();
         } else if (nav.dataset.target === 'panel-profile') {
             renderSelfProfilePanel();
         }

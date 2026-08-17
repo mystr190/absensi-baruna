@@ -1224,21 +1224,240 @@ select option { background: var(--bg-color); color: var(--text-main); }
     .pelanggaran-layout-grid { grid-template-columns: 1fr !important; }
 }
 
-/* Print Media Styles for Matrix & Pelanggaran Reports */
+/* Screen Preview Styling for Rapor Page Card (Enforce Black Text on White Card in Dark & Light Modes) */
+.rapor-page-card {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+}
+
+.rapor-page-card.hidden-page {
+    display: none;
+}
+.rapor-page-card.active-page {
+    display: block;
+}
+
+/* Print Media Styles for All Reports (Matrix, Pelanggaran, Rapor Tengah Semester) */
+/* Print Media Styles for All Reports (Matrix, Pelanggaran, Rapor Tengah Semester) */
 @media print {
-    body { background: white !important; color: black !important; font-family: 'Times New Roman', Arial, sans-serif !important; }
-    .sidebar, .panel-header, .sidebar-brand, .sidebar-footer, .glass-card:not(#printableReport):not(#printablePelanggaranReport), .toast, button, nav, #containerFormPelanggaran, #containerManageJenisModal { display: none !important; }
-    #view-app { display: block !important; }
-    .main-content { margin-left: 0 !important; padding: 0 !important; width: 100% !important; }
-    .panel { display: block !important; padding: 0 !important; }
-    #printableReport, #printablePelanggaranReport { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; color: black !important; }
-    #headerPelanggaranPrint { display: block !important; }
+    @page {
+        margin: 0 !important;
+        size: auto;
+    }
+
+    html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: 'Times New Roman', Arial, sans-serif !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    /* Hide non-print UI containers */
+    #mobileTopBar,
+    .mobile-top-bar,
+    .mobile-header-brand,
+    .mobile-bottom-nav,
+    .sidebar,
+    .panel-header,
+    .sidebar-brand,
+    .sidebar-footer,
+    .toast,
+    button,
+    nav,
+    .no-print,
+    .bg-shape,
+    #sidebarOverlay,
+    .mobile-header,
+    #containerFormPelanggaran,
+    #containerManageJenisModal,
+    .login-container {
+        display: none !important;
+    }
+
+    /* Hide inactive panels and cards */
+    .view-section:not(#view-app),
+    .panel:not(.active) {
+        display: none !important;
+    }
+
+    /* Hide non-print cards inside #panelRaporTengahSemester & #panelPerangkatPembelajaran */
+    #panelRaporTengahSemester > div:not(#raporPrintPreviewCard),
+    #panelPerangkatPembelajaran > div:nth-child(1),
+    #panelPerangkatPembelajaran > div:nth-child(2),
+    #ppResultCard > div:nth-child(1),
+    #ppResultCard > div:nth-child(2) {
+        display: none !important;
+    }
+
+    #raporPrintPreviewCard,
+    #panelPerangkatPembelajaran,
+    #ppResultCard,
+    #ppTabContentsWrapper {
+        display: block !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .perangkat-document-paper {
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 8mm 10mm !important;
+        box-shadow: none !important;
+    }
+
+    #raporPrintPreviewCard > div:first-child {
+        display: none !important;
+    }
+
+    /* Outer layout wrappers must be visible blocks */
+    #view-app,
+    .main-content,
+    #panelRaporTengahSemester,
+    #panelPerangkatPembelajaran,
+    #raporPrintArea {
+        display: block !important;
+        visibility: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    #raporPrintArea .no-print {
+        display: none !important;
+    }
+
+    /* Rapor Card Specific Print Rules */
+    .rapor-page-card,
+    .rapor-page-card.hidden-page,
+    .rapor-page-card.active-page {
+        display: block !important;
+        visibility: visible !important;
+        position: relative !important;
+        opacity: 1 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 0 10px 0 !important;
+        padding: 8mm 10mm !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        page-break-after: always !important;
+        break-after: page !important;
+    }
+
+    .rapor-page-card * {
+        color: #000000 !important;
+        background: transparent !important;
+    }
+
+    .rapor-page-card table:not(.rapor-biodata-table):not(.rapor-signature-table) {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        color: #000000 !important;
+    }
+
+    .rapor-page-card table:not(.rapor-biodata-table):not(.rapor-signature-table) th,
+    .rapor-page-card table:not(.rapor-biodata-table):not(.rapor-signature-table) td {
+        border: 1px solid #000000 !important;
+        color: #000000 !important;
+    }
+
+    .rapor-biodata-table,
+    .rapor-biodata-table tr,
+    .rapor-biodata-table td,
+    .rapor-signature-table,
+    .rapor-signature-table tr,
+    .rapor-signature-table td {
+        border: none !important;
+        border-color: transparent !important;
+    }
+
+    .rapor-page-card th {
+        background-color: #f0f0f0 !important;
+        font-weight: bold !important;
+    }
+
+    /* Matrix & Pelanggaran Print Rules */
+    #headerPelanggaranPrint { display: block !important; visibility: visible !important; }
     .matrix-table, .pelanggaran-table { width: 100% !important; border-collapse: collapse !important; color: black !important; font-size: 8pt !important; }
     .matrix-table th, .matrix-table td, .pelanggaran-table th, .pelanggaran-table td { border: 1px solid black !important; color: black !important; background: transparent !important; }
     .matrix-table th, .pelanggaran-table th { font-weight: bold !important; background: #f0f0f0 !important; }
     .badge-pelanggaran { background: transparent !important; color: black !important; border: 1px solid #666 !important; font-weight: bold !important; padding: 1px 4px !important; }
     .matrix-report-header h2, .matrix-report-header h3, .matrix-report-header p { color: black !important; }
-    @page { size: A4 landscape; margin: 8mm; }
+
+    @page { size: A4 portrait; margin: 10mm; }
+}
+
+/* Rapor Input Grid Inputs & Responsiveness */
+.grid-input::-webkit-outer-spin-button,
+.grid-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.grid-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.grid-input, .grid-select, .student-pramuka-select, .student-catatan-input {
+    box-sizing: border-box !important;
+    height: 32px !important;
+    line-height: 28px !important;
+    padding: 2px 6px !important;
+    border-radius: 6px !important;
+    font-size: 0.88rem !important;
+    vertical-align: middle !important;
+}
+
+.grid-input:focus, .grid-select:focus, .student-pramuka-select:focus, .student-catatan-input:focus {
+    background: rgba(124, 58, 237, 0.3) !important;
+    outline: 2px solid #a855f7 !important;
+}
+
+.rapor-page-card *,
+.rapor-page-card h1,
+.rapor-page-card h2,
+.rapor-page-card h3,
+.rapor-page-card h4,
+.rapor-page-card h5,
+.rapor-page-card h6,
+.rapor-page-card p,
+.rapor-page-card span,
+.rapor-page-card div,
+.rapor-page-card td,
+.rapor-page-card th,
+.rapor-page-card strong,
+.rapor-page-card table {
+    color: #000000 !important;
+}
+
+.rapor-page-card table:not(.rapor-biodata-table):not(.rapor-signature-table),
+.rapor-page-card table:not(.rapor-biodata-table):not(.rapor-signature-table) th,
+.rapor-page-card table:not(.rapor-biodata-table):not(.rapor-signature-table) td {
+    border-color: #000000 !important;
+}
+
+.rapor-biodata-table,
+.rapor-biodata-table tr,
+.rapor-biodata-table td,
+.rapor-signature-table,
+.rapor-signature-table tr,
+.rapor-signature-table td {
+    border: none !important;
+    border-color: transparent !important;
 }
 
 /* ================= PRESET ELEGANT STYLES FOR TEACHER ABSENSI & IZIN ================= */
@@ -1979,4 +2198,106 @@ select option { background: var(--bg-color); color: var(--text-main); }
         -webkit-overflow-scrolling: touch !important;
         width: 100% !important;
     }
+}
+
+/* CSV Import Progress Overlay & Animation Styles */
+.csv-import-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.csv-import-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.csv-import-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(59, 130, 246, 0.2);
+    border-radius: 16px;
+    padding: 30px 35px;
+    width: 90%;
+    max-width: 450px;
+    text-align: center;
+    color: #f8fafc;
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.csv-import-overlay.active .csv-import-card {
+    transform: scale(1);
+}
+
+.csv-import-icon-box {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 18px auto;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.15);
+    border: 2px solid rgba(59, 130, 246, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #60a5fa;
+    position: relative;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.csv-import-icon-box.success {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+    box-shadow: 0 0 25px rgba(34, 197, 94, 0.4);
+}
+
+.csv-import-pulse-ring {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    right: -6px;
+    bottom: -6px;
+    border-radius: 50%;
+    border: 2px solid rgba(59, 130, 246, 0.5);
+    animation: csvPulseRing 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes csvPulseRing {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.15); opacity: 0.3; }
+    100% { transform: scale(1.25); opacity: 0; }
+}
+
+.csv-progress-bar-wrap {
+    width: 100%;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 20px 0 10px 0;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.csv-progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6);
+    border-radius: 10px;
+    transition: width 0.12s linear;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.6);
 }

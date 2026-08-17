@@ -424,9 +424,10 @@ function updateAppSchoolConfigUI(config) {
     const schoolName = mergedConfig.namaSekolah || mergedConfig.nama_sekolah || '';
     const tahunPelajaran = mergedConfig.tahunPelajaran || mergedConfig.tahun_pelajaran || '';
 
-    // Update input di Admin panel
     const inputNamaSekolah = document.getElementById('inputNamaSekolah');
     const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
+    const inputNamaKepalaSekolah = document.getElementById('inputNamaKepalaSekolah');
+    const inputNipKepalaSekolah = document.getElementById('inputNipKepalaSekolah');
     const inputUrlScript = document.getElementById('inputUrlScript');
     const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
     const inputKopYayasan = document.getElementById('inputKopYayasan');
@@ -438,6 +439,8 @@ function updateAppSchoolConfigUI(config) {
 
     if (inputNamaSekolah) inputNamaSekolah.value = schoolName;
     if (inputTahunPelajaran) inputTahunPelajaran.value = tahunPelajaran;
+    if (inputNamaKepalaSekolah) inputNamaKepalaSekolah.value = mergedConfig.namaKepalaSekolah || mergedConfig.nama_kepala_sekolah || '';
+    if (inputNipKepalaSekolah) inputNipKepalaSekolah.value = mergedConfig.nipKepalaSekolah || mergedConfig.nip_kepala_sekolah || '';
     if (inputUrlScript) inputUrlScript.value = mergedConfig.urlScript || mergedConfig.url_script || window.SCRIPT_URL || '';
     if (inputTelegramBotToken && !inputTelegramBotToken.value) inputTelegramBotToken.value = mergedConfig.telegramBotToken || mergedConfig.telegram_bot_token || '';
 
@@ -567,6 +570,8 @@ if (formConfigSekolah) {
 
         const inputNamaSekolah = document.getElementById('inputNamaSekolah');
         const inputTahunPelajaran = document.getElementById('inputTahunPelajaran');
+        const inputNamaKepalaSekolah = document.getElementById('inputNamaKepalaSekolah');
+        const inputNipKepalaSekolah = document.getElementById('inputNipKepalaSekolah');
         const inputUrlScript = document.getElementById('inputUrlScript');
         const inputTelegramBotToken = document.getElementById('inputTelegramBotToken');
         const inputKopYayasan = document.getElementById('inputKopYayasan');
@@ -578,6 +583,8 @@ if (formConfigSekolah) {
 
         const namaSekolah = inputNamaSekolah ? inputNamaSekolah.value.trim() : '';
         const tahunPelajaran = inputTahunPelajaran ? inputTahunPelajaran.value.trim() : '';
+        const namaKepalaSekolah = inputNamaKepalaSekolah ? inputNamaKepalaSekolah.value.trim() : '';
+        const nipKepalaSekolah = inputNipKepalaSekolah ? inputNipKepalaSekolah.value.trim() : '';
         const urlScript = inputUrlScript ? inputUrlScript.value.trim() : '';
         const telegramBotToken = inputTelegramBotToken ? inputTelegramBotToken.value.trim() : '';
 
@@ -605,6 +612,8 @@ if (formConfigSekolah) {
             formData.append('action', 'save_config');
             formData.append('nama_sekolah', namaSekolah);
             formData.append('tahun_pelajaran', tahunPelajaran);
+            formData.append('nama_kepala_sekolah', namaKepalaSekolah);
+            formData.append('nip_kepala_sekolah', nipKepalaSekolah);
             formData.append('telegram_bot_token', telegramBotToken);
             formData.append('kop_yayasan', kopYayasan);
             formData.append('kop_sekolah', kopSekolah);
@@ -621,9 +630,9 @@ if (formConfigSekolah) {
                 body: new URLSearchParams(formData).toString()
             }, 0);
 
-            const newConfig = { namaSekolah, tahunPelajaran, urlScript: activeUrl, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight, kopLogoSize: kopLogoWidth };
+            const newConfig = { namaSekolah, tahunPelajaran, namaKepalaSekolah, nipKepalaSekolah, urlScript: activeUrl, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight, kopLogoSize: kopLogoWidth };
             updateAppSchoolConfigUI(newConfig);
-            showToast("✅ Identitas sekolah, Token Telegram Bot & Server URL berhasil diperbarui!", "success");
+            showToast("✅ Identitas sekolah, Kepala Sekolah & Server URL berhasil diperbarui!", "success");
         } catch (err) {
             console.error(err);
             showToast("❌ Gagal menyimpan pengaturan.", "error");

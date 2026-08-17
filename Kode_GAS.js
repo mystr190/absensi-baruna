@@ -23,6 +23,7 @@ const SHEET_KOKURIKULER_MEMBERS = 'AnggotaKokurikuler';
 const SHEET_LOG_KOKURIKULER = 'LogAbsenKokurikuler';
 const SHEET_LOG_BIMBEL_GURU = 'LogBimbelGuru';
 const SHEET_LOG_BIMBEL_SISWA = 'LogBimbelSiswa';
+const SHEET_NILAI_RAPOR = 'NilaiRapor';
 const TIMEZONE = 'Asia/Jakarta'; // Menggunakan Timezone WIB Indonesia
 
 /**
@@ -204,6 +205,9 @@ function doGet(e) {
     }
     else if (action === 'get_bimbel_data') {
       return handleGetBimbelData(e.parameter.tanggal, e.parameter.bulan, e.parameter.kelas);
+    }
+    else if (action === 'get_rapor_data') {
+      return handleGetRaporData(e.parameter.kelas, e.parameter.semester, e.parameter.tahun);
     }
 
     return jsonResponse('success', 'API Active');
@@ -421,6 +425,17 @@ function doPost(e) {
       }
       if (!dataObj && e && e.parameter) dataObj = e.parameter;
       return handleSaveAbsenKokurikuler(dataObj);
+    }
+    else if (action === 'save_rapor_data') {
+      let dataObj = null;
+      if (e && e.postData && e.postData.contents) {
+        try { let p = JSON.parse(e.postData.contents); dataObj = p.data || p; } catch(err){}
+      }
+      if (!dataObj && e && e.parameter && e.parameter.data) {
+        try { dataObj = JSON.parse(e.parameter.data); } catch(err){}
+      }
+      if (!dataObj && e && e.parameter) dataObj = e.parameter;
+      return handleSaveRaporData(dataObj);
     }
     else if (action === 'get_self_profile') {
       return handleGetSelfProfile(e.parameter.username);
@@ -1482,8 +1497,9 @@ function getStudentsForClass(ss, normTargetKelas, rawTargetKelas) {
     const nama = String(dataSiswa[i][2] || '').trim();
     if (!nama) continue;
 
-    const k = String(dataSiswa[i][3] || '').trim().toLowerCase();
-    if (isAll || k === rawTargetKelas || k.replace(/[\s\-]/g, '') === normTargetKelas) {
+    const kRaw = String(dataSiswa[i][3] || '').trim();
+    const kNorm = normKlsStr(kRaw);
+    if (isAll || kRaw.toLowerCase() === rawTargetKelas.toLowerCase() || kNorm === normTargetKelas) {
       const gRaw = String(dataSiswa[i][4] || '').trim().toUpperCase();
       const gender = (gRaw === 'P' || gRaw.startsWith('PEREMPUAN')) ? 'P' : 'L';
       let rawNisn = String(dataSiswa[i][0] || '').trim();
@@ -1625,6 +1641,16 @@ function handleGetStudents(kelas, tanggal) {
 
 // === HANDLER TARIK SEMUA MASTER DATA (SANGAT CEPAT UNTUK CLIENT CACHING) ===
 function handleGetAllMasterData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'all_master_data_v2';
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      const obj = JSON.parse(cached);
+      return jsonResponse('success', 'Master Data Ditarik (Cache)', obj);
+    } catch (e) {}
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureDeviceUserIdColumns();
 
@@ -1762,7 +1788,7 @@ function handleGetAllMasterData() {
   // 6. Ambil Config Sekolah & Tahun Pelajaran
   const config = getConfigObject(ss);
 
-  return jsonResponse('success', 'Master Data Ditarik', {
+  const resultData = {
     students: students,
     recentLogs: recentLogs,
     recentPelanggaran: recentPelanggaran,
@@ -1771,7 +1797,16 @@ function handleGetAllMasterData() {
     pengajuanIzin: pengajuanIzin,
     users: usersList,
     config: config
-  });
+  };
+
+  try {
+    const jsonStr = JSON.stringify(resultData);
+    if (jsonStr.length < 90000) {
+      cache.put(cacheKey, jsonStr, 600);
+    }
+  } catch (cErr) {}
+
+  return jsonResponse('success', 'Master Data Ditarik', resultData);
 }
 
 function getConfigObject(ss) {
@@ -1786,7 +1821,9 @@ function getConfigObject(ss) {
     kopLogo: '',
     kopLogoWidth: '85',
     kopLogoHeight: '85',
-    kopLogoSize: '85'
+    kopLogoSize: '85',
+    namaKepalaSekolah: '',
+    nipKepalaSekolah: ''
   };
 
   try {
@@ -1806,6 +1843,8 @@ function getConfigObject(ss) {
     sheetConfig.appendRow(['KopLogoWidth', config.kopLogoWidth]);
     sheetConfig.appendRow(['KopLogoHeight', config.kopLogoHeight]);
     sheetConfig.appendRow(['KopLogoSize', config.kopLogoSize]);
+    sheetConfig.appendRow(['NamaKepalaSekolah', config.namaKepalaSekolah]);
+    sheetConfig.appendRow(['NipKepalaSekolah', config.nipKepalaSekolah]);
     sheetConfig.getRange("A1:B1").setFontWeight("bold").setBackground("#d9ead3");
   } else {
     const data = sheetConfig.getDataRange().getValues();
@@ -1844,6 +1883,12 @@ function getConfigObject(ss) {
       if (normKey === 'koplogosize' || normKey === 'logosize') {
         if (val) config.kopLogoSize = val;
       }
+      if (normKey === 'namakepalasekolah' || normKey === 'kepalasekolah' || normKey === 'kepsek' || normKey === 'namakepsek') {
+        if (val) config.namaKepalaSekolah = val;
+      }
+      if (normKey === 'nipkepalasekolah' || normKey === 'nipkepsek') {
+        if (val) config.nipKepalaSekolah = val;
+      }
     }
   }
   return config;
@@ -1854,7 +1899,7 @@ function handleGetConfig() {
   return jsonResponse('success', 'Config Loaded', getConfigObject(ss));
 }
 
-function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight) {
+function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYayasan, kopSekolah, kopAlamat, kopLogo, kopLogoWidth, kopLogoHeight, namaKepalaSekolah, nipKepalaSekolah) {
   if (!namaSekolah || !tahunPelajaran) {
     return jsonResponse('error', 'Nama Sekolah dan Tahun Pelajaran wajib diisi.');
   }
@@ -1869,6 +1914,8 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
   const cLogo = String(kopLogo || '').trim();
   const cLogoWidth = String(kopLogoWidth || '85').trim();
   const cLogoHeight = String(kopLogoHeight || '85').trim();
+  const cNamaKepsek = String(namaKepalaSekolah || '').trim();
+  const cNipKepsek = String(nipKepalaSekolah || '').trim();
 
   // Simpan ke Script Properties
   try {
@@ -1890,6 +1937,8 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
     sheetConfig.appendRow(['KopLogoWidth', cLogoWidth]);
     sheetConfig.appendRow(['KopLogoHeight', cLogoHeight]);
     sheetConfig.appendRow(['KopLogoSize', cLogoWidth]);
+    sheetConfig.appendRow(['NamaKepalaSekolah', cNamaKepsek]);
+    sheetConfig.appendRow(['NipKepalaSekolah', cNipKepsek]);
   } else {
     const data = sheetConfig.getDataRange().getValues();
     let foundNama = false;
@@ -1902,6 +1951,8 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
     let foundLogoWidth = false;
     let foundLogoHeight = false;
     let foundLogoSize = false;
+    let foundNamaKepsek = false;
+    let foundNipKepsek = false;
 
     for (let i = 1; i < data.length; i++) {
       const rawKey = String(data[i][0] || '').trim();
@@ -1947,6 +1998,14 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
         sheetConfig.getRange(i + 1, 2).setValue(cLogoWidth);
         foundLogoSize = true;
       }
+      if (normKey === 'namakepalasekolah' || normKey === 'kepalasekolah' || normKey === 'kepsek' || normKey === 'namakepsek') {
+        sheetConfig.getRange(i + 1, 2).setValue(cNamaKepsek);
+        foundNamaKepsek = true;
+      }
+      if (normKey === 'nipkepalasekolah' || normKey === 'nipkepsek') {
+        sheetConfig.getRange(i + 1, 2).setValue(cNipKepsek);
+        foundNipKepsek = true;
+      }
     }
 
     if (!foundNama) sheetConfig.appendRow(['NamaSekolah', namaSekolah.trim()]);
@@ -1959,6 +2018,8 @@ function handleSaveConfig(namaSekolah, tahunPelajaran, telegramBotToken, kopYaya
     if (!foundLogoWidth) sheetConfig.appendRow(['KopLogoWidth', cLogoWidth]);
     if (!foundLogoHeight) sheetConfig.appendRow(['KopLogoHeight', cLogoHeight]);
     if (!foundLogoSize) sheetConfig.appendRow(['KopLogoSize', cLogoWidth]);
+    if (!foundNamaKepsek) sheetConfig.appendRow(['NamaKepalaSekolah', cNamaKepsek]);
+    if (!foundNipKepsek) sheetConfig.appendRow(['NipKepalaSekolah', cNipKepsek]);
   }
 
   return jsonResponse('success', 'Pengaturan sekolah & Kop Surat berhasil diperbarui.');
@@ -2061,6 +2122,7 @@ function handleAbsenBulk(dataString, customTanggal, isEditParam) {
     ? `Berhasil memperbarui (edit) absensi ${rowsToAppend.length} siswa kelas ${firstStudent.kelas}.`
     : `Berhasil menyimpan absensi ${rowsToAppend.length} siswa.`;
 
+  invalidateAttendanceCaches();
   return jsonResponse('success', msgText);
 }
 
@@ -2101,6 +2163,7 @@ function handleDeleteAttendanceByDateAndClass(tanggal, targetKelas) {
       }
     }
 
+    invalidateAttendanceCaches();
     return jsonResponse('success', `Berhasil menghapus ${deletedCount} data absensi kelas ${targetKelas} pada tanggal ${targetTanggalStr}.`);
   } catch (err) {
     return jsonResponse('error', 'Gagal menghapus data absensi: ' + err.toString());
@@ -4436,7 +4499,11 @@ function handleGetOverviewStats(forceServer) {
   const studentLogs = [];
   const sheetLog = ss.getSheetByName(SHEET_LOG);
   if (sheetLog && sheetLog.getLastRow() > 1) {
-    const logData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
+    const lastRowLog = sheetLog.getLastRow();
+    const startRowLog = Math.max(2, lastRowLog - 2500);
+    const numRowsLog = lastRowLog - startRowLog + 1;
+    const maxColsLog = Math.min(7, sheetLog.getLastColumn() || 7);
+    const logData = sheetLog.getRange(startRowLog, 1, numRowsLog, maxColsLog).getValues();
     for (let i = 0; i < logData.length; i++) {
       const rawDate = logData[i][0];
       if (!rawDate) continue;
@@ -4561,7 +4628,7 @@ function handleGetOverviewStats(forceServer) {
       status: 'success',
       message: 'Data overview (cached)',
       data: resultObj
-    }), 45); // Cache for 45s
+    }), 300); // Cache for 5 mins
   } catch (e) {}
 
   return jsonResponse('success', 'Data overview berhasil ditarik', resultObj);
@@ -5064,11 +5131,17 @@ function handleGetIzinSiswa() {
   }
 }
 
-function invalidateIzinSiswaCache() {
+function invalidateAttendanceCaches() {
   try {
     const cache = CacheService.getScriptCache();
     cache.remove('izin_siswa_cache_v2');
+    cache.remove('all_master_data_v2');
+    cache.remove('OVERVIEW_STATS_CACHE');
   } catch (e) {}
+}
+
+function invalidateIzinSiswaCache() {
+  invalidateAttendanceCaches();
 }
 
 function handleAddPengajuanIzinSiswa(dataObj) {
@@ -6221,6 +6294,12 @@ function handleGetKokurikulerData(username, role) {
     const mData = sheetMembers.getLastRow() > 1 ? sheetMembers.getRange(2, 1, sheetMembers.getLastRow() - 1, 5).getValues() : [];
     
     let membersMap = {};
+    for (let i = 0; i < listKokurikuler.length; i++) {
+      if (listKokurikuler[i].id) {
+        membersMap[listKokurikuler[i].id] = [];
+      }
+    }
+
     for (let i = 0; i < mData.length; i++) {
       const idK = String(mData[i][0] || '').trim();
       if (!idK) continue;
@@ -6763,5 +6842,398 @@ function handleDeleteBimbelGuru(id) {
     return jsonResponse('error', 'Data tidak ditemukan.');
   } catch (err) {
     return jsonResponse('error', 'Gagal menghapus data: ' + err.toString());
+  }
+}
+
+// =========================================================================
+// HANDLER RAPOR TENGAH SEMESTER (STS / PTS)
+// =========================================================================
+function getOrCreateNilaiRaporSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_NILAI_RAPOR);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NILAI_RAPOR);
+    sheet.appendRow([
+      'ID_Nilai', 'Tahun_Pelajaran', 'Semester', 'Kelas', 'NISN', 'NIS', 
+      'Nama_Siswa', 'Kode_Mapel', 'Nama_Mapel', 'Urutan_Mapel', 
+      'PH1', 'R1', 'PH2', 'R2', 'ATS', 'Sikap', 'Kehadiran_Mapel', 
+      'Nilai_Pramuka', 'Catatan_Wali', 'Waktu_Update'
+    ]);
+    sheet.getRange("A1:T1").setFontWeight("bold").setBackground("#4a86e8").setFontColor("#ffffff");
+  }
+  return sheet;
+}
+
+function normTpStr(s) {
+  return String(s || '').trim().toLowerCase().replace(/[\s\-\/\u2010-\u2015\u00a0]/g, '');
+}
+
+function normSemStr(s) {
+  const str = String(s || '').trim().toLowerCase();
+  if (str.includes('1') || str.includes('ganjil')) return '1';
+  if (str.includes('2') || str.includes('genap')) return '2';
+  return str;
+}
+
+function normKlsStr(s) {
+  return String(s || '').trim().toLowerCase().replace(/[\s\-\/\u2010-\u2015\u00a0]/g, '');
+}
+
+function normIdStr(s) {
+  return String(s || '').trim().replace(/^0+/, '');
+}
+
+function isMapelForKelas(targetKelasStr, selectedKelas) {
+  if (!targetKelasStr) return true;
+  const rawTarget = String(targetKelasStr).trim();
+  if (!rawTarget || rawTarget.toLowerCase() === 'semua' || rawTarget.toLowerCase() === 'semua kelas' || rawTarget === '-') return true;
+
+  const selKlsNorm = String(selectedKelas || '').trim().toUpperCase();
+  if (!selKlsNorm) return true;
+
+  let selLevel = '';
+  if (selKlsNorm.startsWith('XII') || selKlsNorm.startsWith('12')) selLevel = 'XII';
+  else if (selKlsNorm.startsWith('XI') || selKlsNorm.startsWith('11')) selLevel = 'XI';
+  else if (selKlsNorm.startsWith('X') || selKlsNorm.startsWith('10')) selLevel = 'X';
+
+  const targets = rawTarget.toUpperCase().split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
+
+  for (let i = 0; i < targets.length; i++) {
+    const t = targets[i];
+    if (t === 'SEMUA' || t === 'SEMUA KELAS' || t === '-') return true;
+    if (t === selKlsNorm || t.replace(/[\s\-]/g, '') === selKlsNorm.replace(/[\s\-]/g, '')) return true;
+
+    if (selLevel) {
+      const tokens = t.split(/[\s\-]+/);
+      if (tokens.includes(selLevel)) return true;
+    }
+  }
+
+  return false;
+}
+
+function getOrCreateMapelSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_MAPEL);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_MAPEL);
+    sheet.appendRow(['Nama_Mapel', 'Target_Kelas', 'Urutan']);
+    sheet.getRange("A1:C1").setFontWeight("bold").setBackground("#4a86e8").setFontColor("#ffffff");
+  }
+  return sheet;
+}
+
+function getStudentsForClass(ss, normKelas, rawKelas) {
+  const sheetSiswa = ss.getSheetByName(SHEET_SISWA);
+  if (!sheetSiswa || sheetSiswa.getLastRow() <= 1) return [];
+
+  const data = sheetSiswa.getRange(2, 1, sheetSiswa.getLastRow() - 1, sheetSiswa.getLastColumn()).getValues();
+  const allStudents = data.map(r => ({
+    nisn: String(r[0] || '').trim(),
+    nis: String(r[1] || '').trim(),
+    nama: String(r[2] || '').trim(),
+    kelas: String(r[3] || '').trim(),
+    gender: String(r[4] || 'L').trim()
+  })).filter(s => s.nama || s.nisn || s.nis);
+
+  const normTarget = normKlsStr(rawKelas);
+  let matched = allStudents.filter(s => {
+    const sKlsNorm = normKlsStr(s.kelas);
+    return sKlsNorm === normTarget || (normKelas && sKlsNorm === normKelas) || String(s.kelas || '').trim().toLowerCase() === String(rawKelas || '').trim().toLowerCase();
+  });
+
+  return matched.length > 0 ? matched : allStudents;
+}
+
+function handleGetRaporData(kelas, semester, tahunPelajaran) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const rawKelas = String(kelas || '').trim();
+    const normKelas = normKlsStr(rawKelas);
+    const targetSem = normSemStr(semester || '1');
+    const targetTp = normTpStr(tahunPelajaran);
+
+    // 1. Ambil daftar siswa kelas target
+    const students = getStudentsForClass(ss, normKelas, rawKelas);
+
+    const targetStudentNisnSet = {};
+    students.forEach(function(s) {
+      if (s.nisn) targetStudentNisnSet[normIdStr(s.nisn)] = true;
+      if (s.nis) targetStudentNisnSet[normIdStr(s.nis)] = true;
+    });
+
+    // 2. Ambil daftar master Mapel yang sesuai target kelas
+    const sheetMapel = getOrCreateMapelSheet(ss);
+    let mapelList = [];
+    if (sheetMapel && sheetMapel.getLastRow() > 1) {
+      const mData = sheetMapel.getRange(2, 1, sheetMapel.getLastRow() - 1, 3).getValues();
+      for (let i = 0; i < mData.length; i++) {
+        const nama = String(mData[i][0] || '').trim();
+        const targetKelas = String(mData[i][1] || '').trim();
+        if (nama) {
+          if (isMapelForKelas(targetKelas, rawKelas)) {
+            mapelList.push({ kode: nama, nama: nama, target_kelas: targetKelas, urutan: mapelList.length + 1 });
+          }
+        }
+      }
+    }
+
+    // Fallback jika belum ada Mapel di Sheet, gunakan DEFAULT_MAPEL_DATA
+    if (mapelList.length === 0) {
+      for (let i = 0; i < DEFAULT_MAPEL_DATA.length; i++) {
+        const m = DEFAULT_MAPEL_DATA[i];
+        if (isMapelForKelas(m.target_kelas, rawKelas)) {
+          mapelList.push({ kode: m.nama, nama: m.nama, target_kelas: m.target_kelas, urutan: mapelList.length + 1 });
+        }
+      }
+    }
+
+    // 3. Ambil data Nilai Rapor dari Sheet NilaiRapor
+    const sheetRapor = getOrCreateNilaiRaporSheet(ss);
+    let gradesMap = {}; // multi-key mapping
+    let studentNotesMap = {};
+    if (sheetRapor.getLastRow() > 1) {
+      const rData = sheetRapor.getRange(2, 1, sheetRapor.getLastRow() - 1, 20).getValues();
+      for (let i = 0; i < rData.length; i++) {
+        const rTp = normTpStr(rData[i][1]);
+        const rSem = normSemStr(rData[i][2]);
+        const rKls = normKlsStr(rData[i][3]);
+        const rNisn = String(rData[i][4] || '').trim();
+        const rNis = String(rData[i][5] || '').trim();
+        const rNisnClean = normIdStr(rNisn);
+        const rNisClean = normIdStr(rNis);
+        const rKodeM = String(rData[i][7] || '').trim();
+        const rNamaM = String(rData[i][8] || rKodeM).trim();
+
+        const klsMatch = (rKls === normKelas);
+        const tpMatch = (!targetTp || !rTp || rTp === targetTp);
+        const semMatch = (!targetSem || !rSem || rSem === targetSem);
+
+        if (klsMatch && tpMatch && semMatch) {
+          const record = {
+            id: String(rData[i][0] || ''),
+            ph1: rData[i][10] !== undefined && rData[i][10] !== '' ? rData[i][10] : '',
+            r1: rData[i][11] !== undefined && rData[i][11] !== '' ? rData[i][11] : '',
+            ph2: rData[i][12] !== undefined && rData[i][12] !== '' ? rData[i][12] : '',
+            r2: rData[i][13] !== undefined && rData[i][13] !== '' ? rData[i][13] : '',
+            ats: rData[i][14] !== undefined && rData[i][14] !== '' ? rData[i][14] : '',
+            sikap: String(rData[i][15] || 'Baik'),
+            kehadiranMapel: String(rData[i][16] || '100%'),
+            urutanMapel: rData[i][9]
+          };
+
+          const mapelKeys = [rKodeM, rNamaM, rKodeM.toLowerCase(), rNamaM.toLowerCase()].filter(Boolean);
+          const studentKeys = [rNisn, rNis, rNisnClean, rNisClean].filter(Boolean);
+
+          studentKeys.forEach(sKey => {
+            mapelKeys.forEach(mKey => {
+              gradesMap[`${sKey}_${mKey}`] = record;
+            });
+          });
+
+          const notesObj = {
+            nilaiPramuka: String(rData[i][17] || 'BAIK'),
+            catatanWali: String(rData[i][18] || '')
+          };
+          studentKeys.forEach(sKey => {
+            studentNotesMap[sKey] = notesObj;
+          });
+        }
+      }
+    }
+
+    // 4. Ambil Akumulasi Kehadiran dari LogAbsen (Hadir, Sakit, Izin, Alpa)
+    const sheetLog = ss.getSheetByName(SHEET_LOG);
+    let attendanceSummaryMap = {}; // key: nisn -> { H, S, I, A }
+    if (sheetLog && sheetLog.getLastRow() > 1) {
+      const lData = sheetLog.getRange(2, 1, sheetLog.getLastRow() - 1, 7).getValues();
+      for (let i = 0; i < lData.length; i++) {
+        const lKls = normKlsStr(lData[i][4]);
+        const nisn = String(lData[i][1] || '').trim();
+        const nis = String(lData[i][2] || '').trim();
+        const nisnClean = normIdStr(nisn);
+        const nisClean = normIdStr(nis);
+
+        const matchClass = (!normKelas || !lKls || lKls === normKelas);
+        const matchStudent = (nisnClean && targetStudentNisnSet[nisnClean]) || (nisClean && targetStudentNisnSet[nisClean]);
+
+        if (matchClass || matchStudent) {
+          const st = String(lData[i][5] || '').trim().toUpperCase();
+          const keys = [nisn, nis, nisnClean, nisClean].filter(Boolean);
+          keys.forEach(k => {
+            if (!attendanceSummaryMap[k]) {
+              attendanceSummaryMap[k] = { H: 0, S: 0, I: 0, A: 0, T: 0 };
+            }
+            if (st === 'HADIR' || st === 'H') attendanceSummaryMap[k].H++;
+            else if (st === 'SAKIT' || st === 'S') attendanceSummaryMap[k].S++;
+            else if (st === 'IZIN' || st === 'I') attendanceSummaryMap[k].I++;
+            else if (st === 'ALPA' || st === 'A' || st === 'TANPA KETERANGAN') attendanceSummaryMap[k].A++;
+            else if (st === 'TERLAMBAT' || st === 'TELAT' || st === 'T') attendanceSummaryMap[k].T++;
+          });
+        }
+      }
+    }
+
+    // 5. Ambil data Wali Kelas dari DataKelas
+    const sheetKelas = ss.getSheetByName(SHEET_KELAS);
+    let waliKelasInfo = { nama: '', nip: '' };
+    if (sheetKelas && sheetKelas.getLastRow() > 1) {
+      const kData = sheetKelas.getRange(2, 1, sheetKelas.getLastRow() - 1, 4).getValues();
+      for (let i = 0; i < kData.length; i++) {
+        const kName = normKlsStr(kData[i][0]);
+        if (kName === normKelas) {
+          waliKelasInfo.nama = String(kData[i][1] || '').trim();
+          waliKelasInfo.nip = String(kData[i][2] || '').trim();
+          break;
+        }
+      }
+    }
+
+    const config = getConfigObject(ss);
+
+    return jsonResponse('success', 'Data Rapor Loaded', {
+      students: students,
+      mapelList: mapelList,
+      gradesMap: gradesMap,
+      studentNotesMap: studentNotesMap,
+      attendanceSummaryMap: attendanceSummaryMap,
+      waliKelasInfo: waliKelasInfo,
+      config: config
+    });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal memuat data rapor: ' + err.toString());
+  }
+}
+
+function handleSaveRaporData(payload) {
+  try {
+    if (!payload || !payload.records || !Array.isArray(payload.records)) {
+      return jsonResponse('error', 'Payload data rapor tidak valid.');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetRapor = getOrCreateNilaiRaporSheet(ss);
+
+    const kelas = String(payload.kelas || '').trim();
+    const semester = String(payload.semester || '1').trim();
+    const tahunPelajaran = String(payload.tahunPelajaran || '').trim();
+
+    const normKelas = normKlsStr(kelas);
+    const normTp = normTpStr(tahunPelajaran);
+    const normSem = normSemStr(semester);
+
+    const existingData = sheetRapor.getLastRow() > 1 ? sheetRapor.getRange(2, 1, sheetRapor.getLastRow() - 1, 20).getValues() : [];
+    
+    let rowMap = {};
+    for (let i = 0; i < existingData.length; i++) {
+      const eTp = normTpStr(existingData[i][1]);
+      const eSem = normSemStr(existingData[i][2]);
+      const eKls = normKlsStr(existingData[i][3]);
+      const eNisn = String(existingData[i][4] || '').trim();
+      const eNis = String(existingData[i][5] || '').trim();
+      const eNisnClean = normIdStr(eNisn);
+      const eNisClean = normIdStr(eNis);
+      const eMapelCode = String(existingData[i][7] || '').trim();
+      const eMapelName = String(existingData[i][8] || eMapelCode).trim();
+
+      const rowIndex = i + 2;
+      const mapelList = [eMapelCode, eMapelName, eMapelCode.toLowerCase(), eMapelName.toLowerCase()].filter(Boolean);
+      const idList = [eNisn, eNis, eNisnClean, eNisClean].filter(Boolean);
+
+      idList.forEach(idKey => {
+        mapelList.forEach(mKey => {
+          rowMap[`${eTp}_${eSem}_${eKls}_${idKey}_${mKey}`] = rowIndex;
+        });
+      });
+    }
+
+    const timeNow = getFormattedTimestamp(new Date());
+
+    payload.records.forEach(rec => {
+      const nisn = String(rec.nisn || '').trim();
+      const nis = String(rec.nis || '').trim();
+      const nisnClean = normIdStr(nisn);
+      const nisClean = normIdStr(nis);
+      const nama = String(rec.nama || '').trim();
+      const mapelCode = String(rec.mapelCode || '').trim();
+      const mapelName = String(rec.mapelName || '').trim();
+      const urutan = rec.urutanMapel || 1;
+      const ph1 = rec.ph1 !== undefined && rec.ph1 !== '' ? rec.ph1 : '';
+      const r1 = rec.r1 !== undefined && rec.r1 !== '' ? rec.r1 : '';
+      const ph2 = rec.ph2 !== undefined && rec.ph2 !== '' ? rec.ph2 : '';
+      const r2 = rec.r2 !== undefined && rec.r2 !== '' ? rec.r2 : '';
+      const ats = rec.ats !== undefined && rec.ats !== '' ? rec.ats : '';
+      const sikap = String(rec.sikap || 'Baik').trim();
+      const kehadiranMapel = String(rec.kehadiranMapel || '100%').trim();
+      const nilaiPramuka = String(rec.nilaiPramuka || 'BAIK').trim();
+      const catatanWali = String(rec.catatanWali || '').trim();
+
+      const idKeys = [nisn, nis, nisnClean, nisClean].filter(Boolean);
+      const mKeys = [mapelCode, mapelName, mapelCode.toLowerCase(), mapelName.toLowerCase()].filter(Boolean);
+
+      let targetRow = null;
+      for (let i = 0; i < idKeys.length; i++) {
+        for (let j = 0; j < mKeys.length; j++) {
+          const testKey = `${normTp}_${normSem}_${normKelas}_${idKeys[i]}_${mKeys[j]}`;
+          if (rowMap[testKey]) {
+            targetRow = rowMap[testKey];
+            break;
+          }
+        }
+        if (targetRow) break;
+      }
+
+      const rowArr = [
+        `NIL-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+        tahunPelajaran,
+        semester,
+        kelas,
+        nisn,
+        nis,
+        nama,
+        mapelCode,
+        mapelName,
+        urutan,
+        ph1,
+        r1,
+        ph2,
+        r2,
+        ats,
+        sikap,
+        kehadiranMapel,
+        nilaiPramuka,
+        catatanWali,
+        timeNow
+      ];
+
+      if (targetRow) {
+        sheetRapor.getRange(targetRow, 1, 1, 20).setValues([[
+          existingData[targetRow - 2][0] || rowArr[0],
+          tahunPelajaran,
+          semester,
+          kelas,
+          nisn,
+          nis,
+          nama,
+          mapelCode,
+          mapelName,
+          urutan,
+          ph1,
+          r1,
+          ph2,
+          r2,
+          ats,
+          sikap,
+          kehadiranMapel,
+          nilaiPramuka,
+          catatanWali,
+          timeNow
+        ]]);
+      } else {
+        sheetRapor.appendRow(rowArr);
+      }
+    });
+
+    return jsonResponse('success', 'Data Rapor Tengah Semester berhasil disimpan!', { count: payload.records.length });
+  } catch (err) {
+    return jsonResponse('error', 'Gagal menyimpan data rapor: ' + err.toString());
   }
 }

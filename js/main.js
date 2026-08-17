@@ -33,6 +33,33 @@ window.addEventListener('appinstalled', () => {
     deferredPwaPrompt = null;
 });
 
+// Global SPA Panel Switcher Helper
+function switchPanel(panelId) {
+    if (!panelId) return;
+    const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+    const panels = document.querySelectorAll('.main-content .panel, .main-content .panel-section');
+
+    panels.forEach(p => {
+        p.classList.remove('active');
+        p.style.display = 'none';
+    });
+
+    navItems.forEach(n => {
+        if (n.dataset && n.dataset.target === panelId) {
+            n.classList.add('active');
+        } else {
+            n.classList.remove('active');
+        }
+    });
+
+    const target = document.getElementById(panelId);
+    if (target) {
+        target.classList.add('active');
+        target.style.display = 'block';
+    }
+}
+window.switchPanel = switchPanel;
+
 // Background Sync Master Data 1x saat aplikasi dibuka (Non-blocking)
 async function syncMasterDataInBackground() {
     try {
@@ -69,6 +96,9 @@ async function syncMasterDataInBackground() {
                 }
             }
             populateClassSelectOptions();
+            if (typeof window.setupRaporFilterOptions === 'function') {
+                window.setupRaporFilterOptions();
+            }
             if (typeof loadUsers === 'function') {
                 loadUsers();
             }
