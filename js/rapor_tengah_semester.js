@@ -1431,6 +1431,10 @@ async function renderBatchRaporPrintPreview() {
             const isFaseF = /(^|\b)(XI|XII|11|12)(\b|$)/i.test(cleanKlsUpper) || cleanKlsUpper.includes('XI') || cleanKlsUpper.includes('XII');
             const faseKelas = isFaseF ? 'F' : 'E';
 
+            // Payloads for QR Verification Code (Nama, NIS, NISN)
+            const qrTextPayload = `Nama: ${std.nama}\nNIS: ${std.nis || '-'}\nNISN: ${std.nisn || '-'}`;
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrTextPayload)}`;
+
             html += `
                 <div class="rapor-page-card ${isCurrentPage ? 'active-page' : 'hidden-page'}" data-page-index="${idx}" style="page-break-after: always; padding: 25px 30px; font-family: 'Times New Roman', Times, serif; color: #000; background: #fff; max-width: 210mm; margin: 0 auto 30px auto; border: 1px solid #ddd; box-sizing: border-box;">
                     <!-- KOP RAPOR -->
@@ -1452,25 +1456,31 @@ async function renderBatchRaporPrintPreview() {
                         <p style="margin: 2px 0 0 0; font-size: 9.5pt;">Tahun Pelajaran: ${escapeHtml(currentRaporTahun || '2025/2026')} | Semester: ${escapeHtml(currentRaporSemester === '1' ? 'Ganjil (1)' : 'Genap (2)')}</p>
                     </div>
 
-                    <!-- BIODATA SISWA -->
-                    <table class="rapor-biodata-table" style="width: 100%; margin-bottom: 12px; font-size: 9.5pt; line-height: 1.4; border-collapse: collapse; border: none !important;">
-                        <tr>
-                            <td style="width: 16%; border: none !important; border-color: transparent !important; padding: 2px 0;">Nama Siswa</td>
-                            <td style="width: 2%; border: none !important; border-color: transparent !important; padding: 2px 0;">:</td>
-                            <td style="width: 42%; font-weight: bold; border: none !important; border-color: transparent !important; padding: 2px 0;">${escapeHtml(std.nama)}</td>
-                            <td style="width: 16%; border: none !important; border-color: transparent !important; padding: 2px 0;">Kelas</td>
-                            <td style="width: 2%; border: none !important; border-color: transparent !important; padding: 2px 0;">:</td>
-                            <td style="width: 22%; font-weight: bold; border: none !important; border-color: transparent !important; padding: 2px 0;">${escapeHtml(currentRaporKelas || std.kelas || targetKls || '-')}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: none !important; border-color: transparent !important; padding: 2px 0;">NIS / NISN</td>
-                            <td style="border: none !important; border-color: transparent !important; padding: 2px 0;">:</td>
-                            <td style="border: none !important; border-color: transparent !important; padding: 2px 0;">${escapeHtml(std.nis || '-')} / ${escapeHtml(std.nisn || '-')}</td>
-                            <td style="border: none !important; border-color: transparent !important; padding: 2px 0;">Fase</td>
-                            <td style="border: none !important; border-color: transparent !important; padding: 2px 0;">:</td>
-                            <td style="font-weight: bold; border: none !important; border-color: transparent !important; padding: 2px 0;">${faseKelas}</td>
-                        </tr>
-                    </table>
+                    <!-- BIODATA SISWA + QR CODE (SAMPING KELAS & FASE) -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px;">
+                        <table class="rapor-biodata-table" style="flex: 1; font-size: 9.5pt; line-height: 1.45; border-collapse: collapse; border: none !important;">
+                            <tr>
+                                <td style="width: 14%; border: none !important; padding: 2px 0; white-space: nowrap;">Nama Siswa</td>
+                                <td style="width: 2%; border: none !important; padding: 2px 0;">:</td>
+                                <td style="width: 54%; font-weight: bold; border: none !important; padding: 2px 0; word-break: break-word;">${escapeHtml(std.nama)}</td>
+                                <td style="width: 10%; border: none !important; padding: 2px 0; white-space: nowrap;">Kelas</td>
+                                <td style="width: 2%; border: none !important; padding: 2px 0;">:</td>
+                                <td style="width: 18%; font-weight: bold; border: none !important; padding: 2px 0;">${escapeHtml(currentRaporKelas || std.kelas || targetKls || '-')}</td>
+                            </tr>
+                            <tr>
+                                <td style="border: none !important; padding: 2px 0; white-space: nowrap;">NIS / NISN</td>
+                                <td style="border: none !important; padding: 2px 0;">:</td>
+                                <td style="border: none !important; padding: 2px 0;">${escapeHtml(std.nis || '-')} / ${escapeHtml(std.nisn || '-')}</td>
+                                <td style="border: none !important; padding: 2px 0; white-space: nowrap;">Fase</td>
+                                <td style="border: none !important; padding: 2px 0;">:</td>
+                                <td style="font-weight: bold; border: none !important; padding: 2px 0;">${faseKelas}</td>
+                            </tr>
+                        </table>
+                        <div style="width: 54px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px;">
+                            <img src="${qrCodeUrl}" alt="QR Siswa" style="width: 48px; height: 48px; object-fit: contain; border: 1px solid #bbb; padding: 1.5px; background: #fff;" title="Scan untuk Verifikasi Siswa">
+                            <span style="font-size: 5pt; font-family: Arial, sans-serif; color: #444; margin-top: 1px; font-weight: bold; letter-spacing: 0.2px;">VERIFIKASI</span>
+                        </div>
+                    </div>
 
                     <!-- TABEL NILAI MATA PELAJARAN -->
                     <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9.5pt;">
@@ -1597,28 +1607,26 @@ async function renderBatchRaporPrintPreview() {
                     </div>
 
                     <!-- TATA LETAK 3 TANDA TANGAN -->
-                    <div style="margin-top: 40px;">
+                    <div style="margin-top: 35px;">
                         <table class="rapor-signature-table" style="width: 100%; text-align: center; font-size: 9.5pt; border-collapse: collapse; border: none !important;">
                             <tr>
                                 <td style="width: 33%; vertical-align: top; border: none !important; border-color: transparent !important; padding: 0 4px;">
-                                    <div style="height: 20px;"></div>
-                                    <div>&nbsp;</div>
+                                    <div style="margin-bottom: 2px;">&nbsp;</div>
                                     <strong>Orang Tua / Wali Murid</strong>
-                                    <div style="height: 90px;"></div>
-                                    _______________________
+                                    <div style="height: 75px;"></div>
+                                    <div>_______________________</div>
                                 </td>
                                 <td style="width: 34%; vertical-align: top; border: none !important; border-color: transparent !important; padding: 0 4px;">
-                                    <div style="height: 20px;"></div>
-                                    Mengetahui,<br>
+                                    <div style="margin-bottom: 2px;">Mengetahui,</div>
                                     <strong>Kepala Sekolah</strong>
-                                    <div style="height: 90px;"></div>
-                                    <strong style="text-decoration: underline;">${escapeHtml(namaKepsek)}</strong>
+                                    <div style="height: 75px;"></div>
+                                    <div><strong style="text-decoration: underline;">${escapeHtml(namaKepsek)}</strong></div>
                                 </td>
                                 <td style="width: 33%; vertical-align: top; border: none !important; border-color: transparent !important; padding: 0 4px;">
-                                    <div>Jakarta, ${todayStr}</div>
+                                    <div style="margin-bottom: 2px;">Jakarta, ${todayStr}</div>
                                     <strong>Wali Kelas</strong>
-                                    <div style="height: 90px;"></div>
-                                    <strong style="text-decoration: underline;">${escapeHtml(namaWali)}</strong>
+                                    <div style="height: 75px;"></div>
+                                    <div><strong style="text-decoration: underline;">${escapeHtml(namaWali)}</strong></div>
                                 </td>
                             </tr>
                         </table>

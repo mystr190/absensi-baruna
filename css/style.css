@@ -1359,9 +1359,13 @@ select option { background: var(--bg-color); color: var(--text-main); }
         break-after: page !important;
     }
 
-    .rapor-page-card * {
+    .rapor-page-card *:not(img) {
         color: #000000 !important;
         background: transparent !important;
+    }
+    .rapor-page-card img {
+        background: #ffffff !important;
+        display: inline-block !important;
     }
 
     .rapor-page-card table:not(.rapor-biodata-table):not(.rapor-signature-table) {
@@ -1489,6 +1493,20 @@ select option { background: var(--bg-color); color: var(--text-main); }
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.panel-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.panel-icon {
+    font-size: 1.6rem;
+    color: #38bdf8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .styled-form-group {
