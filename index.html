@@ -80,6 +80,18 @@
                     <span class="status-dot"></span>
                     <span id="statusText">Mengecek koneksi Google Sheets...</span>
                 </div>
+                <!-- TRIAL COUNTDOWN BANNER (LOGIN) -->
+                <div id="trialCountdownBannerLogin" style="margin: 14px 0 10px 0; padding: 12px 14px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 14px; text-align: center; backdrop-filter: blur(10px);">
+                    <div style="font-size: 0.74rem; color: #a5b4fc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <i class="fa-solid fa-clock-rotate-left" style="color: #818cf8;"></i> Masa Trial Gratis Berakhir Dalam:
+                    </div>
+                    <div id="trialTimerLoginDisplay" style="font-family: 'Courier New', monospace, sans-serif; font-size: 1.15rem; font-weight: 800; color: #ffffff; letter-spacing: 1px;">
+                        <span id="tcDays">00</span>h <span id="tcHours">00</span>j <span id="tcMinutes">00</span>m <span id="tcSeconds">00</span>d
+                    </div>
+                    <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">
+                        Batas Akhir: <strong>30 September 2026 • 07:00 WIB</strong>
+                    </div>
+                </div>
             </div>
             <form id="formLogin" class="form-container">
                 <div class="input-group">
@@ -147,6 +159,15 @@
                         <span id="currentUserTelegramIdText"></span>
                         <i class="fa-solid fa-circle-check" style="color: #22c55e; font-size: 0.95rem;" title="Terhubung Telegram"></i>
                     </div>
+                </div>
+            </div>
+            <!-- TRIAL COUNTDOWN BADGE (SIDEBAR) -->
+            <div id="trialCountdownBannerSidebar" style="margin: 8px 14px 12px 14px; padding: 8px 10px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.68rem; color: #a5b4fc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <i class="fa-solid fa-clock-rotate-left" style="color: #818cf8;"></i> Trial s.d 1 Sep 2026 07:00
+                </div>
+                <div id="trialTimerSidebarDisplay" style="font-family: monospace; font-size: 0.88rem; font-weight: 700; color: #38bdf8; margin-top: 2px;">
+                    00h 00j 00m 00d
                 </div>
             </div>
             <nav class="sidebar-nav">

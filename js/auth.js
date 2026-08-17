@@ -9,9 +9,109 @@ const btnLogout = document.getElementById('btnLogout');
 const connectionStatus = document.getElementById('connectionStatus');
 const statusText = document.getElementById('statusText');
 
+// ====================================================
+// MANAJEMEN TRIAL LISENSI APLIKASI (EXPIRES 1 SEP 2026 07:00 WIB)
+// ====================================================
+const TRIAL_EXPIRY_TIMESTAMP = new Date('2026-09-30T07:00:00+07:00').getTime();
+let trialTimerInterval = null;
+
+function isTrialExpired() {
+    return Date.now() >= TRIAL_EXPIRY_TIMESTAMP;
+}
+
+function updateTrialCountdownDisplay() {
+    const now = Date.now();
+    const diff = TRIAL_EXPIRY_TIMESTAMP - now;
+
+    const bannerLogin = document.getElementById('trialCountdownBannerLogin');
+    const timerLogin = document.getElementById('trialTimerLoginDisplay');
+    const timerSidebar = document.getElementById('trialTimerSidebarDisplay');
+    const btnLogin = document.getElementById('btnLogin');
+
+    if (diff <= 0) {
+        // MASA TRIAL HAS EXPIRED!
+        if (bannerLogin) {
+            bannerLogin.style.background = 'rgba(239, 68, 68, 0.18)';
+            bannerLogin.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+            bannerLogin.innerHTML = `
+                <div style="font-size: 0.85rem; color: #ef4444; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="fa-solid fa-lock"></i> MASA TRIAL GRATIS TELAH BERAKHIR
+                </div>
+                <div style="font-size: 0.78rem; color: #fca5a5; line-height: 1.4;">
+                    Trial berakhir pada <strong>1 September 2026 pukul 07:00 WIB</strong>.<br>
+                    Akses login dikunci. Silakan hubungi Administrator untuk berlangganan lisensi.
+                </div>
+            `;
+        }
+        if (timerSidebar) {
+            timerSidebar.innerHTML = `<span style="color: #ef4444;"><i class="fa-solid fa-lock"></i> TRIAL EXPIRED</span>`;
+        }
+
+        if (btnLogin) {
+            btnLogin.disabled = true;
+            btnLogin.style.opacity = '0.5';
+            btnLogin.style.cursor = 'not-allowed';
+            const textSpan = btnLogin.querySelector('.btn-text');
+            if (textSpan) textSpan.innerText = '🔒 Lisensi Trial Berakhir';
+        }
+
+        // Jika user masih di dalam aplikasi saat trial habis, paksa logout!
+        const userSession = localStorage.getItem('smart_absen_user');
+        if (userSession) {
+            localStorage.removeItem('smart_absen_user');
+            if (typeof showToast === 'function') {
+                showToast('🔒 Masa trial aplikasi telah berakhir pada 1 September 2026 pukul 07:00 WIB.', 'error');
+            }
+            showLogin();
+        }
+
+        if (trialTimerInterval) {
+            clearInterval(trialTimerInterval);
+        }
+        return true;
+    }
+
+    // Hitung sisa waktu
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const formattedStr = `${days}h ${pad(hours)}j ${pad(minutes)}m ${pad(seconds)}d`;
+
+    if (timerLogin) {
+        timerLogin.innerHTML = `
+            <span id="tcDays" style="color:#fde047;">${days}</span>h 
+            <span id="tcHours">${pad(hours)}</span>j 
+            <span id="tcMinutes">${pad(minutes)}</span>m 
+            <span id="tcSeconds" style="color:#38bdf8;">${pad(seconds)}</span>d
+        `;
+    }
+    if (timerSidebar) {
+        timerSidebar.innerText = formattedStr;
+    }
+
+    if (btnLogin && btnLogin.disabled && btnLogin.querySelector('.btn-text')?.innerText.includes('Lisensi')) {
+        btnLogin.disabled = false;
+        btnLogin.style.opacity = '1';
+        btnLogin.style.cursor = 'pointer';
+        btnLogin.querySelector('.btn-text').innerText = 'Masuk';
+    }
+
+    return false;
+}
+
+function startTrialTimer() {
+    if (trialTimerInterval) clearInterval(trialTimerInterval);
+    updateTrialCountdownDisplay();
+    trialTimerInterval = setInterval(updateTrialCountdownDisplay, 1000);
+}
+
 // Cek Sesi & Inisialisasi Tema Saat Halaman Dimuat
 window.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    startTrialTimer();
     checkSession();
 });
 
@@ -75,6 +175,13 @@ function updateThemeIcons(isLight) {
 }
 
 function checkSession() {
+    startTrialTimer();
+    if (isTrialExpired()) {
+        localStorage.removeItem('smart_absen_user');
+        showLogin();
+        return;
+    }
+
     const userSession = localStorage.getItem('smart_absen_user');
     
     if (userSession) {
@@ -332,6 +439,14 @@ function showApp(user) {
 if (formLogin) {
     formLogin.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (isTrialExpired()) {
+            if (typeof showToast === 'function') {
+                showToast('🔒 Masa trial gratis telah berakhir pada 1 September 2026 pukul 07:00 WIB. Akses login dikunci!', 'error');
+            }
+            updateTrialCountdownDisplay();
+            return;
+        }
         
         const btn = document.getElementById('btnLogin');
         const text = btn ? btn.querySelector('.btn-text') : null;
