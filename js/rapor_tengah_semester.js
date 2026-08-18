@@ -20,6 +20,18 @@ let currentRaporSemester = '1';
 let currentRaporTahun = '';
 let currentRaporPageIndex = 0;
 
+function getFormattedTimestamp(dt) {
+    const d = dt || new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+window.getFormattedTimestamp = getFormattedTimestamp;
+
 function changeRaporPage(newIndex) {
     const pages = document.querySelectorAll('#raporPrintArea .rapor-page-card');
     if (pages.length === 0) return;
@@ -318,23 +330,94 @@ function getLocalStudentsForRapor(kelas) {
     ];
 }
 
-function getLocalMapelListForRapor(kelas) {
-    const rawMapel = window.allMapel || window.masterMapel || JSON.parse(localStorage.getItem('smart_absen_mapel_cache') || '[]');
-    if (Array.isArray(rawMapel) && rawMapel.length > 0) {
-        return rawMapel.map((m, idx) => ({
-            kode: m.nama || m.kode || String(m),
-            nama: m.nama || m.kode || String(m),
-            urutan: idx + 1
-        }));
+function isMapelForKelas(targetKelasStr, selectedKelas) {
+    if (!targetKelasStr) return true;
+    const rawTarget = String(targetKelasStr).trim();
+    if (!rawTarget || rawTarget.toLowerCase() === 'semua' || rawTarget.toLowerCase() === 'semua kelas' || rawTarget === '-') return true;
+
+    const selKlsNorm = String(selectedKelas || '').trim().toUpperCase();
+    if (!selKlsNorm) return true;
+
+    const selKlsClean = selKlsNorm.replace(/[\s\-\/]/g, '');
+    const targets = rawTarget.toUpperCase().split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
+
+    for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        if (t === 'SEMUA' || t === 'SEMUA KELAS' || t === '-') return true;
+        const tClean = t.replace(/[\s\-\/]/g, '');
+        if (tClean === selKlsClean) return true;
+
+        const levelToken = tClean.replace(/^KELAS/, '');
+        if (levelToken === 'X' || levelToken === 'XI' || levelToken === 'XII') {
+            if (selKlsClean.startsWith(levelToken)) return true;
+        }
     }
-    // Default fallback Mapel
-    const defaultMapels = [
-        'Pendidikan Agama dan Budi Pekerti', 'Pancasila', 'Bahasa Indonesia',
-        'Matematika', 'Sejarah', 'Bahasa Inggris', 'Informatika',
-        'Seni Budaya', 'PJOK', 'Fisika', 'Kimia', 'Biologi', 'Sosiologi', 'Ekonomi', 'Geografi'
-    ];
-    return defaultMapels.map((m, idx) => ({ kode: m, nama: m, urutan: idx + 1 }));
+
+    return false;
 }
+
+function getLocalMapelListForRapor(kelas) {
+    const targetKls = kelas || currentRaporKelas || 'X-1';
+    let rawMapel = window.allMapel || window.masterMapel || [];
+    if (!rawMapel || rawMapel.length === 0) {
+        const keys = ['smart_absen_mapel_list', 'smart_absen_mapel_cache', 'smart_absen_mapel'];
+        for (const k of keys) {
+            try {
+                const raw = localStorage.getItem(k);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        rawMapel = parsed;
+                        break;
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+    if (!rawMapel || rawMapel.length === 0) {
+        if (typeof DEFAULT_PRESET_MAPEL !== 'undefined' && Array.isArray(DEFAULT_PRESET_MAPEL)) {
+            rawMapel = DEFAULT_PRESET_MAPEL;
+        }
+    }
+
+    if (Array.isArray(rawMapel) && rawMapel.length > 0) {
+        const filtered = rawMapel.filter(m => {
+            const mTarget = m.target_kelas || m.targetKelas || m.target || '';
+            return isMapelForKelas(mTarget, targetKls);
+        });
+        if (filtered.length > 0) {
+            return filtered.map((m, idx) => ({
+                kode: m.nama || m.kode || String(m),
+                nama: m.nama || m.kode || String(m),
+                target_kelas: m.target_kelas || m.targetKelas || '',
+                urutan: idx + 1
+            }));
+        }
+    }
+
+    // Default fallback Mapel if no match or default preset
+    const defaultMapels = [
+        { nama: 'Pendidikan Agama dan Budi Pekerti', target_kelas: '' },
+        { nama: 'Pancasila', target_kelas: '' },
+        { nama: 'Bahasa Indonesia', target_kelas: '' },
+        { nama: 'Matematika', target_kelas: '' },
+        { nama: 'Sejarah', target_kelas: '' },
+        { nama: 'Bahasa Inggris', target_kelas: '' },
+        { nama: 'Informatika', target_kelas: '' },
+        { nama: 'Seni Budaya', target_kelas: '' },
+        { nama: 'PJOK', target_kelas: '' },
+        { nama: 'Fisika', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
+        { nama: 'Kimia', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-4, XII-5' },
+        { nama: 'Biologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-3, XI-4, XII-3, XII-4' },
+        { nama: 'Sosiologi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
+        { nama: 'Ekonomi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2, XII-3' },
+        { nama: 'Geografi', target_kelas: 'X-1, X-2, X-3, X-4, XI-1, XI-2, XII-1, XII-2' }
+    ];
+
+    const filteredDefaults = defaultMapels.filter(m => isMapelForKelas(m.target_kelas, targetKls));
+    return filteredDefaults.map((m, idx) => ({ kode: m.nama, nama: m.nama, target_kelas: m.target_kelas, urutan: idx + 1 }));
+}
+
 
 async function loadRaporDataFromServer(isManualClick = false) {
     isManualClick = (isManualClick === true);
@@ -1487,7 +1570,7 @@ async function renderBatchRaporPrintPreview() {
                         <thead>
                             <tr style="text-align: center; font-weight: bold;">
                                 <th rowspan="2" style="border: 1px solid #000; padding: 5px; width: 30px;">NO</th>
-                                <th rowspan="2" style="border: 1px solid #000; padding: 5px; text-align: left;">MATA PELAJARAN</th>
+                                <th rowspan="2" style="border: 1px solid #000; padding: 5px; text-align: center;">MATA PELAJARAN</th>
                                 <th colspan="5" style="border: 1px solid #000; padding: 3px;">NILAI</th>
                                 <th rowspan="2" style="border: 1px solid #000; padding: 5px; width: 75px;">SIKAP</th>
                                 <th rowspan="2" style="border: 1px solid #000; padding: 5px; width: 85px;">KEHADIRAN</th>
