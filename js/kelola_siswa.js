@@ -81,6 +81,19 @@ function initKelolaSiswaEvents() {
 
     if (btnSubmitImport) btnSubmitImport.addEventListener('click', uploadBulkStudentsToServer);
     if (btnDownloadTemplate) btnDownloadTemplate.addEventListener('click', downloadExcelTemplate);
+
+    // Modal & Quick Export Siswa Per Kelas
+    const btnExportClass = document.getElementById('btnExportStudentsPerClass');
+    const btnQuickExport = document.getElementById('btnQuickExportFilteredClass');
+    const btnCloseExport = document.getElementById('btnCloseModalExportSiswa');
+    const btnCancelExport = document.getElementById('btnCancelModalExportSiswa');
+    const btnSubmitExport = document.getElementById('btnSubmitExportSiswa');
+
+    if (btnExportClass) btnExportClass.addEventListener('click', () => openModalExportSiswaPerKelas());
+    if (btnQuickExport) btnQuickExport.addEventListener('click', () => handleQuickExportFilteredClass());
+    if (btnCloseExport) btnCloseExport.addEventListener('click', closeModalExportSiswa);
+    if (btnCancelExport) btnCancelExport.addEventListener('click', closeModalExportSiswa);
+    if (btnSubmitExport) btnSubmitExport.addEventListener('click', processExportStudentsPerClass);
 }
 
 // 1. RENDER TABLE & STATS SISWA
@@ -672,6 +685,205 @@ function downloadExcelTemplate() {
     showToast('Berhasil mengunduh Template Excel.', 'success');
 }
 
+// 6. MODAL & PROSES UNDUH DAFTAR SISWA PER KELAS
+function openModalExportSiswaPerKelas(preselectedClass = null) {
+    const modal = document.getElementById('modalExportSiswaPerKelas');
+    if (!modal) return;
+
+    const students = window.allStudents || localMasterStudents || [];
+    if (!students || students.length === 0) {
+        showToast('Tidak ada data siswa untuk diunduh!', 'warning');
+        return;
+    }
+
+    populateModalExportClassSelect(students, preselectedClass);
+    modal.style.display = 'flex';
+}
+
+function closeModalExportSiswa() {
+    const modal = document.getElementById('modalExportSiswaPerKelas');
+    if (modal) modal.style.display = 'none';
+}
+
+function populateModalExportClassSelect(students, preselectedClass = null) {
+    const select = document.getElementById('selectModalExportKelasTarget');
+    if (!select) return;
+
+    const filterVal = (document.getElementById('selectFilterKelasSiswa')?.value || 'Semua').trim();
+    const activeTarget = preselectedClass || filterVal;
+
+    const classes = [...new Set(students.map(s => String(s.kelas || '').trim()).filter(Boolean))].sort();
+
+    let html = `
+        <option value="ALL_SHEETS" ${activeTarget.toLowerCase() === 'semua' ? 'selected' : ''}>Semua Kelas (1 File Excel Multi-Sheet per Kelas)</option>
+        <option value="ALL_SINGLE">Semua Kelas (1 Sheet Terpadu)</option>
+    `;
+
+    classes.forEach(c => {
+        const isSel = (c.toLowerCase() === activeTarget.toLowerCase());
+        html += `<option value="${escapeHtml(c)}" ${isSel ? 'selected' : ''}>Kelas ${escapeHtml(c)}</option>`;
+    });
+
+    select.innerHTML = html;
+}
+
+function handleQuickExportFilteredClass() {
+    const selectFilter = document.getElementById('selectFilterKelasSiswa');
+    const selectedKelas = selectFilter ? selectFilter.value : 'Semua';
+
+    if (selectedKelas && selectedKelas !== 'Semua') {
+        executeExportStudents(selectedKelas, 'xlsx');
+    } else {
+        openModalExportSiswaPerKelas('ALL_SHEETS');
+    }
+}
+
+function processExportStudentsPerClass() {
+    const selectTarget = document.getElementById('selectModalExportKelasTarget');
+    const targetVal = selectTarget ? selectTarget.value : 'ALL_SHEETS';
+    const formatRadios = document.getElementsByName('radioExportFormat');
+    let format = 'xlsx';
+    for (const r of formatRadios) {
+        if (r.checked) {
+            format = r.value;
+            break;
+        }
+    }
+
+    executeExportStudents(targetVal, format);
+    closeModalExportSiswa();
+}
+
+function executeExportStudents(targetOption, format = 'xlsx') {
+    if (typeof XLSX === 'undefined') {
+        showToast('Pustaka SheetJS belum dimuat.', 'error');
+        return;
+    }
+
+    const students = window.allStudents || localMasterStudents || [];
+    if (!students || students.length === 0) {
+        showToast('Tidak ada data siswa untuk diunduh!', 'warning');
+        return;
+    }
+
+    try {
+        const workbook = XLSX.utils.book_new();
+
+        if (targetOption === 'ALL_SHEETS' && format === 'xlsx') {
+            // Mode Multi-Sheet Excel per Kelas
+            const allSorted = [...students].sort((a, b) => {
+                const klsComp = String(a.kelas || '').localeCompare(String(b.kelas || ''));
+                if (klsComp !== 0) return klsComp;
+                return String(a.nama || '').localeCompare(String(b.nama || ''));
+            });
+
+            const rowsAll = allSorted.map((s, idx) => ({
+                "NO": idx + 1,
+                "NIS": s.nis || '',
+                "NISN": s.nisn || '',
+                "NAMA SISWA": s.nama || '',
+                "L/P": (s.gender || s.jk || 'L').toUpperCase() === 'P' ? 'P' : 'L',
+                "KELAS": s.kelas || '',
+                "ID MESIN": s.id_mesin || '',
+                "ID TELEGRAM": s.id_telegram || ''
+            }));
+
+            const wsAll = XLSX.utils.json_to_sheet(rowsAll);
+            wsAll['!cols'] = [{ wch: 6 }, { wch: 12 }, { wch: 15 }, { wch: 32 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 18 }];
+            XLSX.utils.book_append_sheet(workbook, wsAll, "Semua Siswa");
+
+            const classList = [...new Set(students.map(s => String(s.kelas || '').trim()).filter(Boolean))].sort();
+            classList.forEach(cls => {
+                const clsStudents = students.filter(s => String(s.kelas || '').trim().toLowerCase() === cls.toLowerCase());
+                clsStudents.sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || '')));
+
+                const clsRows = clsStudents.map((s, idx) => ({
+                    "NO": idx + 1,
+                    "NIS": s.nis || '',
+                    "NISN": s.nisn || '',
+                    "NAMA SISWA": s.nama || '',
+                    "L/P": (s.gender || s.jk || 'L').toUpperCase() === 'P' ? 'P' : 'L',
+                    "KELAS": s.kelas || '',
+                    "ID MESIN": s.id_mesin || '',
+                    "ID TELEGRAM": s.id_telegram || ''
+                }));
+
+                const wsCls = XLSX.utils.json_to_sheet(clsRows);
+                wsCls['!cols'] = [{ wch: 6 }, { wch: 12 }, { wch: 15 }, { wch: 32 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 18 }];
+                
+                const safeSheetName = `Kelas ${cls}`.replace(/[\*\?\/\\\[\]]/g, '_').substring(0, 31);
+                XLSX.utils.book_append_sheet(workbook, wsCls, safeSheetName);
+            });
+
+            XLSX.writeFile(workbook, "Daftar_Siswa_Semua_Kelas.xlsx");
+            showToast(`✅ Berhasil mengunduh Daftar Siswa Semua Kelas (${classList.length} Kelas, ${students.length} Siswa).`, 'success');
+
+        } else if (targetOption === 'ALL_SINGLE' || targetOption === 'ALL_SHEETS') {
+            const allSorted = [...students].sort((a, b) => {
+                const klsComp = String(a.kelas || '').localeCompare(String(b.kelas || ''));
+                if (klsComp !== 0) return klsComp;
+                return String(a.nama || '').localeCompare(String(b.nama || ''));
+            });
+
+            const rowsAll = allSorted.map((s, idx) => ({
+                "NO": idx + 1,
+                "NIS": s.nis || '',
+                "NISN": s.nisn || '',
+                "NAMA SISWA": s.nama || '',
+                "L/P": (s.gender || s.jk || 'L').toUpperCase() === 'P' ? 'P' : 'L',
+                "KELAS": s.kelas || '',
+                "ID MESIN": s.id_mesin || '',
+                "ID TELEGRAM": s.id_telegram || ''
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rowsAll);
+            ws['!cols'] = [{ wch: 6 }, { wch: 12 }, { wch: 15 }, { wch: 32 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 18 }];
+            XLSX.utils.book_append_sheet(workbook, ws, "Daftar Siswa");
+
+            const ext = format === 'csv' ? 'csv' : 'xlsx';
+            const fileName = `Daftar_Siswa_Semua_Kelas.${ext}`;
+            XLSX.writeFile(workbook, fileName);
+            showToast(`✅ Berhasil mengunduh Daftar Siswa (${students.length} Siswa).`, 'success');
+
+        } else {
+            const targetClass = String(targetOption).trim();
+            const clsStudents = students.filter(s => String(s.kelas || '').trim().toLowerCase() === targetClass.toLowerCase());
+
+            if (clsStudents.length === 0) {
+                showToast(`Tidak ada siswa di Kelas ${targetClass}!`, 'warning');
+                return;
+            }
+
+            clsStudents.sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || '')));
+
+            const clsRows = clsStudents.map((s, idx) => ({
+                "NO": idx + 1,
+                "NIS": s.nis || '',
+                "NISN": s.nisn || '',
+                "NAMA SISWA": s.nama || '',
+                "L/P": (s.gender || s.jk || 'L').toUpperCase() === 'P' ? 'P' : 'L',
+                "KELAS": s.kelas || '',
+                "ID MESIN": s.id_mesin || '',
+                "ID TELEGRAM": s.id_telegram || ''
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(clsRows);
+            ws['!cols'] = [{ wch: 6 }, { wch: 12 }, { wch: 15 }, { wch: 32 }, { wch: 8 }, { wch: 12 }, { wch: 14 }, { wch: 18 }];
+            
+            const safeSheetName = `Kelas ${targetClass}`.replace(/[\*\?\/\\\[\]]/g, '_').substring(0, 31);
+            XLSX.utils.book_append_sheet(workbook, ws, safeSheetName);
+
+            const ext = format === 'csv' ? 'csv' : 'xlsx';
+            const safeFileName = `Daftar_Siswa_Kelas_${targetClass.replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
+            XLSX.writeFile(workbook, safeFileName);
+            showToast(`✅ Berhasil mengunduh Daftar Siswa Kelas ${targetClass} (${clsStudents.length} Siswa).`, 'success');
+        }
+    } catch (err) {
+        console.error("Gagal mengunduh daftar siswa:", err);
+        showToast("Error saat mengunduh data siswa: " + err.message, "error");
+    }
+}
+
 function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -681,3 +893,4 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+

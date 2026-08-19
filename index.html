@@ -25,6 +25,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- html2pdf.js for Direct PDF Downloads -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- MathJax Library for Math LaTeX Formula Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css?v=2.0">
     <!-- Konfigurasi Google Apps Script URL (Global) -->
@@ -1354,6 +1356,9 @@
                             </p>
                         </div>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button id="btnExportStudentsPerClass" class="btn-secondary" style="padding: 8px 14px; font-size: 0.85rem; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60a5fa; display: flex; align-items: center; gap: 6px;" title="Unduh Daftar Nama Siswa Per Kelas (Excel)">
+                                <i class="fa-solid fa-file-arrow-down" style="color: #60a5fa;"></i> Unduh Siswa Per Kelas
+                            </button>
                             <button id="btnDownloadFormatExcel" class="btn-secondary" style="padding: 8px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
                                 <i class="fa-solid fa-file-excel" style="color: #22c55e;"></i> Download Format Excel
                             </button>
@@ -1402,11 +1407,14 @@
                                 <input type="text" id="inputSearchStudent" placeholder="Cari Nama, NIS, atau NISN Siswa..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px 9px 36px; border-radius: 8px; font-size: 0.85rem;">
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             <label style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">Filter Kelas:</label>
                             <select id="selectFilterKelasSiswa" style="background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: white; padding: 9px 12px; border-radius: 8px; font-size: 0.85rem; min-width: 140px;">
                                 <option value="Semua">Semua Kelas</option>
                             </select>
+                            <button id="btnQuickExportFilteredClass" class="btn-secondary" style="padding: 9px 12px; font-size: 0.85rem; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60a5fa; display: flex; align-items: center; gap: 6px;" title="Unduh Siswa Kelas Terpilih">
+                                <i class="fa-solid fa-file-excel"></i> Unduh List Kelas
+                            </button>
                         </div>
                     </div>
 
@@ -2389,8 +2397,8 @@
             <section class="panel-section" id="panelRaporTengahSemester" style="display: none;">
                 <div class="glass-card" style="margin-bottom: 20px; padding: 22px 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                     <div>
-                        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; align-items: center; gap: 12px;">
-                            <i class="fa-solid fa-file-invoice" style="-webkit-text-fill-color: #38bdf8; font-size: 1.6rem;"></i> Cetak Rapor Tengah Semester
+                        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; background-clip: text; color: transparent; display: flex; align-items: center; gap: 12px;">
+                            <i class="fa-solid fa-file-invoice" style="color: #38bdf8; font-size: 1.6rem;"></i> Cetak Rapor Tengah Semester
                         </h2>
                         <p style="margin: 6px 0 0 0; font-size: 0.88rem; color: var(--text-muted);">
                             Input Nilai Formatif, Sumatif, Remedial, Pramuka, dan Cetak Massal Rapor 1 Kelas
@@ -2510,8 +2518,8 @@
                 <!-- Header Title -->
                 <div class="panel-header glass-card" style="margin-bottom: 20px; padding: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                     <div>
-                        <h2 style="margin: 0; font-size: 1.4rem; background: linear-gradient(135deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-                            <i class="fa-solid fa-wand-magic-sparkles" style="-webkit-text-fill-color: #ec4899;"></i> Generator Perangkat Pembelajaran (Deep Learning)
+                        <h2 style="margin: 0; font-size: 1.4rem; background: linear-gradient(135deg, #a855f7, #ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-wand-magic-sparkles" style="color: #ec4899;"></i> Generator Perangkat Pembelajaran (Deep Learning)
                         </h2>
                         <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
                             Otomasi Penyusunan CP, ATP, KKTP, Modul Ajar (Mindful, Meaningful, Joyful Learning), Prota & Promes Kurikulum Terbaru.
@@ -2649,6 +2657,7 @@
                     </div>
                 </div>
             </section>
+
 
             <!-- MODAL CUSTOM GLASSMORPHISM ALERT & DIALOG BROADCAST TELEGRAM -->
             <div id="modalBroadcastDialog" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
@@ -2860,10 +2869,47 @@
                         </div>
                     </div>
 
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL UNDUH DAFTAR SISWA PER KELAS -->
+            <div id="modalExportSiswaPerKelas" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+                <div class="glass-card" style="width: 100%; max-width: 520px; padding: 25px; border-radius: 16px; position: relative;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+                        <h3 style="margin: 0; font-size: 1.15rem; color: #60a5fa; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-file-arrow-down"></i> Unduh Daftar Nama Siswa Per Kelas
+                        </h3>
+                        <button id="btnCloseModalExportSiswa" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+                    </div>
+
+                    <div style="margin-bottom: 18px;">
+                        <label style="font-size: 0.88rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 6px;">Target Kelas:</label>
+                        <select id="selectModalExportKelasTarget" style="width: 100%; background: #060913; border: 1px solid #1e293b; color: white; padding: 11px 14px; border-radius: 10px; font-size: 0.9rem;">
+                            <option value="ALL_SHEETS">Semua Kelas (1 File Excel Multi-Sheet per Kelas)</option>
+                            <option value="ALL_SINGLE">Semua Kelas (1 Sheet Terpadu)</option>
+                        </select>
+                        <small style="color: var(--text-muted); display: block; margin-top: 6px; font-size: 0.8rem;" id="exportClassNote">
+                            Setiap kelas akan terpisah secara rapi pada Sheet / file Excel yang diunduh.
+                        </small>
+                    </div>
+
+                    <div style="margin-bottom: 22px;">
+                        <label style="font-size: 0.88rem; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 8px;">Format File Output:</label>
+                        <div style="display: flex; gap: 20px;">
+                            <label style="display: flex; align-items: center; gap: 6px; color: #f8fafc; font-size: 0.9rem; cursor: pointer;">
+                                <input type="radio" name="radioExportFormat" value="xlsx" checked style="accent-color: #3b82f6; width: 16px; height: 16px;"> Excel (.xlsx)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; color: #f8fafc; font-size: 0.9rem; cursor: pointer;">
+                                <input type="radio" name="radioExportFormat" value="csv" style="accent-color: #3b82f6; width: 16px; height: 16px;"> CSV (.csv)
+                            </label>
+                        </div>
+                    </div>
+
                     <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--card-border); padding-top: 15px;">
-                        <button type="button" id="btnCancelModalImport" class="btn-secondary" style="padding: 8px 18px;">Batal</button>
-                        <button type="button" id="btnSubmitImportExcel" class="btn-primary" style="padding: 8px 22px; background: #059669; border-color: #10b981;" disabled>
-                            <i class="fa-solid fa-cloud-arrow-up"></i> Simpan ke Database
+                        <button type="button" id="btnCancelModalExportSiswa" class="btn-secondary" style="padding: 9px 18px;">Batal</button>
+                        <button type="button" id="btnSubmitExportSiswa" class="btn-primary" style="padding: 9px 22px; background: #2563eb; border-color: #3b82f6;">
+                            <i class="fa-solid fa-download"></i> Unduh File Excel
                         </button>
                     </div>
                 </div>
