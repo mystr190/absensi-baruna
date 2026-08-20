@@ -143,6 +143,7 @@ body {
 /* Sidebar */
 .sidebar {
     width: var(--sidebar-width);
+    max-width: var(--sidebar-width);
     height: 100vh;
     position: fixed;
     left: 0;
@@ -153,6 +154,7 @@ body {
     border-right: 1px solid var(--card-border);
     border-top: none; border-bottom: none; border-left: none;
     z-index: 100;
+    overflow: hidden;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar-brand {
@@ -173,11 +175,12 @@ body {
 
 .sidebar-nav {
     flex: 1;
-    padding: 15px 10px;
+    padding: 15px 10px 35px 10px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 .sidebar-nav::-webkit-scrollbar {
     width: 4px;
@@ -197,7 +200,7 @@ body {
 }
 .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.1); color: var(--text-main); }
 .nav-item .nav-icon { font-size: 1.1rem; width: 24px; text-align: center; flex-shrink: 0; display: inline-block; }
-.nav-item .nav-label { transition: opacity 0.2s ease; }
+.nav-item .nav-label { transition: opacity 0.2s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
 
 /* Hide mobile-only logout button on desktop view */
 #btnNavLogout, .nav-item-logout {
@@ -214,7 +217,9 @@ body {
     flex: 1;
     padding: 30px;
     min-height: 100vh;
-    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: calc(100% - var(--sidebar-width));
+    box-sizing: border-box;
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
 }
 
@@ -285,9 +290,11 @@ body {
 /* Desktop Collapsed State (width: 72px) */
 body.sidebar-collapsed .sidebar {
     width: 72px;
+    max-width: 72px;
 }
 body.sidebar-collapsed .main-content {
     margin-left: 72px;
+    width: calc(100% - 72px);
 }
 body.sidebar-collapsed .btn-floating-sidebar-toggle {
     display: flex;
@@ -435,8 +442,7 @@ select option { background: var(--bg-color); color: var(--text-main); }
 .toast {
     position: fixed;
     bottom: -120px;
-    left: 50%;
-    transform: translateX(-50%) scale(0.92);
+    right: 30px;
     background: rgba(15, 23, 42, 0.92);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -458,8 +464,7 @@ select option { background: var(--bg-color); color: var(--text-main); }
 }
 
 .toast.show {
-    bottom: 35px;
-    transform: translateX(-50%) scale(1);
+    bottom: 30px;
     opacity: 1;
 }
 
@@ -946,6 +951,16 @@ select option { background: var(--bg-color); color: var(--text-main); }
         overflow-x: hidden !important;
     }
 
+    .toast {
+        right: auto !important;
+        left: 50% !important;
+        transform: translateX(-50%) scale(0.92) !important;
+    }
+    .toast.show {
+        bottom: 60px !important;
+        transform: translateX(-50%) scale(1) !important;
+    }
+
     /* Panel Headers & Refresh Buttons on Mobile */
     .panel-header.flex-between,
     .panel-header {
@@ -1396,6 +1411,17 @@ select option { background: var(--bg-color); color: var(--text-main); }
     }
 
     /* Matrix & Pelanggaran Print Rules */
+    .soal-document-paper, .perangkat-document-paper {
+        background: #ffffff !important;
+        color: #000000 !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+    .soal-document-paper *, .perangkat-document-paper * {
+        color: #000000 !important;
+    }
     #headerPelanggaranPrint { display: block !important; visibility: visible !important; }
     .matrix-table, .pelanggaran-table { width: 100% !important; border-collapse: collapse !important; color: black !important; font-size: 8pt !important; }
     .matrix-table th, .matrix-table td, .pelanggaran-table th, .pelanggaran-table td { border: 1px solid black !important; color: black !important; background: transparent !important; }
