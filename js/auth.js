@@ -195,9 +195,16 @@ function checkSession() {
 }
 
 function showLogin() {
-    viewLogin.classList.add('active');
-    viewApp.classList.remove('active');
-    viewApp.style.display = 'none';
+    const vLogin = document.getElementById('view-login') || viewLogin;
+    const vApp = document.getElementById('view-app') || viewApp;
+    if (vLogin) {
+        vLogin.classList.add('active');
+        vLogin.style.display = '';
+    }
+    if (vApp) {
+        vApp.classList.remove('active');
+        vApp.style.display = '';
+    }
     
     // Panggil verifikasi koneksi Google Sheets saat halaman login aktif
     checkDatabaseConnection();
@@ -269,9 +276,16 @@ async function checkDatabaseConnection() {
 }
 
 function showApp(user) {
-    viewLogin.classList.remove('active');
-    viewApp.classList.add('active');
-    viewApp.style.display = 'flex';
+    const vLogin = document.getElementById('view-login') || viewLogin;
+    const vApp = document.getElementById('view-app') || viewApp;
+    if (vLogin) {
+        vLogin.classList.remove('active');
+        vLogin.style.display = '';
+    }
+    if (vApp) {
+        vApp.classList.add('active');
+        vApp.style.display = '';
+    }
 
     // Update UI Sidebar & Mobile Header dengan data User
     const currentNameElem = document.getElementById('currentUserName');

@@ -46,11 +46,11 @@ body {
 
 /* General Layout */
 .view-section {
-    display: none;
+    display: none !important;
     min-height: 100vh;
 }
 .view-section.active {
-    display: flex;
+    display: flex !important;
 }
 
 /* Glassmorphism Classes */

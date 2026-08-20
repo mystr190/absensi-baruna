@@ -6890,21 +6890,18 @@ function isMapelForKelas(targetKelasStr, selectedKelas) {
   const selKlsNorm = String(selectedKelas || '').trim().toUpperCase();
   if (!selKlsNorm) return true;
 
-  let selLevel = '';
-  if (selKlsNorm.startsWith('XII') || selKlsNorm.startsWith('12')) selLevel = 'XII';
-  else if (selKlsNorm.startsWith('XI') || selKlsNorm.startsWith('11')) selLevel = 'XI';
-  else if (selKlsNorm.startsWith('X') || selKlsNorm.startsWith('10')) selLevel = 'X';
-
+  const selKlsClean = selKlsNorm.replace(/[\s\-\/]/g, '');
   const targets = rawTarget.toUpperCase().split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
 
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
     if (t === 'SEMUA' || t === 'SEMUA KELAS' || t === '-') return true;
-    if (t === selKlsNorm || t.replace(/[\s\-]/g, '') === selKlsNorm.replace(/[\s\-]/g, '')) return true;
+    const tClean = t.replace(/[\s\-\/]/g, '');
+    if (tClean === selKlsClean) return true;
 
-    if (selLevel) {
-      const tokens = t.split(/[\s\-]+/);
-      if (tokens.includes(selLevel)) return true;
+    const levelToken = tClean.replace(/^KELAS/, '');
+    if (levelToken === 'X' || levelToken === 'XI' || levelToken === 'XII') {
+      if (selKlsClean.startsWith(levelToken)) return true;
     }
   }
 
@@ -7236,4 +7233,15 @@ function handleSaveRaporData(payload) {
   } catch (err) {
     return jsonResponse('error', 'Gagal menyimpan data rapor: ' + err.toString());
   }
+}
+
+function getFormattedTimestamp(dt) {
+  var d = dt || new Date();
+  var year = d.getFullYear();
+  var month = ('0' + (d.getMonth() + 1)).slice(-2);
+  var day = ('0' + d.getDate()).slice(-2);
+  var hours = ('0' + d.getHours()).slice(-2);
+  var minutes = ('0' + d.getMinutes()).slice(-2);
+  var seconds = ('0' + d.getSeconds()).slice(-2);
+  return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
 }
