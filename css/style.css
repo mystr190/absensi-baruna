@@ -1373,70 +1373,7 @@ select option {
         display: none !important;
     }
 
-    /* Off-Canvas Sidebar Drawer when toggled open on mobile */
-    body.sidebar-mobile-open .sidebar-overlay {
-        display: block !important;
-        opacity: 1 !important;
-        z-index: 10005 !important;
-    }
-
-    body.sidebar-mobile-open .sidebar {
-        display: flex !important;
-        flex-direction: column !important;
-        position: fixed !important;
-        top: 0 !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        right: auto !important;
-        width: 270px !important;
-        min-width: 270px !important;
-        max-width: 270px !important;
-        height: 100vh !important;
-        z-index: 10010 !important;
-        border-radius: 0 16px 16px 0 !important;
-        box-shadow: 10px 0 35px rgba(0, 0, 0, 0.6) !important;
-        background: rgba(15, 23, 42, 0.98) !important;
-        backdrop-filter: blur(25px) !important;
-        -webkit-backdrop-filter: blur(25px) !important;
-        overflow-y: auto !important;
-        padding: 16px 12px !important;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-
-    body.sidebar-mobile-open .sidebar .sidebar-brand,
-    body.sidebar-mobile-open .sidebar .user-info,
-    body.sidebar-mobile-open .sidebar .sidebar-footer {
-        display: flex !important;
-    }
-
-    body.sidebar-mobile-open .sidebar .sidebar-nav {
-        flex-direction: column !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        padding: 12px 4px !important;
-        gap: 6px !important;
-    }
-
-    body.sidebar-mobile-open .sidebar .nav-item {
-        flex-direction: row !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        padding: 10px 14px !important;
-        min-width: 100% !important;
-        gap: 12px !important;
-        border-radius: 10px !important;
-        text-align: left !important;
-    }
-
-    body.sidebar-mobile-open .sidebar .nav-item .nav-label {
-        display: inline-block !important;
-        font-size: 0.88rem !important;
-        margin-top: 0 !important;
-    }
-
-    body.sidebar-mobile-open .sidebar .nav-item .nav-icon {
-        font-size: 1.1rem !important;
-    }
+    /* Laci/Drawer Sidebar mobile telah dinonaktifkan (Diganti dengan navbar bawah) */
 
     /* Horizontal Scrollable Bottom Navigation Bar (Ultra Compact & Low Height) */
     .sidebar-nav {
@@ -3370,63 +3307,13 @@ select option {
 /* Mobile Responsive Adjustments (Max Width 768px) */
 @media (max-width: 768px) {
 
-    /* === BASE MOBILE SIDEBAR & LAYOUT DRAWER SYSTEM === */
-    .sidebar {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 280px !important;
-        max-width: 85vw !important;
-        height: 100vh !important;
-        z-index: 1005 !important;
-        transform: translateX(-100%) !important;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
-        background: rgba(15, 23, 42, 0.98) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border-radius: 0 !important;
-    }
-
-    body.sidebar-mobile-open .sidebar {
-        transform: translateX(0) !important;
-    }
-
-    .sidebar-overlay {
-        display: block !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background: rgba(15, 23, 42, 0.75) !important;
-        backdrop-filter: blur(6px) !important;
-        -webkit-backdrop-filter: blur(6px) !important;
-        z-index: 1004 !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        transition: opacity 0.3s ease !important;
-    }
-
-    body.sidebar-mobile-open .sidebar-overlay {
-        opacity: 1 !important;
-        pointer-events: auto !important;
-    }
+    /* Conflicting Bottom Nav CSS Sidebar Drawer Layout Removed */
 
     .main-content {
         margin-left: 0 !important;
         width: 100% !important;
         max-width: 100% !important;
         padding: 16px 12px 80px 12px !important;
-    }
-
-    .mobile-top-bar {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        padding: 10px 14px !important;
-        margin-bottom: 16px !important;
-        width: 100% !important;
     }
 
     /* === APPROVAL IZIN SISWA === */
@@ -3789,4 +3676,103 @@ select option {
     font-weight: 700;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(15, 23, 42, 0.4);
+}
+
+/* === MOBILE OVERRIDES FIXES (ADDED FOR NAVBAR & DASHBOARD) === */
+@media (max-width: 768px) {
+
+    /* Fix top padding covered by fixed mobile-top-bar and prevent width overflow */
+    .main-content {
+        padding-top: 80px !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Hide Trial Banner, Desktop Sidebar branding, hamburger and Toggle button on mobile */
+    #trialCountdownBannerSidebar,
+    .sidebar-brand,
+    .btn-toggle-sidebar,
+    #btnToggleSidebar,
+    #btnMobileSidebarMenu {
+        display: none !important;
+    }
+
+    /* Force Class summary cards to fit 1 row horizontally */
+    #widget-kelas-summary {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 6px !important;
+        justify-content: space-between !important;
+    }
+
+    #widget-kelas-summary .glass-card {
+        padding: 8px 4px !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        text-align: center !important;
+    }
+
+    #widget-kelas-summary .glass-card>div:first-child span {
+        font-size: 0.52rem !important;
+        line-height: 1.1 !important;
+        text-transform: unset !important;
+    }
+
+    #widget-kelas-summary .glass-card>div:first-child h3 {
+        font-size: 1.1rem !important;
+        margin-top: 4px !important;
+    }
+
+    /* Hide big class circle icon in mobile 1-row layout */
+    #widget-kelas-summary .glass-card>div:last-child {
+        display: none !important;
+    }
+
+    /* Prevent overflow on cards */
+    .glass-card,
+    .styled-card {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Fix Grid Formulir Izin Siswa di Layar HP */
+    .izin-siswa-content-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+}
+
+/* === GLOBAL FIXES (DESKTOP & MOBILE) === */
+#panel-izin-siswa,
+#panel-izin-siswa .panel-body,
+#panel-izin-siswa .glass-card,
+#panel-izin-siswa form,
+#panel-izin-siswa input,
+#panel-izin-siswa select,
+#panel-izin-siswa textarea,
+#panel-izin-siswa button {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+}
+
+#panel-izin-siswa select,
+#panel-izin-siswa input[type="text"],
+#panel-izin-siswa input[type="date"],
+#panel-izin-siswa textarea {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* === DESKTOP ONLY: Layout Grid Pengajuan Izin Default (2 Kolom) === */
+@media (min-width: 769px) {
+    .izin-siswa-content-grid {
+        display: grid !important;
+        /* Kolom 1 (Form) fleksibel tapi tidak lebih kecil dari 300px, Kolom 2 (Tabel History) minimal mengambil 1.6x ruang sisa */
+        grid-template-columns: minmax(300px, 1fr) 1.6fr !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
 }

@@ -53,10 +53,14 @@ function switchIzinSiswaTab(tabId) {
             activeBtn.style.borderBottom = '3px solid #f59e0b';
             activeBtn.style.background = 'rgba(245,158,11,0.12)';
             activeBtn.style.color = '#f59e0b';
-        } else {
+        } else if (tabId === 'tab-tidakhadir') {
             activeBtn.style.borderBottom = '3px solid #10b981';
             activeBtn.style.background = 'rgba(16,185,129,0.12)';
             activeBtn.style.color = '#10b981';
+        } else if (tabId === 'tab-riwayat') {
+            activeBtn.style.borderBottom = '3px solid #38bdf8';
+            activeBtn.style.background = 'rgba(56,189,248,0.12)';
+            activeBtn.style.color = '#38bdf8';
         }
     }
 }
