@@ -84,7 +84,7 @@ async function loadDashboardData(forceRefresh = false) {
     // Gunakan cache jika sudah pernah dimuat dan tidak dipaksa refresh (0ms response)
     if (!forceRefresh && reportCache[cacheKey]) {
         rawReportData = reportCache[cacheKey];
-        renderMatrixTable(rawReportData);
+        setupRekapAbsensiTabs(); renderMatrixTable(rawReportData);
         updateStatsAndChart(rawReportData);
         currentPage = 1;
         applySearchAndPaginate();
@@ -96,7 +96,7 @@ async function loadDashboardData(forceRefresh = false) {
     let hasLocalData = false;
     if (localRecentLogs.length > 0 && (!rawReportData || rawReportData.length === 0)) {
         rawReportData = localRecentLogs;
-        renderMatrixTable(rawReportData);
+        setupRekapAbsensiTabs(); renderMatrixTable(rawReportData);
         updateStatsAndChart(rawReportData);
         currentPage = 1;
         applySearchAndPaginate();
@@ -126,7 +126,7 @@ async function loadDashboardData(forceRefresh = false) {
             rawReportData = result.data || [];
             reportCache[cacheKey] = rawReportData; // Simpan ke cache memory
 
-            renderMatrixTable(rawReportData);
+            setupRekapAbsensiTabs(); renderMatrixTable(rawReportData);
             updateStatsAndChart(rawReportData);
             
             currentPage = 1;
@@ -385,4 +385,39 @@ function updateStatsAndChart(dataArray) {
             }
         }
     });
+}
+
+
+// SETUP SUB-TABS UNTUK REKAP ABSENSI (MATRIX KELAS vs RINCIAN LOG)
+function setupRekapAbsensiTabs() {
+    const tabBtns = document.querySelectorAll('#rekap-absensi-subtabs .approval-subtab-btn');
+    const tabContents = document.querySelectorAll('.rekap-absensi-tab-content');
+
+    if (!tabBtns || tabBtns.length === 0) return;
+
+    tabBtns.forEach(btn => {
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+
+        newBtn.addEventListener('click', () => {
+            document.querySelectorAll('#rekap-absensi-subtabs .approval-subtab-btn').forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.style.display = 'none');
+
+            newBtn.classList.add('active');
+            const targetId = newBtn.dataset.rekaptab;
+            const targetContent = document.getElementById(targetId);
+            if (targetContent) targetContent.style.display = 'block';
+
+            if (targetId === 'tab-rekap-matrix' || targetId === 'panel-matrix-rekap') {
+                if (typeof renderMatrixReport === 'function') renderMatrixReport();
+            }
+        });
+    });
+}
+
+// Inisialisasi otomatis tab saat modul dimuat
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupRekapAbsensiTabs);
+} else {
+    setupRekapAbsensiTabs();
 }

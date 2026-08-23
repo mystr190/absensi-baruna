@@ -117,7 +117,7 @@ async function syncMasterDataInBackground() {
 
 function populateClassSelectOptions() {
     if (!Array.isArray(localMasterStudents) || localMasterStudents.length === 0) return;
-    
+
     const uniqueClasses = [];
     localMasterStudents.forEach(s => {
         const cls = String(s.kelas || '').trim();
@@ -252,7 +252,7 @@ window.addEventListener('DOMContentLoaded', () => {
             inputTanggalAbsen.value = todayStr;
         }
     }
-    
+
     // Jalankan sync background master data
     syncMasterDataInBackground();
 });
@@ -272,7 +272,7 @@ async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 800) {
             const response = await fetch(url, resOptions);
             clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
+
             const textData = await response.text();
             let jsonResult;
             try {
@@ -281,7 +281,7 @@ async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 800) {
                 console.warn("Retrying non-JSON server response:", textData.substring(0, 100));
                 throw new Error("Respon server bukan JSON yang valid.");
             }
-            
+
             return jsonResult;
         } catch (err) {
             clearTimeout(timeoutId);
@@ -400,21 +400,21 @@ async function autoLoadStudents() {
         // Tarik data tanggal & kelas ini dari Google Sheets secara background
         if (window.SCRIPT_URL) {
             fetchWithRetry(`${SCRIPT_URL}?action=get_students&kelas=${encodeURIComponent(kelas)}&tanggal=${encodeURIComponent(tanggal)}`, { method: 'GET' }, 1, 500)
-            .then(res => {
-                if (res && res.status === 'success' && res.data) {
-                    if (res.data.todayStatus && Object.keys(res.data.todayStatus).length > 0) {
-                        Object.assign(currentTodayStatus, res.data.todayStatus);
-                        currentAlreadySubmitted = true;
-                    }
-                    if (res.data.alreadySubmitted) {
-                        currentAlreadySubmitted = true;
-                    }
-                    const freshSubmittedBy = res.data.submittedBy || submittedBy;
-                    const freshSubmittedTime = res.data.submittedTime || submittedTime;
+                .then(res => {
+                    if (res && res.status === 'success' && res.data) {
+                        if (res.data.todayStatus && Object.keys(res.data.todayStatus).length > 0) {
+                            Object.assign(currentTodayStatus, res.data.todayStatus);
+                            currentAlreadySubmitted = true;
+                        }
+                        if (res.data.alreadySubmitted) {
+                            currentAlreadySubmitted = true;
+                        }
+                        const freshSubmittedBy = res.data.submittedBy || submittedBy;
+                        const freshSubmittedTime = res.data.submittedTime || submittedTime;
 
-                    updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, freshSubmittedBy, freshSubmittedTime);
-                }
-            }).catch(e => console.log('Date sync info:', e));
+                        updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, freshSubmittedBy, freshSubmittedTime);
+                    }
+                }).catch(e => console.log('Date sync info:', e));
         }
     }
 
@@ -465,7 +465,7 @@ function updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, submittedBy =
                 </div>
             </div>
         `;
-        
+
         btnSimpanAbsenKelas.disabled = true;
         btnSimpanAbsenKelas.style.opacity = '0.6';
         btnSimpanAbsenKelas.style.cursor = 'not-allowed';
@@ -495,15 +495,15 @@ function updateAttendanceLockStateUI(kelas, tanggal, isFutureDate, submittedBy =
 
 let isEditAttendanceMode = false;
 
-window.cancelEditAttendanceMode = function() {
+window.cancelEditAttendanceMode = function () {
     isEditAttendanceMode = false;
     autoLoadStudents();
 };
 
-window.enableEditAttendanceMode = function() {
+window.enableEditAttendanceMode = function () {
     isEditAttendanceMode = true;
     renderStudentList(currentStudents, false, currentTodayStatus, window.currentAutoIzinMap);
-    
+
     if (btnSimpanAbsenKelas) {
         btnSimpanAbsenKelas.disabled = false;
         btnSimpanAbsenKelas.style.opacity = '1';
@@ -530,7 +530,7 @@ window.enableEditAttendanceMode = function() {
     showToast("✏️ Mode Edit aktif: Anda dapat mengubah status presensi siswa.", "info");
 };
 
-window.confirmDeleteAttendanceClass = async function(tanggal, kelas) {
+window.confirmDeleteAttendanceClass = async function (tanggal, kelas) {
     if (!tanggal || !kelas) return;
 
     const confirmed = await showCustomConfirm({
@@ -546,10 +546,12 @@ window.confirmDeleteAttendanceClass = async function(tanggal, kelas) {
 
     showToast("Menghapus data absensi...", "info");
     try {
+        const session = JSON.parse(localStorage.getItem('smart_absen_user') || '{}');
         const payload = new URLSearchParams({
             action: 'delete_attendance_class',
             tanggal: tanggal,
-            kelas: kelas
+            kelas: kelas,
+            user_role: session.role || ''
         });
 
         const res = await fetchWithRetry(SCRIPT_URL, {
@@ -616,7 +618,7 @@ function renderStudentList(students, isSubmitted, todayStatusMap, autoIzinMap = 
             // Kunci sementara siswa yang memiliki Izin yang disetujui (Auto-Izin) agar tidak sengaja diubah oleh guru/petugas
             const isStudentLocked = isSubmitted || (isAutoIzin && !isEditAttendanceMode);
             const disabledAttr = isStudentLocked ? 'disabled' : '';
-            
+
             radioButtons += `
                 <label style="margin-right: 10px; cursor: ${isStudentLocked ? 'not-allowed' : 'pointer'}; display: inline-flex; align-items: center; gap: 3px; opacity: ${isStudentLocked && !checked ? '0.4' : '1'};">
                     <input type="radio" name="status_${siswa.nis}" value="${status}" ${checked} ${disabledAttr}>
@@ -709,16 +711,17 @@ btnSimpanAbsenKelas.addEventListener('click', async () => {
         formData.append('tanggal', tanggalAbsen);
         formData.append('data', JSON.stringify(bulkData));
         formData.append('is_edit', isEditAttendanceMode ? 'true' : 'false');
+        formData.append('user_role', session.role || '');
 
-        const result = await fetchWithRetry(SCRIPT_URL, { 
-            method: 'POST', 
+        const result = await fetchWithRetry(SCRIPT_URL, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams(formData).toString()
         }, 0);
-        
+
         if (result && result.status === 'success') {
             showToast("✅ " + result.message, 'success');
-            
+
             // Hapus log lama kelas ini pada tanggal ini dari localRecentLogs (agar tidak ada duplikat di lokal)
             const sampleK = String(currentStudents[0]?.kelas || '').trim().toLowerCase().replace(/[\s\-]/g, '');
             const normTargetTgl = normalizeDateStringToYYYYMMDD(tanggalAbsen);
@@ -937,7 +940,7 @@ function showCustomAlert({ title = 'Informasi', message = '', icon = 'info', but
 }
 
 // Global Override for window.alert to guarantee custom UI styling everywhere
-window.alert = function(msg) {
+window.alert = function (msg) {
     if (typeof showToast === 'function') {
         showToast(msg, 'info');
     }
@@ -1019,14 +1022,15 @@ function updateCurrentYearElements() {
 // ----------------------------------------------------
 function initSidebarToggle() {
     const btnToggle = document.getElementById('btnToggleSidebar');
+    const btnMobileMenu = document.getElementById('btnMobileSidebarMenu');
     const btnFloatingToggle = document.getElementById('btnFloatingSidebarToggle');
     const overlay = document.getElementById('sidebarOverlay');
     const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
 
-    // Restore saved desktop preference
-    const isCollapsedSaved = localStorage.getItem('smart_absen_sidebar_collapsed') === 'true';
-    if (isCollapsedSaved && window.innerWidth > 768) {
-        document.body.classList.add('sidebar-collapsed');
+    // Default desktop to full expanded layout (250px) on load to prevent stuck/clipped states
+    if (window.innerWidth > 768) {
+        document.body.classList.remove('sidebar-collapsed');
+        localStorage.removeItem('smart_absen_sidebar_collapsed');
     }
 
     const toggleSidebarAction = (e) => {
@@ -1035,12 +1039,11 @@ function initSidebarToggle() {
             document.body.classList.toggle('sidebar-mobile-open');
         } else {
             document.body.classList.toggle('sidebar-collapsed');
-            const isNowCollapsed = document.body.classList.contains('sidebar-collapsed');
-            localStorage.setItem('smart_absen_sidebar_collapsed', isNowCollapsed);
         }
     };
 
     if (btnToggle) btnToggle.addEventListener('click', toggleSidebarAction);
+    if (btnMobileMenu) btnMobileMenu.addEventListener('click', toggleSidebarAction);
     if (btnFloatingToggle) btnFloatingToggle.addEventListener('click', toggleSidebarAction);
 
     if (overlay) {
@@ -1070,14 +1073,14 @@ if (document.readyState === 'loading') {
 }
 
 // Global Password Eye Toggle Handler
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const btn = e.target.closest('.btn-toggle-password');
     if (!btn) return;
-    
+
     const targetId = btn.getAttribute('data-target');
     let input = targetId ? document.getElementById(targetId) : null;
     if (!input) input = btn.parentElement.querySelector('input');
-    
+
     if (input) {
         if (input.type === 'password') {
             input.type = 'text';
@@ -1091,4 +1094,116 @@ document.addEventListener('click', function(e) {
             btn.style.color = 'var(--text-muted)';
         }
     }
+});
+
+// Admin Settings Tab Switching Event Handler
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.admin-setting-tab-btn');
+    if (!btn) return;
+
+    const targetTabId = btn.getAttribute('data-tab');
+    if (!targetTabId) return;
+
+    const container = btn.closest('#adminOnlySettingsBox') || document;
+
+    // Toggle active state for tab buttons
+    container.querySelectorAll('.admin-setting-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Toggle tab content visibility
+    container.querySelectorAll('.admin-setting-tab-content').forEach(c => {
+        c.classList.remove('active');
+        c.style.display = 'none';
+    });
+
+    const targetContent = document.getElementById(targetTabId);
+    if (targetContent) {
+        targetContent.classList.add('active');
+        targetContent.style.display = 'block';
+    }
+});
+
+
+// SETUP SUB-TABS UNTUK PANEL ABSENSI SISWA TERPADU
+function setupAbsenSiswaTabs() {
+    const tabBtns = document.querySelectorAll('#main-absen-siswa-tabs .approval-subtab-btn');
+    const tabContents = document.querySelectorAll('.main-absen-siswa-content');
+
+    tabBtns.forEach(btn => {
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+
+        newBtn.addEventListener('click', () => {
+            document.querySelectorAll('#main-absen-siswa-tabs .approval-subtab-btn').forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.style.display = 'none');
+
+            newBtn.classList.add('active');
+            const targetId = newBtn.dataset.absentab;
+            const targetContent = document.getElementById(targetId);
+            if (targetContent) targetContent.style.display = 'block';
+
+            if (targetId === 'tab-absen-kokurikuler') {
+                if (typeof fetchKokurikulerData === 'function') fetchKokurikulerData();
+                else if (typeof loadKokurikulerData === 'function') loadKokurikulerData();
+            } else if (targetId === 'tab-absen-bimbel') {
+                if (typeof loadBimbelData === 'function') loadBimbelData();
+            }
+        });
+    });
+}
+
+// SETUP SUB-TABS UNTUK PANEL KELOLA DATA MASTER
+function setupKelolaDataTabs() {
+    const kelolaTabBtns = document.querySelectorAll('#kelola-data-subtabs .kelola-data-subtab-btn');
+
+    kelolaTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const trg = btn.dataset.subtab; // guru, siswa, kokurikuler, user-mesin
+            if (!trg) return;
+
+            // Hapus class aktif
+            kelolaTabBtns.forEach(b => b.classList.remove('active'));
+            // Tambahkan class aktif
+            btn.classList.add('active');
+
+            // Sembunyikan semua konten subtab kelola data
+            const wrapper = btn.closest('#kelola-data-subtabs');
+            if (wrapper) {
+                const parentSection = wrapper.closest('#panel-kelola-data');
+                if (parentSection) {
+                    parentSection.querySelectorAll('.kelola-data-subtab-content').forEach(c => {
+                        c.style.display = 'none';
+                    });
+                }
+            }
+
+            // Tampilkan target subtab yang diklik
+            const trgId = 'subtab-kelola-' + trg;
+            const targetContent = document.getElementById(trgId);
+            if (targetContent) {
+                targetContent.style.display = 'block';
+
+                // Trigger Fetch / Render Data Sesuai Subtab
+                if (trg === 'guru') {
+                    if (window.allUsers && window.allUsers.length > 0 && typeof renderUserTable === 'function') {
+                        renderUserTable(window.allUsers);
+                    } else if (typeof loadUsers === 'function') {
+                        loadUsers();
+                    }
+                } else if (trg === 'siswa' && typeof renderTableSiswa === 'function') {
+                    renderTableSiswa();
+                } else if (trg === 'kokurikuler' && typeof loadKokurikulerMaster === 'function') {
+                    loadKokurikulerMaster();
+                } else if (trg === 'user-mesin' && typeof loadDevices === 'function') {
+                    loadDevices();
+                }
+            }
+        });
+    });
+}
+
+// Inisialisasi Fungsi-fungsi global yang butuh dijalankan saat DOM Ready
+document.addEventListener('DOMContentLoaded', () => {
+    setupAbsenSiswaTabs();
+    setupKelolaDataTabs();
 });

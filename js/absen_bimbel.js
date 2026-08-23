@@ -28,27 +28,44 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. INISIALISASI TABS
 // --------------------------------------------------
 function initBimbelTabs() {
-    const tabBtns = document.querySelectorAll('.btn-tab-bimbel');
-    const tabContents = document.querySelectorAll('.tab-bimbel-content');
+    const panel = document.getElementById('panel-bimbel-utbk');
+    if (!panel) return;
+
+    const tabBtns = panel.querySelectorAll('.bimbel-tab-btn');
+    const tabContents = panel.querySelectorAll('.tab-bimbel-content');
+
+    const activeBtn = panel.querySelector('.bimbel-tab-btn.active') || tabBtns[0];
+    const initialTargetId = activeBtn ? activeBtn.dataset.tab : 'tab-bimbel-guru';
+
+    tabContents.forEach(c => {
+        if (c.id === initialTargetId) {
+            c.classList.add('active');
+            c.style.display = 'block';
+        } else {
+            c.classList.remove('active');
+            c.style.display = 'none';
+        }
+    });
+
+    if (panel.dataset.bimbelTabsInit === 'true') return;
+    panel.dataset.bimbelTabsInit = 'true';
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            tabBtns.forEach(b => {
-                b.classList.remove('active');
-                b.style.background = 'var(--card-bg)';
-                b.style.color = 'var(--text-muted)';
-                b.style.border = '1px solid var(--card-border)';
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => {
+                c.classList.remove('active');
+                c.style.display = 'none';
             });
-            tabContents.forEach(c => c.style.display = 'none');
 
             btn.classList.add('active');
-            btn.style.background = 'rgba(56, 189, 248, 0.15)';
-            btn.style.color = '#38bdf8';
-            btn.style.border = '1px solid rgba(56, 189, 248, 0.3)';
 
             const targetId = btn.dataset.tab;
-            const targetContent = document.getElementById(targetId);
-            if (targetContent) targetContent.style.display = 'block';
+            const targetContent = panel.querySelector('#' + targetId);
+            if (targetContent) {
+                targetContent.classList.add('active');
+                targetContent.style.display = 'block';
+            }
 
             // Auto-refresh dynamic filters when switching tabs
             if (targetId === 'tab-bimbel-siswa') {
@@ -64,6 +81,8 @@ function initBimbelTabs() {
 // 2. MEMUAT DATA UTAMA BIMBEL (GURU, SISWA, MAPEL)
 // --------------------------------------------------
 async function loadBimbelData() {
+    initBimbelTabs();
+
     const today = new Date().toISOString().split('T')[0];
     const inpTglGuru = document.getElementById('bimbelGuruTanggal');
     const inpTglSiswa = document.getElementById('bimbelSiswaTanggal');
@@ -271,12 +290,45 @@ function populateKelasXiiDropdown() {
 // 3. RENDERING UI & JURNAL GURU
 // --------------------------------------------------
 function renderBimbelUI() {
+    updateBimbelStatsOverview();
     renderLogGuruTable();
     updateBimbelSiswaKelasDropdown();
     populateRekapKelasDropdown();
 }
 
-function renderLogGuruTable() {
+function updateBimbelStatsOverview() {
+    const statGuru = document.getElementById('statBimbelTotalGuru');
+    const statSiswa = document.getElementById('statBimbelTotalSiswa');
+    const statAvg = document.getElementById('statBimbelAvgHadir');
+    const statKelas = document.getElementById('statBimbelTotalKelas');
+
+    if (statGuru) statGuru.innerText = bimbelGuruLogs ? bimbelGuruLogs.length : 0;
+    if (statSiswa) statSiswa.innerText = bimbelSiswaLogs ? bimbelSiswaLogs.length : 0;
+
+    if (statAvg) {
+        if (!bimbelSiswaLogs || bimbelSiswaLogs.length === 0) {
+            statAvg.innerText = '0%';
+        } else {
+            const hadirCount = bimbelSiswaLogs.filter(s => String(s.status || '').toUpperCase() === 'HADIR').length;
+            const pct = Math.round((hadirCount / bimbelSiswaLogs.length) * 100);
+            statAvg.innerText = pct + '%';
+        }
+    }
+
+    if (statKelas) {
+        const uniqueKelas = new Set();
+        const allStudents = getBimbelAllStudents();
+        allStudents.forEach(s => {
+            const k = s.kelas || s.rombel || s.Kelas;
+            if (k && (k.toString().toUpperCase().includes('XII') || k.toString().includes('12'))) {
+                uniqueKelas.add(k.toString().trim());
+            }
+        });
+        statKelas.innerText = uniqueKelas.size || 0;
+    }
+}
+
+function renderLogGuruTable(filterQuery = '') {
     const tbody = document.getElementById('tbodyLogBimbelGuru');
     if (!tbody) return;
 
@@ -285,8 +337,27 @@ function renderLogGuruTable() {
         return;
     }
 
+    const q = (filterQuery || '').toLowerCase().trim();
+
     // Sort descending by date
-    const sorted = [...bimbelGuruLogs].sort((a, b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
+    let sorted = [...bimbelGuruLogs].sort((a, b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
+
+    if (q) {
+        sorted = sorted.filter(g => 
+            (g.nama || '').toLowerCase().includes(q) ||
+            (g.username || '').toLowerCase().includes(q) ||
+            (g.mapel || '').toLowerCase().includes(q) ||
+            (g.kelas || '').toLowerCase().includes(q) ||
+            (g.materi_ajar || '').toLowerCase().includes(q) ||
+            (g.tanggal || '').toLowerCase().includes(q) ||
+            (g.sesi || '').toLowerCase().includes(q)
+        );
+    }
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">Tidak ada jurnal guru yang cocok dengan "<strong>${filterQuery}</strong>".</td></tr>`;
+        return;
+    }
 
     tbody.innerHTML = sorted.map((g, idx) => `
         <tr>
@@ -310,6 +381,11 @@ function renderLogGuruTable() {
 // 4. KONTROL INTERAKSI & FORM GURU
 // --------------------------------------------------
 function initBimbelForms() {
+    const panel = document.getElementById('panel-bimbel-utbk');
+    if (!panel) return;
+    if (panel.dataset.bimbelFormsInit === 'true') return;
+    panel.dataset.bimbelFormsInit = 'true';
+
     // Refresh Button
     const btnRefresh = document.getElementById('btnRefreshBimbel');
     if (btnRefresh) {
@@ -317,6 +393,12 @@ function initBimbelForms() {
             showToast("🔄 Memperbarui data bimbingan...", "info");
             loadBimbelData();
         });
+    }
+
+    // Search Input in Teacher Log Table
+    const searchGuru = document.getElementById('searchBimbelGuruLog');
+    if (searchGuru) {
+        searchGuru.addEventListener('input', (e) => renderLogGuruTable(e.target.value));
     }
 
     // Form Submit Presensi Guru
@@ -359,6 +441,22 @@ function initBimbelForms() {
         });
     }
 
+    // Search Input in Student Attendance Table
+    const searchSiswa = document.getElementById('searchBimbelSiswaInTable');
+    if (searchSiswa) {
+        searchSiswa.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            const tbody = document.getElementById('tbodyAbsenSiswaBimbel');
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(r => {
+                const text = r.innerText.toLowerCase();
+                r.style.display = text.includes(q) ? '' : 'none';
+            });
+            updateBimbelLiveCounters();
+        });
+    }
+
     // Toggle Edit Mode Listener
     const btnToggleEdit = document.getElementById('btnToggleEditBimbelSiswa');
     if (btnToggleEdit) {
@@ -369,6 +467,27 @@ function initBimbelForms() {
     const btnSetHadir = document.getElementById('btnSetAllBimbelHadir');
     if (btnSetHadir) {
         btnSetHadir.addEventListener('click', setAllBimbelStudentsHadir);
+    }
+
+    // Button Set All ALPA
+    const btnSetAlpa = document.getElementById('btnSetAllBimbelAlpa');
+    if (btnSetAlpa) {
+        btnSetAlpa.addEventListener('click', setAllBimbelStudentsAlpa);
+    }
+
+    // Search Input in Rekap Table
+    const searchRekap = document.getElementById('searchBimbelRekapTable');
+    if (searchRekap) {
+        searchRekap.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            const tbody = document.getElementById('tbodyRekapBimbel');
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(r => {
+                const text = r.innerText.toLowerCase();
+                r.style.display = text.includes(q) ? '' : 'none';
+            });
+        });
     }
 
     // Form Submit Absen Siswa
@@ -400,6 +519,7 @@ function initBimbelForms() {
         btnPrintPdfRekap.addEventListener('click', printBimbelRekapPdf);
     }
 }
+
 
 async function saveBimbelGuru() {
     const userSession = localStorage.getItem('smart_absen_user');
@@ -454,7 +574,7 @@ async function saveBimbelGuru() {
         formData.append('data', JSON.stringify([payload]));
 
         // Switch to Absen Siswa tab automatically for convenience
-        const btnTabSiswa = document.querySelector('.btn-tab-bimbel[data-tab="tab-bimbel-siswa"]');
+        const btnTabSiswa = document.querySelector('#panel-bimbel-utbk .bimbel-tab-btn[data-tab="tab-bimbel-siswa"]');
         if (btnTabSiswa) {
             btnTabSiswa.click();
             const inpTglS = document.getElementById('bimbelSiswaTanggal');
@@ -736,6 +856,45 @@ function loadSiswaListForAbsen() {
             </tr>
         `;
     }).join('');
+
+    updateBimbelLiveCounters();
+}
+
+function updateBimbelLiveCounters() {
+    const tbody = document.getElementById('tbodyAbsenSiswaBimbel');
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr');
+    let total = 0;
+    let hadir = 0;
+    let sakit = 0;
+    let izin = 0;
+    let alpa = 0;
+
+    rows.forEach(r => {
+        if (r.style.display === 'none') return;
+        const checkedRadio = r.querySelector('input[type="radio"]:checked');
+        if (checkedRadio) {
+            total++;
+            const v = checkedRadio.value;
+            if (v === 'HADIR') hadir++;
+            else if (v === 'SAKIT') sakit++;
+            else if (v === 'IZIN') izin++;
+            else if (v === 'ALPA') alpa++;
+        }
+    });
+
+    const elTotal = document.getElementById('cntBimbelTotal');
+    const elHadir = document.getElementById('cntBimbelHadir');
+    const elSakit = document.getElementById('cntBimbelSakit');
+    const elIzin = document.getElementById('cntBimbelIzin');
+    const elAlpa = document.getElementById('cntBimbelAlpa');
+
+    if (elTotal) elTotal.innerText = total;
+    if (elHadir) elHadir.innerText = hadir;
+    if (elSakit) elSakit.innerText = sakit;
+    if (elIzin) elIzin.innerText = izin;
+    if (elAlpa) elAlpa.innerText = alpa;
 }
 
 function updateBimbelStatusStyle(radioElem) {
@@ -756,6 +915,8 @@ function updateBimbelStatusStyle(radioElem) {
             lbl.style.color = 'var(--text-muted)';
         }
     });
+
+    updateBimbelLiveCounters();
 }
 
 function setAllBimbelStudentsHadir() {
@@ -767,8 +928,23 @@ function setAllBimbelStudentsHadir() {
         r.checked = true;
         updateBimbelStatusStyle(r);
     });
+    updateBimbelLiveCounters();
     showToast("✅ Semua siswa diset HADIR", "info");
 }
+
+function setAllBimbelStudentsAlpa() {
+    const tbody = document.getElementById('tbodyAbsenSiswaBimbel');
+    if (!tbody) return;
+
+    const radios = tbody.querySelectorAll('input[type="radio"][value="ALPA"]');
+    radios.forEach(r => {
+        r.checked = true;
+        updateBimbelStatusStyle(r);
+    });
+    updateBimbelLiveCounters();
+    showToast("⚠️ Semua siswa diset ALPA", "warning");
+}
+
 
 async function saveBimbelSiswa() {
     const tgl = document.getElementById('bimbelSiswaTanggal').value;

@@ -183,7 +183,7 @@ function checkSession() {
     }
 
     const userSession = localStorage.getItem('smart_absen_user');
-
+    
     if (userSession) {
         // User sudah login
         const user = JSON.parse(userSession);
@@ -205,7 +205,7 @@ function showLogin() {
         vApp.classList.remove('active');
         vApp.style.display = '';
     }
-
+    
     // Panggil verifikasi koneksi Google Sheets saat halaman login aktif
     checkDatabaseConnection();
     // Silent background preload data master akun agar login instan (0ms)
@@ -305,7 +305,7 @@ function showApp(user) {
             mobileRoleElem.innerHTML = `${roleText} <i class="fa-solid fa-circle-xmark" style="color: #ef4444; font-size: 0.72rem; margin-left: 2px;" title="Belum Terhubung Telegram"></i>`;
         }
     }
-
+    
     // Update Badge Verified / Unverified Telegram di Sidebar bawah profil
     const badgeTgSidebar = document.getElementById('currentUserTelegramBadge');
     if (badgeTgSidebar) {
@@ -323,7 +323,7 @@ function showApp(user) {
             badgeTgSidebar.style.display = 'flex';
         }
     }
-
+    
     // Inject nama petugas ke panel
     const petugasElem = document.getElementById('petugasName');
     if (petugasElem) petugasElem.innerText = user.nama;
@@ -343,7 +343,6 @@ function showApp(user) {
     const navBimbelUtbk = document.getElementById('nav-bimbel-utbk');
     const navRaporTengahSemester = document.getElementById('navRaporTengahSemester');
     const navPerangkatPembelajaran = document.getElementById('navPerangkatPembelajaran');
-    const navKelolaData = document.getElementById('nav-kelola-data');
 
     const navScan = document.querySelector('.sidebar-nav .nav-item[data-target="panel-scan"]');
     const navRekap = document.querySelector('.sidebar-nav .nav-item[data-target="panel-dashboard"]');
@@ -358,13 +357,13 @@ function showApp(user) {
     // Reset visibilitas default
     if (navAdmin) navAdmin.style.display = 'none';
     if (navKelolaSiswa) navKelolaSiswa.style.display = 'none';
-    if (navKelolaData) navKelolaData.style.display = 'none';
     if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'none';
     if (navUserMesin) navUserMesin.style.display = 'none';
     if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'none';
-    if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex'; // Default for Guru & Staff
+    if (navApprovalKepsek) navApprovalKepsek.style.display = 'none';
     if (navIzinGuru) navIzinGuru.style.display = 'flex';
     if (navIzinSiswa) navIzinSiswa.style.display = 'none';
+    if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex'; // Default for Guru
     if (navKokurikuler) navKokurikuler.style.display = 'flex'; // Visible for Guru & Admin
     if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'none';
     if (navBimbelUtbk) navBimbelUtbk.style.display = 'flex'; // Visible for Guru, Kepsek, Admin
@@ -380,19 +379,24 @@ function showApp(user) {
     if (uRole === 'admin') {
         if (navAdmin) navAdmin.style.display = 'flex';
         if (navKelolaSiswa) navKelolaSiswa.style.display = 'flex';
-        if (navKelolaData) navKelolaData.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         if (navUserMesin) navUserMesin.style.display = 'flex';
         if (navAbsenGuruAdmin) navAbsenGuruAdmin.style.display = 'flex';
+        if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'flex';
         if (btnManageJenis) btnManageJenis.style.display = 'inline-flex';
         if (navIzinGuru) navIzinGuru.style.display = 'none';
         if (navIzinSiswa) navIzinSiswa.style.display = 'none';
+        if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex';
+        if (navRaporTengahSemester) navRaporTengahSemester.style.display = 'flex';
     } else if (uRole.includes('kepala sekolah') || uRole.includes('kepsek')) {
+        if (navApprovalKepsek) navApprovalKepsek.style.display = 'flex';
         if (navBroadcastTelegram) navBroadcastTelegram.style.display = 'flex';
         if (navUserMesin) navUserMesin.style.display = 'flex';
         if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'flex';
         if (navIzinSiswa) navIzinSiswa.style.display = 'none';
+        if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'flex';
+        if (navRaporTengahSemester) navRaporTengahSemester.style.display = 'flex';
     } else if (uRole === 'siswa') {
         if (navScan) navScan.style.display = 'none';
         if (navRekap) navRekap.style.display = 'none';
@@ -409,6 +413,7 @@ function showApp(user) {
         if (navKelolaKokurikuler) navKelolaKokurikuler.style.display = 'none';
         if (navBimbelUtbk) navBimbelUtbk.style.display = 'none';
         if (navIzinSiswa) navIzinSiswa.style.display = 'flex';
+        if (navApprovalIzinSiswa) navApprovalIzinSiswa.style.display = 'none';
         if (navRaporTengahSemester) navRaporTengahSemester.style.display = 'none';
 
         setTimeout(() => {
@@ -456,11 +461,11 @@ if (formLogin) {
             updateTrialCountdownDisplay();
             return;
         }
-
+        
         const btn = document.getElementById('btnLogin');
         const text = btn ? btn.querySelector('.btn-text') : null;
         const loader = btn ? btn.querySelector('.loader') : null;
-
+        
         if (btn) btn.disabled = true;
         if (text) text.style.display = 'none';
         if (loader) loader.style.display = 'inline-block';
@@ -479,7 +484,7 @@ if (formLogin) {
 
             // Cek Master User Cache (Admin, Guru, TU, Kepsek)
             let localUsers = [];
-            try { localUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]'); } catch (e) { }
+            try { localUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]'); } catch(e) {}
             const matchedUser = localUsers.find(item => {
                 const itemU = String(item.username || '').trim().toLowerCase();
                 const itemP = String(item.password || '').trim();
@@ -500,12 +505,12 @@ if (formLogin) {
 
             // Cek Master Siswa Cache
             let localStudents = [];
-            try {
+            try { 
                 localStudents = JSON.parse(localStorage.getItem('smart_absen_students_cache') || '[]');
                 if (localStudents.length === 0) {
                     localStudents = JSON.parse(localStorage.getItem('smart_absen_master_students') || '[]');
                 }
-            } catch (e) { }
+            } catch(e) {}
 
             const matchedStudent = localStudents.find(s => {
                 const nisLower = String(s.nis || '').trim().toLowerCase();
@@ -549,13 +554,13 @@ if (formLogin) {
                 showToast("⚡ Login Berhasil! Selamat datang " + userMatch.nama, 'success');
                 formLogin.reset();
                 showApp(userMatch);
-
+                
                 if (btn) btn.disabled = false;
                 if (text) text.style.display = 'inline-block';
                 if (loader) loader.style.display = 'none';
                 return;
             }
-        } catch (e) {
+        } catch(e) {
             console.warn("Local cache login check bypassed:", e);
         }
 
@@ -563,7 +568,7 @@ if (formLogin) {
         try {
             const loginUrl = `${SCRIPT_URL}?action=login&username=${encodeURIComponent(usernameInput)}&password=${encodeURIComponent(passwordInput)}`;
             const result = await fetchWithRetry(loginUrl, { method: 'GET' }, 2, 400);
-
+            
             if (result && result.status === 'success' && result.data) {
                 const userData = {
                     ...result.data,
@@ -574,10 +579,10 @@ if (formLogin) {
                     id_telegram: result.data.id_telegram || ''
                 };
                 localStorage.setItem('smart_absen_user', JSON.stringify(userData));
-
+                
                 // Simpan ke local users cache agar login berikutnya 0ms instan!
                 let localUsers = [];
-                try { localUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]'); } catch (e) { }
+                try { localUsers = JSON.parse(localStorage.getItem('smart_absen_users_cache') || '[]'); } catch(e){}
                 if (!localUsers.some(u => String(u.username || '').toLowerCase() === String(userData.username || '').toLowerCase())) {
                     localUsers.push(userData);
                     localStorage.setItem('smart_absen_users_cache', JSON.stringify(localUsers));
@@ -645,44 +650,43 @@ navItems.forEach(nav => {
         if (window.innerWidth <= 768) {
             try {
                 nav.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-            } catch (err) { }
+            } catch(err) {}
         }
 
         if (nav.dataset.target === 'panel-overview') {
-            if (typeof renderOverviewDashboard === 'function') renderOverviewDashboard();
+            if(typeof renderOverviewDashboard === 'function') renderOverviewDashboard();
         } else if (nav.dataset.target === 'panel-dashboard') {
-            if (typeof loadDashboardData === 'function') loadDashboardData();
+            if(typeof loadDashboardData === 'function') loadDashboardData();
         } else if (nav.dataset.target === 'panel-admin') {
-            if (typeof loadUsers === 'function') loadUsers();
+            if(typeof loadUsers === 'function') loadUsers();
         } else if (nav.dataset.target === 'panel-matrix-rekap') {
-            if (typeof renderMatrixReport === 'function') renderMatrixReport();
+            if(typeof renderMatrixReport === 'function') renderMatrixReport();
         } else if (nav.dataset.target === 'panel-pelanggaran') {
-            if (typeof renderPelanggaranPanel === 'function') renderPelanggaranPanel();
+            if(typeof renderPelanggaranPanel === 'function') renderPelanggaranPanel();
         } else if (nav.dataset.target === 'panel-izin-guru') {
-            if (typeof renderIzinGuruPanel === 'function') renderIzinGuruPanel();
+            if(typeof renderIzinGuruPanel === 'function') renderIzinGuruPanel();
         } else if (nav.dataset.target === 'panel-approval-kepsek') {
-            if (typeof syncAbsenGuruDataFromServer === 'function') syncAbsenGuruDataFromServer();
-            else if (typeof renderApprovalKepsekPanel === 'function') renderApprovalKepsekPanel();
+            if(typeof syncAbsenGuruDataFromServer === 'function') syncAbsenGuruDataFromServer();
+            else if(typeof renderApprovalKepsekPanel === 'function') renderApprovalKepsekPanel();
         } else if (nav.dataset.target === 'panel-approval-izin-siswa') {
-            if (typeof loadIzinSiswaData === 'function') loadIzinSiswaData();
-            if (typeof loadEduIzinData === 'function') loadEduIzinData();
+            if(typeof loadIzinSiswaData === 'function') loadIzinSiswaData();
+            if(typeof loadEduIzinData === 'function') loadEduIzinData();
         } else if (nav.dataset.target === 'panel-absen-guru-admin') {
-            if (typeof renderAbsenGuruAdminPanel === 'function') renderAbsenGuruAdminPanel();
-        } else if (nav.dataset.target === 'panel-kelola-data') {
-            const activeBtn = document.querySelector('#kelola-data-subtabs .kelola-data-subtab-btn.active');
-            if (activeBtn) activeBtn.click();
+            if(typeof renderAbsenGuruAdminPanel === 'function') renderAbsenGuruAdminPanel();
+        } else if (nav.dataset.target === 'panel-kelola-siswa') {
+            if(typeof renderTableSiswa === 'function') renderTableSiswa();
         } else if (nav.dataset.target === 'panel-broadcast-telegram') {
-            if (typeof initBroadcastTelegramModule === 'function') initBroadcastTelegramModule();
+            if(typeof initBroadcastTelegramModule === 'function') initBroadcastTelegramModule();
         } else if (nav.dataset.target === 'panel-kokurikuler' || nav.dataset.target === 'panel-kelola-kokurikuler') {
-            if (typeof fetchKokurikulerData === 'function') fetchKokurikulerData();
-            else if (typeof loadKokurikulerData === 'function') loadKokurikulerData();
+            if(typeof fetchKokurikulerData === 'function') fetchKokurikulerData();
+            else if(typeof loadKokurikulerData === 'function') loadKokurikulerData();
         } else if (nav.dataset.target === 'panel-bimbel-utbk') {
-            if (typeof loadBimbelData === 'function') loadBimbelData();
+            if(typeof loadBimbelData === 'function') loadBimbelData();
         } else if (nav.dataset.target === 'panelRaporTengahSemester') {
-            if (typeof setupRaporFilterOptions === 'function') setupRaporFilterOptions();
-            if (typeof renderBatchRaporPrintPreview === 'function') renderBatchRaporPrintPreview();
+            if(typeof setupRaporFilterOptions === 'function') setupRaporFilterOptions();
+            if(typeof renderBatchRaporPrintPreview === 'function') renderBatchRaporPrintPreview();
         } else if (nav.dataset.target === 'panelPerangkatPembelajaran') {
-            if (typeof loadDefaultTeacherData === 'function') loadDefaultTeacherData();
+            if(typeof loadDefaultTeacherData === 'function') loadDefaultTeacherData();
         } else if (nav.dataset.target === 'panel-profile') {
             renderSelfProfilePanel();
         }
@@ -735,7 +739,7 @@ async function renderSelfProfilePanel() {
         if (res && res.status === 'success' && res.data) {
             const freshUser = res.data;
             localStorage.setItem('smart_absen_user', JSON.stringify(freshUser));
-
+            
             // JANGAN timpa nilai jika pengguna sedang aktif mengetik di form!
             const isCurrentlyTyping = formElem && formElem.contains(document.activeElement);
             if (!isCurrentlyTyping) {
@@ -868,7 +872,7 @@ function updatePendingNotificationBadge() {
     const userSession = localStorage.getItem('smart_absen_user');
     if (!userSession) return;
     let user;
-    try { user = JSON.parse(userSession); } catch (e) { return; }
+    try { user = JSON.parse(userSession); } catch(e) { return; }
 
     const uRole = String(user.role || '').trim().toLowerCase();
     const uNameRaw = String(user.nama || user.namaLengkap || user.username || '').trim();
@@ -894,7 +898,7 @@ function updatePendingNotificationBadge() {
         if (typeof localPengajuanIzin !== 'undefined' && Array.isArray(localPengajuanIzin) && localPengajuanIzin.length > 0) {
             rawTeacherIzin = localPengajuanIzin;
         } else {
-            try { rawTeacherIzin = JSON.parse(localStorage.getItem('smart_absen_pengajuan_izin') || '[]'); } catch (e) { }
+            try { rawTeacherIzin = JSON.parse(localStorage.getItem('smart_absen_pengajuan_izin') || '[]'); } catch(e){}
         }
         countTeacherPending = rawTeacherIzin.filter(i => isStatusPending(i.status)).length;
     }
@@ -904,7 +908,7 @@ function updatePendingNotificationBadge() {
     if (typeof globalIzinSiswaLogs !== 'undefined' && Array.isArray(globalIzinSiswaLogs) && globalIzinSiswaLogs.length > 0) {
         rawStudentIzin = globalIzinSiswaLogs;
     } else {
-        try { rawStudentIzin = JSON.parse(localStorage.getItem('smart_absen_izin_siswa_cache') || '[]'); } catch (e) { }
+        try { rawStudentIzin = JSON.parse(localStorage.getItem('smart_absen_izin_siswa_cache') || '[]'); } catch(e){}
     }
 
     if (isAdminOrKepsek) {
@@ -912,7 +916,7 @@ function updatePendingNotificationBadge() {
     } else if (uRole.includes('guru') || uRole.includes('walas') || isPiket) {
         countStudentPending = rawStudentIzin.filter(i => {
             if (!isStatusPending(i.status)) return false;
-
+            
             const walasNameRaw = String(i.waliKelas || i.walas || '').trim();
             const walasNameClean = cleanNameTitleForBadge(walasNameRaw);
             const logKelas = String(i.kelas || '').trim().toLowerCase();
@@ -929,7 +933,7 @@ function updatePendingNotificationBadge() {
     if (typeof globalEduIzinList !== 'undefined' && Array.isArray(globalEduIzinList) && globalEduIzinList.length > 0) {
         rawEduIzin = globalEduIzinList;
     } else {
-        try { rawEduIzin = JSON.parse(localStorage.getItem('smart_absen_edu_izin_cache') || '[]'); } catch (e) { }
+        try { rawEduIzin = JSON.parse(localStorage.getItem('smart_absen_edu_izin_cache') || '[]'); } catch(e){}
     }
 
     rawEduIzin.forEach(item => {
@@ -980,17 +984,17 @@ async function syncNotificationBadgeDataFromBackend() {
 
         if (resIzinGuru && resIzinGuru.status === 'success' && Array.isArray(resIzinGuru.data)) {
             if (typeof localPengajuanIzin !== 'undefined') localPengajuanIzin = resIzinGuru.data;
-            try { localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(resIzinGuru.data)); } catch (e) { }
+            try { localStorage.setItem('smart_absen_pengajuan_izin', JSON.stringify(resIzinGuru.data)); } catch(e){}
         }
 
         if (resIzinSiswa && resIzinSiswa.status === 'success' && Array.isArray(resIzinSiswa.data)) {
             if (typeof globalIzinSiswaLogs !== 'undefined') globalIzinSiswaLogs = resIzinSiswa.data;
-            try { localStorage.setItem('smart_absen_izin_siswa_cache', JSON.stringify(resIzinSiswa.data)); } catch (e) { }
+            try { localStorage.setItem('smart_absen_izin_siswa_cache', JSON.stringify(resIzinSiswa.data)); } catch(e){}
         }
 
         if (resEduIzin && resEduIzin.status === 'success' && Array.isArray(resEduIzin.data)) {
             if (typeof globalEduIzinList !== 'undefined') globalEduIzinList = resEduIzin.data;
-            try { localStorage.setItem('smart_absen_edu_izin_cache', JSON.stringify(resEduIzin.data)); } catch (e) { }
+            try { localStorage.setItem('smart_absen_edu_izin_cache', JSON.stringify(resEduIzin.data)); } catch(e){}
         }
 
         updatePendingNotificationBadge();
@@ -1006,10 +1010,24 @@ document.addEventListener('click', (e) => {
         e.preventDefault();
         const userSession = localStorage.getItem('smart_absen_user');
         if (!userSession) return;
+        let user;
+        try { user = JSON.parse(userSession); } catch(err) { return; }
+        const uRole = String(user.role || '').trim().toLowerCase();
 
-        const navKepsek = document.getElementById('nav-approval-kepsek');
-        if (navKepsek && navKepsek.style.display !== 'none') {
-            navKepsek.click();
+        if (uRole.includes('kepala sekolah') || uRole.includes('kepsek')) {
+            const navKepsek = document.getElementById('nav-approval-kepsek');
+            if (navKepsek && navKepsek.style.display !== 'none') {
+                navKepsek.click();
+                return;
+            }
+        }
+        
+        const navApproval = document.getElementById('nav-approval-izin-siswa');
+        if (navApproval && navApproval.style.display !== 'none') {
+            navApproval.click();
+        } else {
+            const navIzinGuru = document.getElementById('nav-izin-guru');
+            if (navIzinGuru && navIzinGuru.style.display !== 'none') navIzinGuru.click();
         }
     }
 });

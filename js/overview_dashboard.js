@@ -45,7 +45,7 @@ async function renderOverviewDashboard(forceServer = false) {
             updateOverviewUI(res.data);
             try {
                 localStorage.setItem('smart_absen_overview_cache', JSON.stringify(res.data));
-            } catch(e){}
+            } catch (e) { }
         }
     } catch (e) {
         console.warn("Failed loading live overview stats from server, fallback to local data:", e);
@@ -76,11 +76,11 @@ function loadLocalOverviewStats() {
                     updateOverviewUI(parsed);
                     return;
                 }
-            } catch(e){}
+            } catch (e) { }
         }
 
         // 2. Fallback to master student list calculation
-        const rawMaster = localStorage.getItem('smart_absen_master_siswa');
+        const rawMaster = localStorage.getItem('smart_absen_master_students');
         const siswaList = rawMaster ? JSON.parse(rawMaster) : [];
         let totalSiswa = siswaList.length;
         let totalLaki = 0;
@@ -117,7 +117,7 @@ function loadLocalOverviewStats() {
                     else if (st.includes('ALPA') || st.includes('ALPHA') || st === 'A') studentAbsenSummary.Alpa++;
                     else if (st.includes('TERLAMBAT') || st.includes('TELAT') || st === 'T') studentAbsenSummary.Terlambat++;
                 });
-            } catch(e){}
+            } catch (e) { }
         }
 
         const initialData = {
@@ -144,7 +144,7 @@ function updateOverviewUI(data) {
     try {
         const rawUser = localStorage.getItem('smart_absen_user');
         if (rawUser) loggedUser = JSON.parse(rawUser);
-    } catch(e){}
+    } catch (e) { }
 
     const userRole = String(loggedUser && loggedUser.role ? loggedUser.role : '').trim().toLowerCase();
     const isSiswa = userRole === 'siswa';
@@ -164,6 +164,8 @@ function updateOverviewUI(data) {
         if (kpiGrid) kpiGrid.style.display = 'none';
         if (chartsRow1) chartsRow1.style.display = 'none';
         if (chartsRow2) chartsRow2.style.display = 'none';
+        const widgetKelasSummary = document.getElementById('widget-kelas-summary');
+        if (widgetKelasSummary) widgetKelasSummary.style.display = 'none';
         if (siswaOverviewContainer) siswaOverviewContainer.style.display = 'block';
 
         renderStudentPersonalDashboard((data && data.studentLogs) ? data.studentLogs : null, loggedUser);
@@ -183,6 +185,47 @@ function updateOverviewUI(data) {
     if (chartsRow1) chartsRow1.style.display = 'grid';
     if (chartsRow2) chartsRow2.style.display = 'grid';
     if (siswaOverviewContainer) siswaOverviewContainer.style.display = 'none';
+
+    const widgetKelasSummary = document.getElementById('widget-kelas-summary');
+    if (widgetKelasSummary) {
+        widgetKelasSummary.style.display = 'grid';
+
+        // Kalkulasi Populasi Per Tingkatan Kelas (X, XI, XII)
+        try {
+            let tX = 0, tXI = 0, tXII = 0;
+
+            if (data && data.kelasMap && Object.keys(data.kelasMap).length > 0) {
+                // Jika data server berisi mapping kelas, pakai ini (Realtime Cloud)
+                Object.keys(data.kelasMap).forEach(k => {
+                    const upK = String(k).trim().toUpperCase();
+                    const totalDiKelas = parseInt(data.kelasMap[k].total) || 0;
+                    if (upK.startsWith('XII') || upK.startsWith('12')) tXII += totalDiKelas;
+                    else if (upK.startsWith('XI') || upK.startsWith('11')) tXI += totalDiKelas;
+                    else if (upK.startsWith('X') || upK.startsWith('10')) tX += totalDiKelas;
+                });
+            } else {
+                // Jika kosong, fallback ke local storage cache master siswa
+                const rawMaster = localStorage.getItem('smart_absen_master_students');
+                const siswaList = rawMaster ? JSON.parse(rawMaster) : [];
+                siswaList.forEach(s => {
+                    const k = String(s.kelas || '').trim().toUpperCase();
+                    if (k.startsWith('XII') || k.startsWith('12')) tXII++;
+                    else if (k.startsWith('XI') || k.startsWith('11')) tXI++;
+                    else if (k.startsWith('X') || k.startsWith('10')) tX++;
+                });
+            }
+
+            const ovTX = document.getElementById('ovTotalKelasX');
+            const ovTXI = document.getElementById('ovTotalKelasXI');
+            const ovTXII = document.getElementById('ovTotalKelasXII');
+
+            if (ovTX) ovTX.innerText = tX + ' Siswa';
+            if (ovTXI) ovTXI.innerText = tXI + ' Siswa';
+            if (ovTXII) ovTXII.innerText = tXII + ' Siswa';
+        } catch (e) {
+            console.error('Error calculating class summary:', e);
+        }
+    }
 
     // Update KPI Card Metric Elements
     const ovTotalSiswa = document.getElementById('ovTotalSiswa');
@@ -234,19 +277,21 @@ function renderStudentPersonalDashboard(serverLogs, loggedUser) {
     let allLogs = [];
     if (Array.isArray(serverLogs) && serverLogs.length > 0) {
         allLogs = serverLogs;
-    } else {
-        try {
-            const rawRecent = localStorage.getItem('smart_absen_recent_logs');
-            if (rawRecent) allLogs = JSON.parse(rawRecent);
-        } catch(e){}
     }
+    try {
+        const rawRecent = localStorage.getItem('smart_absen_recent_logs');
+        if (rawRecent) {
+            const recent = JSON.parse(rawRecent);
+            if (Array.isArray(recent)) allLogs = allLogs.concat(recent);
+        }
+    } catch (e) { }
 
     const uName = String(loggedUser ? loggedUser.username || '' : '').trim().toLowerCase();
     const uNisn = String(loggedUser ? loggedUser.nisn || '' : '').trim().toLowerCase();
     const uNis = String(loggedUser ? loggedUser.nis || '' : '').trim().toLowerCase();
     const uNama = String(loggedUser ? loggedUser.nama || '' : '').trim().toLowerCase();
 
-    const myLogs = allLogs.filter(l => {
+    const rawMyLogs = allLogs.filter(l => {
         const nisn = String(l.nisn || '').trim().toLowerCase();
         const nis = String(l.nis || '').trim().toLowerCase();
         const nama = String(l.nama || '').trim().toLowerCase();
@@ -257,6 +302,19 @@ function renderStudentPersonalDashboard(serverLogs, loggedUser) {
         if (uNama && nama && (nama === uNama || nama.includes(uNama) || uNama.includes(nama))) return true;
         return false;
     });
+
+    // Deduplicate student logs by date to avoid duplicates and ensure full chronological order
+    const logByDate = {};
+    rawMyLogs.forEach(l => {
+        const tgl = String(l.tanggal || '').trim();
+        if (tgl) {
+            if (!logByDate[tgl] || (l.status && !logByDate[tgl].status)) {
+                logByDate[tgl] = l;
+            }
+        }
+    });
+
+    const myLogs = Object.values(logByDate);
 
     // Urutkan kronologis dari awal masuk s/d sekarang
     myLogs.sort((a, b) => new Date(a.tanggal || 0) - new Date(b.tanggal || 0));
@@ -313,7 +371,7 @@ function renderStudentPersonalDashboard(serverLogs, loggedUser) {
     let studentKelas = String(loggedUser ? (loggedUser.kelas || loggedUser.rombel || loggedUser.Kelas || '') : '').trim();
     if (!studentKelas) {
         try {
-            const rawMaster = localStorage.getItem('smart_absen_master_siswa');
+            const rawMaster = localStorage.getItem('smart_absen_master_students');
             if (rawMaster) {
                 const masterList = JSON.parse(rawMaster);
                 const matched = masterList.find(s => {
@@ -330,7 +388,7 @@ function renderStudentPersonalDashboard(serverLogs, loggedUser) {
                     studentKelas = String(matched.kelas || matched.rombel || matched.Kelas || '').trim();
                 }
             }
-        } catch(e){}
+        } catch (e) { }
     }
 
     const isGradeXII = /XII|12/i.test(studentKelas);
@@ -356,7 +414,7 @@ function renderStudentBimbelDashboard(loggedUser) {
                 bimbelSiswaLogsList = parsed.siswaLogs;
             }
         }
-    } catch(e){}
+    } catch (e) { }
 
     if (bimbelSiswaLogsList.length === 0 && typeof bimbelSiswaLogs !== 'undefined' && Array.isArray(bimbelSiswaLogs)) {
         bimbelSiswaLogsList = bimbelSiswaLogs;
@@ -488,11 +546,11 @@ function renderChartStudentBimbelTimeline(myBimbelLogs) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        title: function(context) {
+                        title: function (context) {
                             const idx = context[0].dataIndex;
                             return labels[idx] + ' - ' + (mapelList[idx] || '');
                         },
-                        label: function(context) {
+                        label: function (context) {
                             const val = context.raw;
                             if (val === 100) return ' Status Bimbel: HADIR';
                             if (val === 66) return ' Status Bimbel: SAKIT';
@@ -514,7 +572,7 @@ function renderChartStudentBimbelTimeline(myBimbelLogs) {
                     ticks: {
                         color: getChartSubTextColor(),
                         stepSize: 33,
-                        callback: function(value) {
+                        callback: function (value) {
                             if (value === 100) return 'Hadir (100%)';
                             if (value === 66) return 'Sakit (66%)';
                             if (value === 33) return 'Izin (33%)';
@@ -590,7 +648,7 @@ function renderChartStudentPersonalTimeline(myLogs) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             const val = context.raw;
                             if (val === 100) return ' Status: HADIR (Tepat Waktu)';
                             if (val === 75) return ' Status: TERLAMBAT';
@@ -612,7 +670,7 @@ function renderChartStudentPersonalTimeline(myLogs) {
                     ticks: {
                         color: getChartSubTextColor(),
                         stepSize: 25,
-                        callback: function(value) {
+                        callback: function (value) {
                             if (value === 100) return 'Hadir (100%)';
                             if (value === 75) return 'Telat (75%)';
                             if (value === 50) return 'Izin/Sakit (50%)';

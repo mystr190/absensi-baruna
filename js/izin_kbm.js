@@ -1,3 +1,40 @@
+// SETUP TABS UNTUK PANEL PERSETUJUAN & APPROVAL IZIN TERPADU
+function setupMainApprovalTabs() {
+    const btnKepsek = document.getElementById('btn-maintab-kepsek');
+    const tabBtns = document.querySelectorAll('#main-approval-tabs .approval-subtab-btn');
+    const tabContents = document.querySelectorAll('.main-approval-content');
+
+    // Authorization check
+    let isKepsekOrAdmin = false;
+    try {
+        const u = JSON.parse(localStorage.getItem('smart_absen_user') || '{}');
+        const role = String(u.role || '').toLowerCase();
+        if (role === 'admin' || role.includes('kepala') || role.includes('kepsek')) {
+            isKepsekOrAdmin = true;
+        }
+    } catch (e) { }
+
+    if (btnKepsek) {
+        btnKepsek.style.display = isKepsekOrAdmin ? 'inline-flex' : 'none';
+    }
+
+    tabBtns.forEach(btn => {
+        // Remove existing listener to prevent duplicates
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+
+        newBtn.addEventListener('click', () => {
+            document.querySelectorAll('#main-approval-tabs .approval-subtab-btn').forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.style.display = 'none');
+
+            newBtn.classList.add('active');
+            const targetId = newBtn.dataset.maintab;
+            const targetContent = document.getElementById(targetId);
+            if (targetContent) targetContent.style.display = 'block';
+        });
+    });
+}
+
 /**
  * =========================================================================
  * MODUL EDU-IZIN KBM (MASUK, KELUAR, PULANG) (V1.0)
@@ -6,6 +43,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     initEduIzinKBM();
+    setupMainApprovalTabs();
 });
 
 // Helper untuk mendapatkan data user login dari session
@@ -13,7 +51,7 @@ function getLoggedUserSafely() {
     try {
         const u = localStorage.getItem('smart_absen_user');
         return u ? JSON.parse(u) : null;
-    } catch(e) {
+    } catch (e) {
         return null;
     }
 }
@@ -22,12 +60,12 @@ function getLoggedUserSafely() {
 async function callGAS(action, payload, callback) {
     const scriptUrl = window.SCRIPT_URL || localStorage.getItem('absen_script_url');
     if (typeof SCRIPT_URL === 'undefined' && !scriptUrl) {
-        if(callback) callback({ status: 'error', message: 'URL Backend tidak disetel.' });
+        if (callback) callback({ status: 'error', message: 'URL Backend tidak disetel.' });
         return;
     }
-    
+
     const targetUrl = typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL ? SCRIPT_URL : scriptUrl;
-    
+
     try {
         let res;
         if (!payload) {
@@ -41,7 +79,7 @@ async function callGAS(action, payload, callback) {
                 body: JSON.stringify(bodyObj)
             }, 1, 1000);
         }
-        
+
         if (callback) callback(res);
     } catch (err) {
         console.error("callGAS Error:", err);
@@ -59,13 +97,15 @@ function initEduIzinKBM() {
         });
     }
 
-    const navApprovalWalas = document.getElementById('nav-approval-izin-siswa');
+    const navApprovalWalas = document.getElementById('nav-approval-kepsek');
     if (navApprovalWalas) {
         navApprovalWalas.addEventListener('click', () => {
             checkAndShowEduIzinApprovalSections();
             loadEduIzinData();
         });
     }
+
+    initApprovalSubtabEvents();
 
     // 2. Form Submit
     const formEduIzin = document.getElementById('formEduIzinKBM');
@@ -76,7 +116,7 @@ function initEduIzinKBM() {
     // 3. Refresh Buttons
     const btnRefreshSiswa = document.getElementById('btnRefreshEduIzinSiswa');
     if (btnRefreshSiswa) btnRefreshSiswa.addEventListener('click', loadEduIzinData);
-    
+
     const btnRefreshAppr = document.getElementById('btnRefreshApprovalIzinSiswa');
     if (btnRefreshAppr) btnRefreshAppr.addEventListener('click', loadEduIzinData);
 
@@ -143,24 +183,43 @@ function initEduIzinKBM() {
 }
 
 function checkAndShowEduIzinApprovalSections() {
-    const currentUser = getLoggedUserSafely();
-    if (!currentUser || !currentUser.role) return;
-    
-    const roles = String(currentUser.role).toLowerCase();
-    const tugasPiket = String(currentUser.tugas_piket || currentUser.piket || '').toLowerCase();
+    const panel = document.getElementById('tab-approval-siswa') || document.getElementById('panel-approval-kepsek') || document.getElementById('panel-approval-izin-siswa');
+    if (!panel) return;
 
-    const isKepsekOrAdmin = roles.includes('kepala sekolah') || roles.includes('kepsek') || roles.includes('admin');
-    const isGuru = isKepsekOrAdmin || roles.includes('guru') || roles.includes('walas');
-    const isPiket = isKepsekOrAdmin || roles.includes('piket') || tugasPiket.includes('piket') || roles.includes('guru');
+    const activeBtn = panel.querySelector('.approval-subtabs-wrapper:not(#main-approval-tabs) .approval-subtab-btn.active') || panel.querySelector('.approval-subtab-btn.active');
+    const activeSubtab = activeBtn?.dataset.subtab || 'subtab-walas';
 
-    const secWalas = document.getElementById('sectionWalasIzinSiswa');
-    if (secWalas) secWalas.style.display = isGuru ? 'block' : 'none';
+    const sections = {
+        'subtab-walas': 'sectionWalasIzinSiswa',
+        'subtab-guru': 'sectionGuruPengajarEduIzin',
+        'subtab-piket': 'sectionPetugasPiketEduIzin'
+    };
 
-    const secGuru = document.getElementById('sectionGuruPengajarEduIzin');
-    if (secGuru) secGuru.style.display = isGuru ? 'block' : 'none';
+    panel.querySelectorAll('.approval-section').forEach(section => {
+        section.classList.remove('active');
+    });
 
-    const secPiket = document.getElementById('sectionPetugasPiketEduIzin');
-    if (secPiket) secPiket.style.display = isPiket ? 'block' : 'none';
+    const targetId = sections[activeSubtab];
+    if (targetId) {
+        const target = document.getElementById(targetId);
+        if (target) {
+            target.classList.add('active');
+        }
+    }
+}
+
+function initApprovalSubtabEvents() {
+    const panel = document.getElementById('tab-approval-siswa') || document.getElementById('panel-approval-kepsek') || document.getElementById('panel-approval-izin-siswa');
+    if (!panel) return;
+
+    const subtabBtns = panel.querySelectorAll('.approval-subtabs-wrapper:not(#main-approval-tabs) .approval-subtab-btn');
+    subtabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            subtabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            checkAndShowEduIzinApprovalSections();
+        });
+    });
 }
 
 function loadDropdownEduIzin() {
@@ -168,7 +227,7 @@ function loadDropdownEduIzin() {
         if (res && res.status === 'success' && res.data) {
             const selGuru = document.getElementById('inputEduIzinGuru');
             const selPiket = document.getElementById('inputEduIzinPiket');
-            
+
             if (selGuru && selPiket) {
                 selGuru.innerHTML = '<option value="Tidak ada guru">Tidak ada guru / Jam Kosong</option>';
                 (res.data.gurus || []).forEach(g => {
@@ -194,7 +253,7 @@ async function handleFormEduIzinSubmit(e) {
 
     const btn = document.getElementById('btnKirimEduIzinKBM');
     const originalText = btn ? btn.innerHTML : 'Kirim';
-    
+
     const data = {
         nama: currentUser.nama || currentUser.username || '',
         kelas: currentUser.kelas || 'Umum',
@@ -228,7 +287,7 @@ async function handleFormEduIzinSubmit(e) {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
-        
+
         if (res && res.status === 'success') {
             const form = document.getElementById('formEduIzinKBM');
             if (form) form.reset();
@@ -276,7 +335,7 @@ function loadEduIzinData() {
         }, remainingDelay);
 
         if (res && res.status === 'success') {
-            try { localStorage.setItem('smart_absen_edu_izin_cache', JSON.stringify(res.data || [])); } catch(e){}
+            try { localStorage.setItem('smart_absen_edu_izin_cache', JSON.stringify(res.data || [])); } catch (e) { }
             renderEduIzinTables(res.data || []);
             if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge();
         } else {
@@ -398,7 +457,7 @@ function renderEduIzinTables(data) {
         if (isSiswa && row.nama === currentUser.nama) {
             let statusBadge = '';
             let btnAksi = '-';
-            
+
             if (row.statusGuru === 'Ditolak' || row.statusPiket === 'Ditolak') {
                 statusBadge = `<span class="badge bg-danger">Ditolak</span>`;
                 btnAksi = `<small class="text-danger">Keterangan: ${row.keteranganTolak || '-'}</small>`;
@@ -466,7 +525,7 @@ function renderEduIzinTables(data) {
         if (isPiket && (row.piket === currentUser.nama || isKepsekOrAdmin || roleLower.includes('piket') || tugasPiket.includes('piket') || roleLower.includes('guru'))) {
             if ((row.statusGuru === 'Disetujui' || row.statusGuru === 'Lewati') && row.statusPiket === 'Menunggu') {
                 let badgeGuru = row.statusGuru === 'Lewati' ? '<span class="badge" style="background: rgba(255,255,255,0.1); color: var(--text-muted);">Dilewati (Jam Kosong)</span>' : '<span class="badge bg-success">Disetujui Guru</span>';
-                
+
                 htmlPiketPending += `
                 <tr>
                     <td style="text-align: center;"><input type="checkbox" class="check-edu-piket-item" value="${row.id}" onchange="updateEduIzinBulkCount('piket')" style="cursor: pointer;"></td>
@@ -698,10 +757,10 @@ async function approveEduIzin(id, tipe, btnEl) {
     const originalHtml = targetBtn ? targetBtn.innerHTML : '';
 
     let confirmTitle = tipe === 'guru' ? 'Konfirmasi Persetujuan Guru Pengajar' : 'Konfirmasi Persetujuan Petugas Piket';
-    let confirmMsg = tipe === 'guru' 
-        ? "Apakah Anda yakin ingin menyetujui permohonan izin siswa ini?" 
+    let confirmMsg = tipe === 'guru'
+        ? "Apakah Anda yakin ingin menyetujui permohonan izin siswa ini?"
         : "Apakah Anda yakin ingin menyetujui izin ini dan memproses penerbitan Surat Izin PDF resmi?";
-    
+
     const confirmed = await showCustomConfirm({
         title: confirmTitle,
         message: confirmMsg,
@@ -721,9 +780,9 @@ async function approveEduIzin(id, tipe, btnEl) {
     }
 
     showToast('Memproses persetujuan izin...', 'info');
-    
+
     let action = tipe === 'guru' ? 'approve_edu_izin_guru' : 'approve_edu_izin_piket';
-    
+
     callGAS(action, { id: id, approver: currentUser.nama }, (res) => {
         if (res && res.status === 'success') {
             showToast(res.message, 'success');
@@ -767,7 +826,7 @@ async function rejectEduIzin(id, tipe, btnEl) {
         showToast('Alasan penolakan wajib diisi!', 'warning');
         return;
     }
-    
+
     if (targetBtn) {
         if (parentContainer) {
             parentContainer.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -793,3 +852,6 @@ async function rejectEduIzin(id, tipe, btnEl) {
         }
     });
 }
+
+
+

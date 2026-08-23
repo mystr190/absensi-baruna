@@ -10,8 +10,58 @@ const pageSizeIzinSiswa = 10;
 
 let pageIzinWalas = 1;
 const pageSizeIzinWalas = 10;
+let queryWalasHistoryIzinSiswa = '';
 
 let currentBase64Photo = '';
+
+function getScriptUrlSafely() {
+    if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) return SCRIPT_URL;
+    if (window.SCRIPT_URL) return window.SCRIPT_URL;
+    return localStorage.getItem('absen_script_url') || '';
+}
+
+function refreshAllApprovalIzinData() {
+    if (typeof loadIzinSiswaData === 'function') loadIzinSiswaData();
+    if (typeof loadEduIzinData === 'function') loadEduIzinData();
+}
+window.refreshAllApprovalIzinData = refreshAllApprovalIzinData;
+
+/**
+ * Tab switcher for panel-izin-siswa (KBM & Tidak Hadir)
+ */
+function switchIzinSiswaTab(tabId) {
+    // Hide all tab contents
+    document.querySelectorAll('.izin-siswa-tab-content').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    // Reset all tab buttons to inactive style
+    document.querySelectorAll('.izin-siswa-tab-btn').forEach(btn => {
+        btn.style.borderBottom = '3px solid transparent';
+        btn.style.background = 'transparent';
+        btn.style.color = 'var(--text-muted)';
+    });
+
+    // Show selected tab
+    const target = document.getElementById(tabId);
+    if (target) target.style.display = 'block';
+
+    // Activate clicked button
+    const activeBtn = document.querySelector(`.izin-siswa-tab-btn[data-tab="${tabId}"]`);
+    if (activeBtn) {
+        if (tabId === 'tab-kbm') {
+            activeBtn.style.borderBottom = '3px solid #f59e0b';
+            activeBtn.style.background = 'rgba(245,158,11,0.12)';
+            activeBtn.style.color = '#f59e0b';
+        } else {
+            activeBtn.style.borderBottom = '3px solid #10b981';
+            activeBtn.style.background = 'rgba(16,185,129,0.12)';
+            activeBtn.style.color = '#10b981';
+        }
+    }
+}
+window.switchIzinSiswaTab = switchIzinSiswaTab;
+
 
 document.addEventListener('DOMContentLoaded', () => {
     initIzinSiswaEvents();
@@ -41,6 +91,15 @@ function initIzinSiswaEvents() {
     const btnRefreshWalas = document.getElementById('btnRefreshApprovalIzinSiswa');
     if (btnRefreshWalas) {
         btnRefreshWalas.addEventListener('click', loadIzinSiswaData);
+    }
+
+    const inputSearchWalas = document.getElementById('searchWalasHistoryIzinSiswa');
+    if (inputSearchWalas) {
+        inputSearchWalas.addEventListener('input', (e) => {
+            queryWalasHistoryIzinSiswa = e.target.value.trim().toLowerCase();
+            pageIzinWalas = 1;
+            renderWalasIzinApprovalTable();
+        });
     }
 
     // Pagination events
@@ -96,7 +155,7 @@ function initIzinSiswaEvents() {
         navIzinSiswa.addEventListener('click', loadIzinSiswaData);
     }
 
-    const navApprovalWalas = document.getElementById('nav-approval-izin-siswa');
+    const navApprovalWalas = document.getElementById('nav-approval-kepsek');
     if (navApprovalWalas) {
         navApprovalWalas.addEventListener('click', loadIzinSiswaData);
     }
@@ -121,9 +180,9 @@ function handleFotoSiswaChange(e) {
     if (labelSelected) labelSelected.textContent = file.name;
 
     const reader = new FileReader();
-    reader.onload = function(evt) {
+    reader.onload = function (evt) {
         const img = new Image();
-        img.onload = function() {
+        img.onload = function () {
             // Compress Image via Canvas to max 800px width/height
             const canvas = document.createElement('canvas');
             let width = img.width;
@@ -163,7 +222,7 @@ function getLoggedUserSafely() {
     try {
         const u = localStorage.getItem('smart_absen_user');
         return u ? JSON.parse(u) : null;
-    } catch(e) {
+    } catch (e) {
         return null;
     }
 }
@@ -209,11 +268,17 @@ async function handleFormIzinSiswaSubmit(e) {
     };
 
     try {
+        const targetUrl = getScriptUrlSafely();
+        if (!targetUrl) {
+            if (typeof showToast === 'function') showToast('URL Backend belum disetel.', 'error');
+            return;
+        }
+
         const formData = new URLSearchParams();
         formData.append('action', 'add_pengajuan_izin_siswa');
         formData.append('data', JSON.stringify(payload));
 
-        const response = await fetch(SCRIPT_URL, {
+        const response = await fetch(targetUrl, {
             method: 'POST',
             body: formData
         });
@@ -221,7 +286,7 @@ async function handleFormIzinSiswaSubmit(e) {
         const res = await response.json();
         if (res.status === 'success') {
             if (typeof showToast === 'function') showToast('✅ ' + res.message, 'success');
-            
+
             // Reset Form
             document.getElementById('formPengajuanIzinSiswa').reset();
             currentBase64Photo = '';
@@ -229,7 +294,7 @@ async function handleFormIzinSiswaSubmit(e) {
             const labelSelected = document.getElementById('labelFotoSelected');
             if (previewContainer) previewContainer.style.display = 'none';
             if (labelSelected) labelSelected.textContent = 'Belum ada foto dipilih';
-            
+
             const inputTanggal = document.getElementById('inputIzinSiswaTanggal');
             if (inputTanggal) inputTanggal.value = new Date().toISOString().split('T')[0];
 
@@ -249,6 +314,61 @@ async function handleFormIzinSiswaSubmit(e) {
 let isLoadingIzinSiswa = false;
 
 /**
+ * Sanitize & auto-heal legacy/misaligned logs and invalid dates
+ */
+function sanitizeIzinSiswaLogs(rawLogs) {
+    if (!Array.isArray(rawLogs)) return [];
+    return rawLogs.map(item => {
+        if (!item || typeof item !== 'object') return item;
+        const copy = { ...item };
+
+        // Auto-heal shifted columns from legacy backend parsing bug
+        // e.g. item.nama is numeric ("4688") and item.kelas has student name ("Tubagus Argya Wijaya")
+        if (copy.nama && /^\d+$/.test(String(copy.nama).trim()) && copy.kelas && /[a-zA-Z]/.test(String(copy.kelas).trim())) {
+            const rawNis = copy.nama;
+            const rawNama = copy.kelas;
+            const rawKelas = copy.kategori;
+            const rawWalas = copy.keterangan;
+
+            copy.nis = rawNis;
+            copy.nama = rawNama;
+            copy.kelas = rawKelas || '';
+            copy.waliKelas = rawWalas || '-';
+
+            // Extract real kategori and keterangan if shifted
+            copy.kategori = (copy.status && ['izin', 'sakit', 'dispensasi'].some(k => String(copy.status).toLowerCase().includes(k)))
+                ? copy.status
+                : 'Izin';
+
+            if (String(copy.disetujuiOleh || '').trim().toLowerCase() === 'pending') {
+                copy.status = 'Pending';
+                copy.disetujuiOleh = '';
+            } else if (copy.disetujuiOleh) {
+                copy.status = 'Disetujui';
+            } else {
+                copy.status = 'Pending';
+            }
+            copy.keterangan = '-';
+        }
+
+        // Clean trailing comma or time from tanggal if needed
+        if (copy.tanggal && typeof copy.tanggal === 'string') {
+            copy.tanggal = copy.tanggal.split(',')[0].trim();
+        }
+
+        // Strip NaN from waktuPersetujuan or disetujuiOleh
+        if (copy.waktuPersetujuan && String(copy.waktuPersetujuan).includes('NaN')) {
+            copy.waktuPersetujuan = '';
+        }
+        if (copy.disetujuiOleh && String(copy.disetujuiOleh).includes('NaN')) {
+            copy.disetujuiOleh = copy.disetujuiOleh.replace(/NaN-aN-aNaNaN/g, '').trim();
+        }
+
+        return copy;
+    });
+}
+
+/**
  * Fetch all student leave requests from Backend
  */
 async function loadIzinSiswaData() {
@@ -261,13 +381,13 @@ async function loadIzinSiswaData() {
         if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                globalIzinSiswaLogs = parsed;
+                globalIzinSiswaLogs = sanitizeIzinSiswaLogs(parsed);
                 renderStudentIzinMyTable();
                 renderWalasIzinApprovalTable();
                 if (typeof updatePendingNotificationBadge === 'function') updatePendingNotificationBadge();
             }
         }
-    } catch(e) {}
+    } catch (e) { }
 
     const btns = [
         document.getElementById('btnRefreshIzinSiswa'),
@@ -282,11 +402,11 @@ async function loadIzinSiswaData() {
     const startTime = Date.now();
 
     try {
-        const targetUrl = typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL ? SCRIPT_URL : localStorage.getItem('absen_script_url');
+        const targetUrl = getScriptUrlSafely();
         if (!targetUrl) return;
 
         const url = `${targetUrl}?action=get_izin_siswa&_t=${Date.now()}`;
-        
+
         let res;
         if (typeof fetchWithRetry === 'function') {
             res = await fetchWithRetry(url, { method: 'GET' }, 1, 1000);
@@ -296,8 +416,8 @@ async function loadIzinSiswaData() {
         }
 
         if (res && res.status === 'success' && Array.isArray(res.data)) {
-            globalIzinSiswaLogs = res.data;
-            try { localStorage.setItem('smart_absen_izin_siswa_cache', JSON.stringify(res.data)); } catch(e){}
+            globalIzinSiswaLogs = sanitizeIzinSiswaLogs(res.data);
+            try { localStorage.setItem('smart_absen_izin_siswa_cache', JSON.stringify(globalIzinSiswaLogs)); } catch (e) { }
             pageIzinSiswa = 1;
             pageIzinWalas = 1;
             renderStudentIzinMyTable();
@@ -375,7 +495,7 @@ function renderStudentIzinMyTable() {
     pageData.forEach((item, index) => {
         const no = startIndex + index + 1;
         const statusBadge = getIzinStatusBadgeHtml(item.status);
-        const fotoBtn = item.fotoUrl 
+        const fotoBtn = item.fotoUrl
             ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl)}', 'Bukti Foto: ${item.nama} (${item.tanggal})')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
             : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
 
@@ -419,7 +539,11 @@ function renderWalasIzinApprovalTable() {
 
     const secWalas = document.getElementById('sectionWalasIzinSiswa');
     if (secWalas) {
-        secWalas.style.display = 'block';
+        if (typeof checkAndShowEduIzinApprovalSections === 'function') {
+            checkAndShowEduIzinApprovalSections();
+        } else {
+            secWalas.style.display = 'block';
+        }
     }
 
     if (!isKepsekOrAdmin && (uRole.includes('guru') || uRole.includes('walas') || uRole.includes('wali kelas'))) {
@@ -464,7 +588,7 @@ function renderWalasIzinApprovalTable() {
     } else {
         let htmlPending = '';
         pendingList.forEach((item, index) => {
-            const fotoBtn = item.fotoUrl 
+            const fotoBtn = item.fotoUrl
                 ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl)}', 'Bukti Foto: ${item.nama} (${item.kelas})')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
                 : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
 
@@ -493,15 +617,23 @@ function renderWalasIzinApprovalTable() {
         tbodyPending.innerHTML = htmlPending;
     }
 
-    // 2. RENDER HISTORY TABLE (WITH 10-ROW PAGINASI)
-    const totalData = historyList.length;
+    // 2. RENDER HISTORY TABLE (WITH SEARCH & 10-ROW PAGINASI)
+    let displayHistoryList = historyList;
+    if (queryWalasHistoryIzinSiswa) {
+        displayHistoryList = historyList.filter(item => {
+            const txt = `${item.tanggal} ${item.nama} ${item.kelas} ${item.kategori} ${item.keterangan} ${item.status} ${item.disetujuiOleh}`.toLowerCase();
+            return txt.includes(queryWalasHistoryIzinSiswa);
+        });
+    }
+
+    const totalData = displayHistoryList.length;
     const totalPages = Math.ceil(totalData / pageSizeIzinWalas) || 1;
 
     if (pageIzinWalas > totalPages) pageIzinWalas = totalPages;
     if (pageIzinWalas < 1) pageIzinWalas = 1;
 
     const startIndex = (pageIzinWalas - 1) * pageSizeIzinWalas;
-    const pageData = historyList.slice(startIndex, startIndex + pageSizeIzinWalas);
+    const pageData = displayHistoryList.slice(startIndex, startIndex + pageSizeIzinWalas);
 
     // Update Pagination UI Info
     const infoEle = document.getElementById('infoPaginationIzinSiswaWalas');
@@ -523,7 +655,7 @@ function renderWalasIzinApprovalTable() {
     pageData.forEach((item, index) => {
         const no = startIndex + index + 1;
         const statusBadge = getIzinStatusBadgeHtml(item.status);
-        const fotoBtn = item.fotoUrl 
+        const fotoBtn = item.fotoUrl
             ? `<button type="button" class="btn-secondary" onclick="openFotoPreviewModal('${encodeURIComponent(item.fotoUrl)}', 'Bukti Foto: ${item.nama} (${item.kelas})')" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);"><i class="fa-solid fa-image"></i> Lihat Foto</button>`
             : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
 
@@ -582,7 +714,13 @@ async function handleApproveIzinSiswaAction(id, rawNama, btnEl) {
         formData.append('approver_name', approverName);
         formData.append('approver_role', approverRole);
 
-        const response = await fetch(SCRIPT_URL, {
+        const targetUrl = getScriptUrlSafely();
+        if (!targetUrl) {
+            if (typeof showToast === 'function') showToast('URL Backend belum disetel.', 'error');
+            return;
+        }
+
+        const response = await fetch(targetUrl, {
             method: 'POST',
             body: formData
         });
@@ -652,7 +790,13 @@ async function handleRejectIzinSiswaAction(id, rawNama, btnEl) {
         formData.append('approver_name', approverName);
         formData.append('approver_role', approverRole);
 
-        const response = await fetch(SCRIPT_URL, {
+        const targetUrl = getScriptUrlSafely();
+        if (!targetUrl) {
+            if (typeof showToast === 'function') showToast('URL Backend belum disetel.', 'error');
+            return;
+        }
+
+        const response = await fetch(targetUrl, {
             method: 'POST',
             body: formData
         });
@@ -713,3 +857,4 @@ function getIzinStatusBadgeHtml(status) {
         return `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);"><i class="fa-solid fa-clock"></i> Pending</span>`;
     }
 }
+

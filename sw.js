@@ -1,8 +1,8 @@
 // ==========================================
-// SERVICE WORKER - PWA PRESENSI SEKOLAH
+// SERVICE WORKER - PWA PRESENSI SEKOLAH (V3.0)
 // ==========================================
 
-const CACHE_NAME = 'presensi-sekolah-pwa-v1';
+const CACHE_NAME = 'presensi-sekolah-pwa-v5.4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -27,12 +27,13 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE).catch(err => {
         console.warn('PWA Cache addAll warning:', err);
       });
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -42,6 +43,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME) {
+            console.log('Clearing old stale PWA Cache:', cache);
             return caches.delete(cache);
           }
         })
@@ -61,26 +63,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first strategy for static assets
+  // Network-first strategy for static assets (ensures fresh updates are served immediately)
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
-        }
-        const responseToCache = response.clone();
+    fetch(event.request).then((networkResponse) => {
+      if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+        const responseToCache = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
         });
-        return response;
-      });
-    }).catch(() => {
-      if (event.request.mode === 'navigate') {
-        return caches.match('./index.html');
       }
+      return networkResponse;
+    }).catch(() => {
+      return caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+      });
     })
   );
 });
+
+
